@@ -13,7 +13,7 @@ import sqlparse
 from sqlalchemy import create_engine, text
 from sqlalchemy.engine import Engine, URL
 
-from . import config
+from . import config, tunnel
 
 FORBIDDEN = re.compile(
     r"\b(insert|update|delete|drop|alter|create|truncate|grant|revoke|copy|"
@@ -28,6 +28,9 @@ _engine: Engine | None = None
 
 def get_engine() -> Engine:
     global _engine
+    # Re-verifica el túnel SSH en cada acceso: si el proceso ssh murió
+    # (hibernación, corte de red), lo relanza antes de consultar.
+    tunnel.ensure_tunnel()
     if _engine is None:
         url = URL.create(
             "postgresql+psycopg2",

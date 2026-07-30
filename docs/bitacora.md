@@ -180,3 +180,22 @@ incompletos", JAMÁS "consumo anormal bajo".
 
 Prueba de regresión (flujo exacto del usuario, 2 turnos): 7 días → 07-21..27
 con 07-21 = 811.00 ✓ consistente con la ventana de 14 días.
+
+## Sesión 4 — 2026-07-30: Bug de reconexión del túnel SSH
+
+Síntoma: la webapp respondía "problemas de conexión con la base de datos"
+tras llevar un tiempo corriendo.
+
+Causa raíz: `tunnel.ensure_tunnel()` solo se llamaba al crear cada
+`EnergyAgent` (nueva sesión de chat). Si el proceso ssh moría después
+(latencia/hibernación de la laptop, o keepalive de ssh que aborta a los
+~90s sin respuesta), nada lo relanzaba y todas las consultas fallaban.
+El docstring de tunnel.py decía "con reconexión" pero no existía tal lógica.
+
+Fix (mínimo): `db.get_engine()` ahora llama `tunnel.ensure_tunnel()` en
+cada acceso (antes de cualquier consulta). Si el puerto 55432 ya está
+abierto el chequeo cuesta <1ms; si el túnel murió, se relanza solo.
+Docstring de tunnel.py corregido.
+
+Verificado: túnel caído → `run_query('SELECT 1')` lo relanza y responde OK;
+webapp reiniciada (PID viejo matado), puertos 8000 + 55432 escuchando.

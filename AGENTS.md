@@ -14,7 +14,8 @@ src/
   config.py             Carga .env; DEFAULT_MODEL y credenciales
   tunnel.py             Túnel SSH (reutiliza uno existente si el puerto 55432 ya está abierto)
   db.py                 SQLAlchemy + seguridad: read_only, statement_timeout,
-                        validación SELECT-only (sqlparse), LIMIT y truncado de resultados
+                        validación SELECT-only (sqlparse), LIMIT y truncado de resultados;
+                        re-verifica el túnel SSH en cada consulta (reconexión automática)
   tools.py              Function calling: list_schemas/list_tables/describe_table/
                         run_query/render_chart (gráficos: specs capturadas en agent.py
                         y renderizadas por la web; en CLI se ignoran)
