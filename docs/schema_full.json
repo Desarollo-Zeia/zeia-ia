@@ -1,0 +1,5634 @@
+{
+  "public.accounts_energymonitoringmodule": {
+    "schema": "public",
+    "table": "accounts_energymonitoringmodule",
+    "columns": [
+      {
+        "column": "id",
+        "type": "bigint",
+        "nullable": false,
+        "default": null
+      },
+      {
+        "column": "name",
+        "type": "character varying",
+        "nullable": false,
+        "default": null
+      },
+      {
+        "column": "description",
+        "type": "text",
+        "nullable": true,
+        "default": null
+      },
+      {
+        "column": "is_active",
+        "type": "boolean",
+        "nullable": false,
+        "default": null
+      },
+      {
+        "column": "frontend_url",
+        "type": "character varying",
+        "nullable": true,
+        "default": null
+      },
+      {
+        "column": "icon_url",
+        "type": "text",
+        "nullable": true,
+        "default": null
+      },
+      {
+        "column": "level",
+        "type": "integer",
+        "nullable": false,
+        "default": null
+      },
+      {
+        "column": "lft",
+        "type": "integer",
+        "nullable": false,
+        "default": null
+      },
+      {
+        "column": "order",
+        "type": "integer",
+        "nullable": false,
+        "default": null
+      },
+      {
+        "column": "parent_id",
+        "type": "bigint",
+        "nullable": true,
+        "default": null
+      },
+      {
+        "column": "rght",
+        "type": "integer",
+        "nullable": false,
+        "default": null
+      },
+      {
+        "column": "tree_id",
+        "type": "integer",
+        "nullable": false,
+        "default": null
+      },
+      {
+        "column": "display_name",
+        "type": "character varying",
+        "nullable": false,
+        "default": null
+      }
+    ],
+    "primary_key": [
+      "id"
+    ],
+    "foreign_keys": [
+      {
+        "column": "parent_id",
+        "references": "public.accounts_energymonitoringmodule.id"
+      }
+    ],
+    "approx_rows": 10,
+    "sample": [
+      {
+        "id": "34",
+        "name": "gestion_energética",
+        "description": "",
+        "is_active": "True",
+        "frontend_url": "None",
+        "icon_url": "",
+        "level": "0",
+        "lft": "1",
+        "order": "1",
+        "parent_id": "None",
+        "rght": "9",
+        "tree_id": "1",
+        "display_name": "Gestión Energética"
+      },
+      {
+        "id": "35",
+        "name": "analisis_costos",
+        "description": "",
+        "is_active": "True",
+        "frontend_url": "None",
+        "icon_url": "",
+        "level": "0",
+        "lft": "1",
+        "order": "1",
+        "parent_id": "None",
+        "rght": "5",
+        "tree_id": "2",
+        "display_name": "Análisis de Costos"
+      },
+      {
+        "id": "5",
+        "name": "energy",
+        "description": "Módulo de consumo energia y otros indicadores",
+        "is_active": "True",
+        "frontend_url": "/energia/dashboard/home",
+        "icon_url": "data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSIyNCIgaGVpZ2h0PSIyNCIgdmlld0JveD0iMCAwIDI0IDI0IiBmaWxsPSJub25lIiBzdHJva2U9IiNmZmZmZmYiIHN0cm9rZS13aWR0aD0iMiIgc3Ryb2tlLWxpbmVjYXA9InJvdW5kIiBzdHJva2UtbGluZWpvaW49InJvdW5kIiBjbGFzcz0ibHVjaWRlIGx1Y2lkZS16YXAtaWNvbiBsdWNpZGUtemFwIj48cGF0aCBkPSJNNCAxNGExIDEgMCAwIDEtLjc4LTEuNjNsOS45LTEwLjJhLjUuNSAwIDAgMSAuODYuNDZsLTEuOTIgNi4wMkExIDEgMCAwIDAgMTMgMTBoN2ExIDEgMCAwIDEgLjc4IDEuNjNsLTkuOSAxMC4yYS41LjUgMCAwIDEtLjg2LS40NmwxLjkyLTYuMDJBMSAxIDAgMCAwIDExIDE0eiIvPjwvc3ZnPg==",
+        "level": "1",
+        "lft": "6",
+        "order": "3",
+        "parent_id": "34",
+        "rght": "6",
+        "tree_id": "1",
+        "display_name": "Análisis por Indicador"
+      }
+    ]
+  },
+  "public.accounts_user": {
+    "schema": "public",
+    "table": "accounts_user",
+    "columns": [
+      {
+        "column": "id",
+        "type": "bigint",
+        "nullable": false,
+        "default": null
+      },
+      {
+        "column": "password",
+        "type": "character varying",
+        "nullable": false,
+        "default": null
+      },
+      {
+        "column": "last_login",
+        "type": "timestamp with time zone",
+        "nullable": true,
+        "default": null
+      },
+      {
+        "column": "is_superuser",
+        "type": "boolean",
+        "nullable": false,
+        "default": null
+      },
+      {
+        "column": "created_at",
+        "type": "timestamp with time zone",
+        "nullable": false,
+        "default": null
+      },
+      {
+        "column": "modified_at",
+        "type": "timestamp with time zone",
+        "nullable": false,
+        "default": null
+      },
+      {
+        "column": "first_name",
+        "type": "character varying",
+        "nullable": false,
+        "default": null
+      },
+      {
+        "column": "last_name",
+        "type": "character varying",
+        "nullable": false,
+        "default": null
+      },
+      {
+        "column": "document_number",
+        "type": "character varying",
+        "nullable": true,
+        "default": null
+      },
+      {
+        "column": "gender",
+        "type": "character varying",
+        "nullable": true,
+        "default": null
+      },
+      {
+        "column": "birthday",
+        "type": "date",
+        "nullable": true,
+        "default": null
+      },
+      {
+        "column": "age",
+        "type": "integer",
+        "nullable": true,
+        "default": null
+      },
+      {
+        "column": "email",
+        "type": "character varying",
+        "nullable": false,
+        "default": null
+      },
+      {
+        "column": "phone",
+        "type": "character varying",
+        "nullable": true,
+        "default": null
+      },
+      {
+        "column": "is_active",
+        "type": "boolean",
+        "nullable": false,
+        "default": null
+      },
+      {
+        "column": "is_staff",
+        "type": "boolean",
+        "nullable": false,
+        "default": null
+      },
+      {
+        "column": "is_user_energy_monitoring",
+        "type": "boolean",
+        "nullable": false,
+        "default": null
+      },
+      {
+        "column": "is_user_quality_air_auto",
+        "type": "boolean",
+        "nullable": false,
+        "default": null
+      },
+      {
+        "column": "is_user_thermal_comfort",
+        "type": "boolean",
+        "nullable": false,
+        "default": null
+      },
+      {
+        "column": "send_email",
+        "type": "boolean",
+        "nullable": false,
+        "default": null
+      },
+      {
+        "column": "admission_date",
+        "type": "date",
+        "nullable": true,
+        "default": null
+      },
+      {
+        "column": "departure_date",
+        "type": "date",
+        "nullable": true,
+        "default": null
+      }
+    ],
+    "primary_key": [
+      "id"
+    ],
+    "foreign_keys": [],
+    "approx_rows": 43,
+    "sample": [
+      {
+        "id": "142",
+        "password": "pbkdf2_sha256$870000$4Mu6uMR5HCD8QRfdL2yILT$bIRWBK6tI8Fmg/WpLPvarSQUB7DP/g28bUuO8jNMGrU=",
+        "last_login": "None",
+        "is_superuser": "False",
+        "created_at": "2026-03-06 21:35:42.815074+00:00",
+        "modified_at": "2026-03-06 21:36:04.336962+00:00",
+        "first_name": "Nestor",
+        "last_name": "Alba",
+        "document_number": "None",
+        "gender": "MALE",
+        "birthday": "None",
+        "age": "None",
+        "email": "nalba@franquiciasperu.com",
+        "phone": "None",
+        "is_active": "True",
+        "is_staff": "True",
+        "is_user_energy_monitoring": "True",
+        "is_user_quality_air_auto": "False",
+        "is_user_thermal_comfort": "False",
+        "send_email": "False",
+        "admission_date": "None",
+        "departure_date": "None"
+      },
+      {
+        "id": "35",
+        "password": "pbkdf2_sha256$870000$Bv72WhGRw8OiNpCyxXGPg2$+c1++KcbH/1TBPQjgmNqPLn6kg42ovhP3ywOGLn2Cog=",
+        "last_login": "None",
+        "is_superuser": "False",
+        "created_at": "2025-12-04 22:57:24.334315+00:00",
+        "modified_at": "2026-01-16 15:24:03.157203+00:00",
+        "first_name": "Marco",
+        "last_name": "Tasayco",
+        "document_number": "None",
+        "gender": "MALE",
+        "birthday": "None",
+        "age": "None",
+        "email": "marco.tasayco@sanna.pe",
+        "phone": "None",
+        "is_active": "True",
+        "is_staff": "False",
+        "is_user_energy_monitoring": "True",
+        "is_user_quality_air_auto": "False",
+        "is_user_thermal_comfort": "False",
+        "send_email": "False",
+        "admission_date": "None",
+        "departure_date": "None"
+      },
+      {
+        "id": "34",
+        "password": "pbkdf2_sha256$870000$hxz7jMmKpX4BJ41MoRdynF$TVfy92RLIO0QogRZNRogM515CcXV2H5Ei9zFPLelZyY=",
+        "last_login": "None",
+        "is_superuser": "False",
+        "created_at": "2025-12-04 22:56:54.130606+00:00",
+        "modified_at": "2025-12-04 22:57:12.894656+00:00",
+        "first_name": "Diego",
+        "last_name": "Florian",
+        "document_number": "None",
+        "gender": "MALE",
+        "birthday": "None",
+        "age": "None",
+        "email": "diego.florian@sanna.pe",
+        "phone": "None",
+        "is_active": "True",
+        "is_staff": "False",
+        "is_user_energy_monitoring": "True",
+        "is_user_quality_air_auto": "False",
+        "is_user_thermal_comfort": "False",
+        "send_email": "False",
+        "admission_date": "None",
+        "departure_date": "None"
+      }
+    ]
+  },
+  "public.accounts_user_groups": {
+    "schema": "public",
+    "table": "accounts_user_groups",
+    "columns": [
+      {
+        "column": "id",
+        "type": "bigint",
+        "nullable": false,
+        "default": null
+      },
+      {
+        "column": "user_id",
+        "type": "bigint",
+        "nullable": false,
+        "default": null
+      },
+      {
+        "column": "group_id",
+        "type": "integer",
+        "nullable": false,
+        "default": null
+      }
+    ],
+    "primary_key": [
+      "id"
+    ],
+    "foreign_keys": [
+      {
+        "column": "group_id",
+        "references": "public.auth_group.id"
+      },
+      {
+        "column": "user_id",
+        "references": "public.accounts_user.id"
+      }
+    ],
+    "approx_rows": 0,
+    "sample": []
+  },
+  "public.accounts_user_user_permissions": {
+    "schema": "public",
+    "table": "accounts_user_user_permissions",
+    "columns": [
+      {
+        "column": "id",
+        "type": "bigint",
+        "nullable": false,
+        "default": null
+      },
+      {
+        "column": "user_id",
+        "type": "bigint",
+        "nullable": false,
+        "default": null
+      },
+      {
+        "column": "permission_id",
+        "type": "integer",
+        "nullable": false,
+        "default": null
+      }
+    ],
+    "primary_key": [
+      "id"
+    ],
+    "foreign_keys": [
+      {
+        "column": "permission_id",
+        "references": "public.auth_permission.id"
+      },
+      {
+        "column": "user_id",
+        "references": "public.accounts_user.id"
+      }
+    ],
+    "approx_rows": 0,
+    "sample": []
+  },
+  "public.accounts_userenergymodule": {
+    "schema": "public",
+    "table": "accounts_userenergymodule",
+    "columns": [
+      {
+        "column": "id",
+        "type": "bigint",
+        "nullable": false,
+        "default": null
+      },
+      {
+        "column": "is_active",
+        "type": "boolean",
+        "nullable": false,
+        "default": null
+      },
+      {
+        "column": "assigned_date",
+        "type": "timestamp with time zone",
+        "nullable": false,
+        "default": null
+      },
+      {
+        "column": "module_id",
+        "type": "bigint",
+        "nullable": false,
+        "default": null
+      },
+      {
+        "column": "user_id",
+        "type": "bigint",
+        "nullable": false,
+        "default": null
+      }
+    ],
+    "primary_key": [
+      "id"
+    ],
+    "foreign_keys": [
+      {
+        "column": "module_id",
+        "references": "public.accounts_energymonitoringmodule.id"
+      },
+      {
+        "column": "user_id",
+        "references": "public.accounts_user.id"
+      }
+    ],
+    "approx_rows": 297,
+    "sample": [
+      {
+        "id": "3",
+        "is_active": "True",
+        "assigned_date": "2025-12-04 22:59:44.784365+00:00",
+        "module_id": "3",
+        "user_id": "34"
+      },
+      {
+        "id": "5",
+        "is_active": "True",
+        "assigned_date": "2025-12-04 22:59:52.813297+00:00",
+        "module_id": "5",
+        "user_id": "34"
+      },
+      {
+        "id": "6",
+        "is_active": "True",
+        "assigned_date": "2025-12-04 22:59:58.377001+00:00",
+        "module_id": "6",
+        "user_id": "34"
+      }
+    ]
+  },
+  "public.accounts_userenterpriserole": {
+    "schema": "public",
+    "table": "accounts_userenterpriserole",
+    "columns": [
+      {
+        "column": "id",
+        "type": "bigint",
+        "nullable": false,
+        "default": null
+      },
+      {
+        "column": "role",
+        "type": "character varying",
+        "nullable": false,
+        "default": null
+      },
+      {
+        "column": "date_joined",
+        "type": "timestamp with time zone",
+        "nullable": false,
+        "default": null
+      },
+      {
+        "column": "enterprise_id",
+        "type": "bigint",
+        "nullable": false,
+        "default": null
+      },
+      {
+        "column": "user_id",
+        "type": "bigint",
+        "nullable": false,
+        "default": null
+      }
+    ],
+    "primary_key": [
+      "id"
+    ],
+    "foreign_keys": [
+      {
+        "column": "enterprise_id",
+        "references": "public.enterprises_enterprise.id"
+      },
+      {
+        "column": "user_id",
+        "references": "public.accounts_user.id"
+      }
+    ],
+    "approx_rows": 42,
+    "sample": [
+      {
+        "id": "1",
+        "role": "Cliente",
+        "date_joined": "2025-12-04 22:58:33.553969+00:00",
+        "enterprise_id": "1",
+        "user_id": "34"
+      },
+      {
+        "id": "2",
+        "role": "Cliente",
+        "date_joined": "2025-12-04 22:58:41.601333+00:00",
+        "enterprise_id": "1",
+        "user_id": "36"
+      },
+      {
+        "id": "3",
+        "role": "Cliente",
+        "date_joined": "2025-12-04 22:58:55.801928+00:00",
+        "enterprise_id": "1",
+        "user_id": "35"
+      }
+    ]
+  },
+  "public.alerts_alert": {
+    "schema": "public",
+    "table": "alerts_alert",
+    "columns": [
+      {
+        "column": "id",
+        "type": "bigint",
+        "nullable": false,
+        "default": null
+      },
+      {
+        "column": "alert_status",
+        "type": "character varying",
+        "nullable": false,
+        "default": null
+      },
+      {
+        "column": "timestamp",
+        "type": "timestamp with time zone",
+        "nullable": false,
+        "default": null
+      },
+      {
+        "column": "value",
+        "type": "double precision",
+        "nullable": true,
+        "default": null
+      },
+      {
+        "column": "status",
+        "type": "character varying",
+        "nullable": false,
+        "default": null
+      },
+      {
+        "column": "reported",
+        "type": "boolean",
+        "nullable": false,
+        "default": null
+      },
+      {
+        "column": "reported_at",
+        "type": "timestamp with time zone",
+        "nullable": true,
+        "default": null
+      },
+      {
+        "column": "alert_threshold_id",
+        "type": "bigint",
+        "nullable": false,
+        "default": null
+      },
+      {
+        "column": "reading_id",
+        "type": "bigint",
+        "nullable": false,
+        "default": null
+      },
+      {
+        "column": "acknowledged_at",
+        "type": "timestamp with time zone",
+        "nullable": true,
+        "default": null
+      },
+      {
+        "column": "acknowledged_by_id",
+        "type": "bigint",
+        "nullable": true,
+        "default": null
+      },
+      {
+        "column": "created_at",
+        "type": "timestamp with time zone",
+        "nullable": false,
+        "default": null
+      },
+      {
+        "column": "modified_at",
+        "type": "timestamp with time zone",
+        "nullable": false,
+        "default": null
+      },
+      {
+        "column": "notes",
+        "type": "text",
+        "nullable": true,
+        "default": null
+      },
+      {
+        "column": "whatsapp_reported",
+        "type": "boolean",
+        "nullable": false,
+        "default": null
+      },
+      {
+        "column": "whatsapp_reported_at",
+        "type": "timestamp with time zone",
+        "nullable": true,
+        "default": null
+      },
+      {
+        "column": "energy_subtype",
+        "type": "character varying",
+        "nullable": true,
+        "default": null
+      },
+      {
+        "column": "fluctuation_subtype",
+        "type": "character varying",
+        "nullable": true,
+        "default": null
+      },
+      {
+        "column": "phase_type",
+        "type": "character varying",
+        "nullable": true,
+        "default": null
+      },
+      {
+        "column": "unbalanced_subtype",
+        "type": "character varying",
+        "nullable": true,
+        "default": null
+      },
+      {
+        "column": "email_summary_reported",
+        "type": "boolean",
+        "nullable": false,
+        "default": null
+      },
+      {
+        "column": "email_summary_reported_at",
+        "type": "timestamp with time zone",
+        "nullable": true,
+        "default": null
+      },
+      {
+        "column": "power_subtype",
+        "type": "character varying",
+        "nullable": true,
+        "default": null
+      },
+      {
+        "column": "current_subtype",
+        "type": "character varying",
+        "nullable": true,
+        "default": null
+      },
+      {
+        "column": "current_phase",
+        "type": "character varying",
+        "nullable": true,
+        "default": null
+      }
+    ],
+    "primary_key": [
+      "id"
+    ],
+    "foreign_keys": [
+      {
+        "column": "acknowledged_by_id",
+        "references": "public.accounts_user.id"
+      },
+      {
+        "column": "alert_threshold_id",
+        "references": "public.alerts_alertthreshold.id"
+      },
+      {
+        "column": "reading_id",
+        "references": "public.readings_reading.id"
+      }
+    ],
+    "approx_rows": 317012,
+    "sample": [
+      {
+        "id": "41978",
+        "alert_status": "moderate",
+        "timestamp": "2026-05-08 15:03:00.106751+00:00",
+        "value": "227.51",
+        "status": "new",
+        "reported": "True",
+        "reported_at": "2026-05-08 15:03:00.358582+00:00",
+        "alert_threshold_id": "146",
+        "reading_id": "4860126",
+        "acknowledged_at": "None",
+        "acknowledged_by_id": "None",
+        "created_at": "2026-05-08 15:03:00.106723+00:00",
+        "modified_at": "2026-05-08 15:03:00.106734+00:00",
+        "notes": "Fluctuación de voltaje alta: Urt = 227.51V (3.4% de desviación, límite operativo ±2.5% / banda ±2%) en Ascensor lado derecho - PB (Nominal: 220V)",
+        "whatsapp_reported": "False",
+        "whatsapp_reported_at": "None",
+        "energy_subtype": "None",
+        "fluctuation_subtype": "overvoltage",
+        "phase_type": "RT",
+        "unbalanced_subtype": "None",
+        "email_summary_reported": "True",
+        "email_summary_reported_at": "2026-05-08 22:00:02.664167+00:00",
+        "power_subtype": "None",
+        "current_subtype": "None",
+        "current_phase": "None"
+      },
+      {
+        "id": "50619",
+        "alert_status": "moderate",
+        "timestamp": "2026-05-08 22:01:00.156859+00:00",
+        "value": "229.72",
+        "status": "new",
+        "reported": "True",
+        "reported_at": "2026-05-08 22:01:00.300339+00:00",
+        "alert_threshold_id": "146",
+        "reading_id": "4872748",
+        "acknowledged_at": "None",
+        "acknowledged_by_id": "None",
+        "created_at": "2026-05-08 22:01:00.156833+00:00",
+        "modified_at": "2026-05-08 22:01:00.156845+00:00",
+        "notes": "Fluctuación de voltaje alta: Urt = 229.72V (4.4% de desviación, límite operativo ±2.5% / banda ±2%) en Ascensor lado derecho - PB (Nominal: 220V)",
+        "whatsapp_reported": "False",
+        "whatsapp_reported_at": "None",
+        "energy_subtype": "None",
+        "fluctuation_subtype": "overvoltage",
+        "phase_type": "RT",
+        "unbalanced_subtype": "None",
+        "email_summary_reported": "False",
+        "email_summary_reported_at": "None",
+        "power_subtype": "None",
+        "current_subtype": "None",
+        "current_phase": "None"
+      },
+      {
+        "id": "51615",
+        "alert_status": "moderate",
+        "timestamp": "2026-05-08 22:49:01.541954+00:00",
+        "value": "228.47",
+        "status": "new",
+        "reported": "True",
+        "reported_at": "2026-05-08 22:49:01.655412+00:00",
+        "alert_threshold_id": "135",
+        "reading_id": "4874179",
+        "acknowledged_at": "None",
+        "acknowledged_by_id": "None",
+        "created_at": "2026-05-08 22:49:01.541928+00:00",
+        "modified_at": "2026-05-08 22:49:01.541941+00:00",
+        "notes": "Fluctuación de voltaje alta: Urs = 228.47V (3.8% de desviación, límite operativo ±2.5% / banda ±2%) en RX-PB (Nominal: 220V)",
+        "whatsapp_reported": "False",
+        "whatsapp_reported_at": "None",
+        "energy_subtype": "None",
+        "fluctuation_subtype": "overvoltage",
+        "phase_type": "RS",
+        "unbalanced_subtype": "None",
+        "email_summary_reported": "False",
+        "email_summary_reported_at": "None",
+        "power_subtype": "None",
+        "current_subtype": "None",
+        "current_phase": "None"
+      }
+    ]
+  },
+  "public.alerts_alertthreshold": {
+    "schema": "public",
+    "table": "alerts_alertthreshold",
+    "columns": [
+      {
+        "column": "id",
+        "type": "bigint",
+        "nullable": false,
+        "default": null
+      },
+      {
+        "column": "name",
+        "type": "character varying",
+        "nullable": false,
+        "default": null
+      },
+      {
+        "column": "alert_type",
+        "type": "character varying",
+        "nullable": false,
+        "default": null
+      },
+      {
+        "column": "threshold_value",
+        "type": "double precision",
+        "nullable": true,
+        "default": null
+      },
+      {
+        "column": "measurement",
+        "type": "character varying",
+        "nullable": false,
+        "default": null
+      },
+      {
+        "column": "is_active",
+        "type": "boolean",
+        "nullable": false,
+        "default": null
+      },
+      {
+        "column": "email_recipients",
+        "type": "text",
+        "nullable": true,
+        "default": null
+      },
+      {
+        "column": "electrical_panel_id",
+        "type": "bigint",
+        "nullable": true,
+        "default": null
+      },
+      {
+        "column": "energy_headquarter_id",
+        "type": "bigint",
+        "nullable": true,
+        "default": null
+      },
+      {
+        "column": "enterprise_id",
+        "type": "bigint",
+        "nullable": true,
+        "default": null
+      },
+      {
+        "column": "measurement_point_id",
+        "type": "bigint",
+        "nullable": true,
+        "default": null
+      },
+      {
+        "column": "created_at",
+        "type": "timestamp with time zone",
+        "nullable": false,
+        "default": null
+      },
+      {
+        "column": "description",
+        "type": "text",
+        "nullable": true,
+        "default": null
+      },
+      {
+        "column": "modified_at",
+        "type": "timestamp with time zone",
+        "nullable": false,
+        "default": null
+      },
+      {
+        "column": "whatsapp_recipients",
+        "type": "text",
+        "nullable": true,
+        "default": null
+      },
+      {
+        "column": "email_sending",
+        "type": "boolean",
+        "nullable": false,
+        "default": null
+      },
+      {
+        "column": "whatsapp_sending",
+        "type": "boolean",
+        "nullable": false,
+        "default": null
+      }
+    ],
+    "primary_key": [
+      "id"
+    ],
+    "foreign_keys": [
+      {
+        "column": "electrical_panel_id",
+        "references": "public.enterprises_electricalpanel.id"
+      },
+      {
+        "column": "energy_headquarter_id",
+        "references": "public.enterprises_energyheadquarter.id"
+      },
+      {
+        "column": "enterprise_id",
+        "references": "public.enterprises_enterprise.id"
+      },
+      {
+        "column": "measurement_point_id",
+        "references": "public.enterprises_measurementpoint.id"
+      }
+    ],
+    "approx_rows": 45,
+    "sample": [
+      {
+        "id": "199",
+        "name": "Voltaje - Llave General TG-TR1 Uab",
+        "alert_type": "voltage_fluctuation",
+        "threshold_value": "None",
+        "measurement": "Uab_value",
+        "is_active": "False",
+        "email_recipients": "alvaroe@zeia.com.pe",
+        "electrical_panel_id": "37",
+        "energy_headquarter_id": "67",
+        "enterprise_id": "3",
+        "measurement_point_id": "75",
+        "created_at": "2026-05-13 14:33:09.668455+00:00",
+        "description": "",
+        "modified_at": "2026-05-13 20:48:36.821480+00:00",
+        "whatsapp_recipients": "",
+        "email_sending": "True",
+        "whatsapp_sending": "False"
+      },
+      {
+        "id": "331",
+        "name": "Monitoreo de Energía - Chiller 1",
+        "alert_type": "energy_monitoring",
+        "threshold_value": "None",
+        "measurement": "EPpos",
+        "is_active": "True",
+        "email_recipients": "alvaroe@zeia.com.pe",
+        "electrical_panel_id": "39",
+        "energy_headquarter_id": "67",
+        "enterprise_id": "3",
+        "measurement_point_id": "77",
+        "created_at": "2026-05-22 14:48:17.804247+00:00",
+        "description": "",
+        "modified_at": "2026-05-25 17:41:29.668086+00:00",
+        "whatsapp_recipients": "",
+        "email_sending": "True",
+        "whatsapp_sending": "False"
+      },
+      {
+        "id": "364",
+        "name": "Monitoreo de Distorsión Harmónica - Chiller 1",
+        "alert_type": "harmonic_distortion",
+        "threshold_value": "None",
+        "measurement": "THDUa",
+        "is_active": "True",
+        "email_recipients": "alvaroe@zeia.com.pe",
+        "electrical_panel_id": "39",
+        "energy_headquarter_id": "67",
+        "enterprise_id": "3",
+        "measurement_point_id": "77",
+        "created_at": "2026-05-27 15:02:14.294953+00:00",
+        "description": "",
+        "modified_at": "2026-05-27 15:02:14.294968+00:00",
+        "whatsapp_recipients": "",
+        "email_sending": "True",
+        "whatsapp_sending": "False"
+      }
+    ]
+  },
+  "public.alerts_commentalert": {
+    "schema": "public",
+    "table": "alerts_commentalert",
+    "columns": [
+      {
+        "column": "id",
+        "type": "bigint",
+        "nullable": false,
+        "default": null
+      },
+      {
+        "column": "created_at",
+        "type": "timestamp with time zone",
+        "nullable": false,
+        "default": null
+      },
+      {
+        "column": "modified_at",
+        "type": "timestamp with time zone",
+        "nullable": false,
+        "default": null
+      },
+      {
+        "column": "content",
+        "type": "text",
+        "nullable": false,
+        "default": null
+      },
+      {
+        "column": "user_id",
+        "type": "bigint",
+        "nullable": false,
+        "default": null
+      },
+      {
+        "column": "alert_id",
+        "type": "bigint",
+        "nullable": false,
+        "default": null
+      }
+    ],
+    "primary_key": [
+      "id"
+    ],
+    "foreign_keys": [
+      {
+        "column": "alert_id",
+        "references": "public.alerts_limitalert.id"
+      },
+      {
+        "column": "user_id",
+        "references": "public.accounts_user.id"
+      }
+    ],
+    "approx_rows": 0,
+    "sample": []
+  },
+  "public.alerts_currentstatusreportschedule": {
+    "schema": "public",
+    "table": "alerts_currentstatusreportschedule",
+    "columns": [
+      {
+        "column": "id",
+        "type": "bigint",
+        "nullable": false,
+        "default": null
+      },
+      {
+        "column": "report_time",
+        "type": "time without time zone",
+        "nullable": false,
+        "default": null
+      },
+      {
+        "column": "email_recipients",
+        "type": "text",
+        "nullable": false,
+        "default": null
+      },
+      {
+        "column": "is_active",
+        "type": "boolean",
+        "nullable": false,
+        "default": null
+      },
+      {
+        "column": "alert_threshold_id",
+        "type": "bigint",
+        "nullable": false,
+        "default": null
+      }
+    ],
+    "primary_key": [
+      "id"
+    ],
+    "foreign_keys": [
+      {
+        "column": "alert_threshold_id",
+        "references": "public.alerts_alertthreshold.id"
+      }
+    ],
+    "approx_rows": 34,
+    "sample": [
+      {
+        "id": "2",
+        "report_time": "12:05:00",
+        "email_recipients": "alvaroe@zeia.com.pe, sayuri@zeia.com.pe, oechsle.mantenimiento.salaverry@oechsle.pe, jorge.hurtado@oechsle.pe",
+        "is_active": "True",
+        "alert_threshold_id": "412"
+      },
+      {
+        "id": "1",
+        "report_time": "21:05:00",
+        "email_recipients": "alvaroe@zeia.com.pe, sayuri@zeia.com.pe, oechsle.mantenimiento.salaverry@oechsle.pe, jorge.hurtado@oechsle.pe",
+        "is_active": "True",
+        "alert_threshold_id": "412"
+      },
+      {
+        "id": "3",
+        "report_time": "12:05:00",
+        "email_recipients": "alvaroe@zeia.com.pe, sayuri@zeia.com.pe, oechsle.mantenimiento.salaverry@oechsle.pe, jorge.hurtado@oechsle.pe",
+        "is_active": "True",
+        "alert_threshold_id": "413"
+      }
+    ]
+  },
+  "public.alerts_energythresholdprofile": {
+    "schema": "public",
+    "table": "alerts_energythresholdprofile",
+    "columns": [
+      {
+        "column": "id",
+        "type": "bigint",
+        "nullable": false,
+        "default": null
+      },
+      {
+        "column": "created_at",
+        "type": "timestamp with time zone",
+        "nullable": false,
+        "default": null
+      },
+      {
+        "column": "modified_at",
+        "type": "timestamp with time zone",
+        "nullable": false,
+        "default": null
+      },
+      {
+        "column": "name",
+        "type": "character varying",
+        "nullable": false,
+        "default": null
+      },
+      {
+        "column": "voltage_tolerance_percent",
+        "type": "double precision",
+        "nullable": true,
+        "default": null
+      },
+      {
+        "column": "nominal_voltage_v",
+        "type": "integer",
+        "nullable": true,
+        "default": null
+      },
+      {
+        "column": "cuf_limit_ratio",
+        "type": "double precision",
+        "nullable": false,
+        "default": null
+      },
+      {
+        "column": "vuf_limit_ratio",
+        "type": "double precision",
+        "nullable": false,
+        "default": null
+      },
+      {
+        "column": "thd_moderate_ratio",
+        "type": "double precision",
+        "nullable": false,
+        "default": null
+      },
+      {
+        "column": "thd_critical_ratio",
+        "type": "double precision",
+        "nullable": false,
+        "default": null
+      },
+      {
+        "column": "iqr_multiplier",
+        "type": "double precision",
+        "nullable": false,
+        "default": null
+      },
+      {
+        "column": "extra_parameter_overrides",
+        "type": "jsonb",
+        "nullable": true,
+        "default": null
+      },
+      {
+        "column": "enterprise_id",
+        "type": "bigint",
+        "nullable": true,
+        "default": null
+      },
+      {
+        "column": "energy_headquarter_id",
+        "type": "bigint",
+        "nullable": true,
+        "default": null
+      },
+      {
+        "column": "measurement_point_id",
+        "type": "bigint",
+        "nullable": true,
+        "default": null
+      },
+      {
+        "column": "critical_voltage_tolerance_percent",
+        "type": "double precision",
+        "nullable": true,
+        "default": null
+      },
+      {
+        "column": "max_demand_kw",
+        "type": "double precision",
+        "nullable": true,
+        "default": null
+      },
+      {
+        "column": "contracted_power_kw",
+        "type": "double precision",
+        "nullable": true,
+        "default": null
+      },
+      {
+        "column": "installed_power_kw",
+        "type": "double precision",
+        "nullable": true,
+        "default": null
+      },
+      {
+        "column": "max_reactive_kvar",
+        "type": "double precision",
+        "nullable": true,
+        "default": null
+      },
+      {
+        "column": "min_reactive_kvar",
+        "type": "double precision",
+        "nullable": true,
+        "default": null
+      },
+      {
+        "column": "max_current_a_phase_a",
+        "type": "double precision",
+        "nullable": true,
+        "default": null
+      },
+      {
+        "column": "min_current_a_phase_a",
+        "type": "double precision",
+        "nullable": true,
+        "default": null
+      },
+      {
+        "column": "max_current_a_phase_b",
+        "type": "double precision",
+        "nullable": true,
+        "default": null
+      },
+      {
+        "column": "min_current_a_phase_b",
+        "type": "double precision",
+        "nullable": true,
+        "default": null
+      },
+      {
+        "column": "max_current_a_phase_c",
+        "type": "double precision",
+        "nullable": true,
+        "default": null
+      },
+      {
+        "column": "min_current_a_phase_c",
+        "type": "double precision",
+        "nullable": true,
+        "default": null
+      },
+      {
+        "column": "cuf_current_limit",
+        "type": "double precision",
+        "nullable": true,
+        "default": null
+      },
+      {
+        "column": "eppos_workday_lower",
+        "type": "double precision",
+        "nullable": true,
+        "default": null
+      },
+      {
+        "column": "eppos_workday_upper",
+        "type": "double precision",
+        "nullable": true,
+        "default": null
+      },
+      {
+        "column": "eppos_saturday_lower",
+        "type": "double precision",
+        "nullable": true,
+        "default": null
+      },
+      {
+        "column": "eppos_saturday_upper",
+        "type": "double precision",
+        "nullable": true,
+        "default": null
+      },
+      {
+        "column": "eppos_sunday_lower",
+        "type": "double precision",
+        "nullable": true,
+        "default": null
+      },
+      {
+        "column": "eppos_sunday_upper",
+        "type": "double precision",
+        "nullable": true,
+        "default": null
+      },
+      {
+        "column": "epneg_workday_lower",
+        "type": "double precision",
+        "nullable": true,
+        "default": null
+      },
+      {
+        "column": "epneg_workday_upper",
+        "type": "double precision",
+        "nullable": true,
+        "default": null
+      },
+      {
+        "column": "epneg_saturday_lower",
+        "type": "double precision",
+        "nullable": true,
+        "default": null
+      },
+      {
+        "column": "epneg_saturday_upper",
+        "type": "double precision",
+        "nullable": true,
+        "default": null
+      },
+      {
+        "column": "epneg_sunday_lower",
+        "type": "double precision",
+        "nullable": true,
+        "default": null
+      },
+      {
+        "column": "epneg_sunday_upper",
+        "type": "double precision",
+        "nullable": true,
+        "default": null
+      },
+      {
+        "column": "energy_thresholds_last_calculated",
+        "type": "timestamp with time zone",
+        "nullable": true,
+        "default": null
+      },
+      {
+        "column": "reactive_power_factor_limit",
+        "type": "double precision",
+        "nullable": true,
+        "default": null
+      },
+      {
+        "column": "thd_individual_limit",
+        "type": "double precision",
+        "nullable": true,
+        "default": null
+      },
+      {
+        "column": "thd_total_limit",
+        "type": "double precision",
+        "nullable": true,
+        "default": null
+      },
+      {
+        "column": "voltage_tolerance_max_percent",
+        "type": "double precision",
+        "nullable": true,
+        "default": null
+      },
+      {
+        "column": "voltage_tolerance_min_percent",
+        "type": "double precision",
+        "nullable": true,
+        "default": null
+      }
+    ],
+    "primary_key": [
+      "id"
+    ],
+    "foreign_keys": [
+      {
+        "column": "energy_headquarter_id",
+        "references": "public.enterprises_energyheadquarter.id"
+      },
+      {
+        "column": "enterprise_id",
+        "references": "public.enterprises_enterprise.id"
+      },
+      {
+        "column": "measurement_point_id",
+        "references": "public.enterprises_measurementpoint.id"
+      }
+    ],
+    "approx_rows": 30,
+    "sample": [
+      {
+        "id": "38",
+        "created_at": "2026-04-30 21:53:33.367636+00:00",
+        "modified_at": "2026-07-13 19:29:55.632388+00:00",
+        "name": "Voltaje - Hemodialisis",
+        "voltage_tolerance_percent": "None",
+        "nominal_voltage_v": "None",
+        "cuf_limit_ratio": "0.1",
+        "vuf_limit_ratio": "0.02",
+        "thd_moderate_ratio": "0.08",
+        "thd_critical_ratio": "0.12",
+        "iqr_multiplier": "1.5",
+        "extra_parameter_overrides": "None",
+        "enterprise_id": "None",
+        "energy_headquarter_id": "None",
+        "measurement_point_id": "37",
+        "critical_voltage_tolerance_percent": "None",
+        "max_demand_kw": "None",
+        "contracted_power_kw": "None",
+        "installed_power_kw": "None",
+        "max_reactive_kvar": "None",
+        "min_reactive_kvar": "None",
+        "max_current_a_phase_a": "None",
+        "min_current_a_phase_a": "None",
+        "max_current_a_phase_b": "None",
+        "min_current_a_phase_b": "None",
+        "max_current_a_phase_c": "None",
+        "min_current_a_phase_c": "None",
+        "cuf_current_limit": "0.1",
+        "eppos_workday_lower": "37.172499999999445",
+        "eppos_workday_upper": "71.9525000000001",
+        "eppos_saturday_lower": "40.51375000000053",
+        "eppos_saturday_upper": "60.20374999999922",
+        "eppos_sunday_lower": "3.649999999999409",
+        "eppos_sunday_upper": "14.369999999998754",
+        "epneg_workday_lower": "None",
+        "epneg_workday_upper": "None",
+        "epneg_saturday_lower": "None",
+        "epneg_saturday_upper": "None",
+        "epneg_sunday_lower": "None",
+        "epneg_sunday_upper": "None",
+        "energy_thresholds_last_calculated": "2026-07-01 06:00:33.560699+00:00",
+        "reactive_power_factor_limit": "0.3",
+        "thd_individual_limit": "5.0",
+        "thd_total_limit": "8.0",
+        "voltage_tolerance_max_percent": "7.35",
+        "voltage_tolerance_min_percent": "1.9"
+      },
+      {
+        "id": "37",
+        "created_at": "2026-04-30 21:49:26.529168+00:00",
+        "modified_at": "2026-07-13 19:30:12.037017+00:00",
+        "name": "Voltaje - Sala de Operaciones 4",
+        "voltage_tolerance_percent": "None",
+        "nominal_voltage_v": "None",
+        "cuf_limit_ratio": "0.1",
+        "vuf_limit_ratio": "0.02",
+        "thd_moderate_ratio": "0.08",
+        "thd_critical_ratio": "0.12",
+        "iqr_multiplier": "1.5",
+        "extra_parameter_overrides": "None",
+        "enterprise_id": "None",
+        "energy_headquarter_id": "None",
+        "measurement_point_id": "36",
+        "critical_voltage_tolerance_percent": "None",
+        "max_demand_kw": "None",
+        "contracted_power_kw": "None",
+        "installed_power_kw": "None",
+        "max_reactive_kvar": "None",
+        "min_reactive_kvar": "None",
+        "max_current_a_phase_a": "None",
+        "min_current_a_phase_a": "None",
+        "max_current_a_phase_b": "None",
+        "min_current_a_phase_b": "None",
+        "max_current_a_phase_c": "None",
+        "min_current_a_phase_c": "None",
+        "cuf_current_limit": "0.1",
+        "eppos_workday_lower": "11.489999999998872",
+        "eppos_workday_upper": "20.210000000000946",
+        "eppos_saturday_lower": "13.178749999999695",
+        "eppos_saturday_upper": "19.548750000000496",
+        "eppos_sunday_lower": "7.9087500000004525",
+        "eppos_sunday_upper": "17.95874999999927",
+        "epneg_workday_lower": "None",
+        "epneg_workday_upper": "None",
+        "epneg_saturday_lower": "None",
+        "epneg_saturday_upper": "None",
+        "epneg_sunday_lower": "None",
+        "epneg_sunday_upper": "None",
+        "energy_thresholds_last_calculated": "2026-07-01 06:00:11.640363+00:00",
+        "reactive_power_factor_limit": "0.3",
+        "thd_individual_limit": "5.0",
+        "thd_total_limit": "8.0",
+        "voltage_tolerance_max_percent": "7.35",
+        "voltage_tolerance_min_percent": "1.9"
+      },
+      {
+        "id": "151",
+        "created_at": "2026-05-22 14:57:48.521319+00:00",
+        "modified_at": "2026-07-13 19:26:57.607193+00:00",
+        "name": "Aire acondicionado cocina - Semisotano",
+        "voltage_tolerance_percent": "None",
+        "nominal_voltage_v": "None",
+        "cuf_limit_ratio": "0.1",
+        "vuf_limit_ratio": "0.02",
+        "thd_moderate_ratio": "0.08",
+        "thd_critical_ratio": "0.12",
+        "iqr_multiplier": "1.5",
+        "extra_parameter_overrides": "None",
+        "enterprise_id": "None",
+        "energy_headquarter_id": "None",
+        "measurement_point_id": "39",
+        "critical_voltage_tolerance_percent": "None",
+        "max_demand_kw": "None",
+        "contracted_power_kw": "None",
+        "installed_power_kw": "None",
+        "max_reactive_kvar": "None",
+        "min_reactive_kvar": "None",
+        "max_current_a_phase_a": "None",
+        "min_current_a_phase_a": "None",
+        "max_current_a_phase_b": "None",
+        "min_current_a_phase_b": "None",
+        "max_current_a_phase_c": "None",
+        "min_current_a_phase_c": "None",
+        "cuf_current_limit": "0.1",
+        "eppos_workday_lower": "20.619999999999663",
+        "eppos_workday_upper": "36.980000000000246",
+        "eppos_saturday_lower": "23.666249999998513",
+        "eppos_saturday_upper": "27.896250000000805",
+        "eppos_sunday_lower": "21.093750000000455",
+        "eppos_sunday_upper": "33.48374999999987",
+        "epneg_workday_lower": "None",
+        "epneg_workday_upper": "None",
+        "epneg_saturday_lower": "None",
+        "epneg_saturday_upper": "None",
+        "epneg_sunday_lower": "None",
+        "epneg_sunday_upper": "None",
+        "energy_thresholds_last_calculated": "2026-07-01 06:00:35.145308+00:00",
+        "reactive_power_factor_limit": "0.3",
+        "thd_individual_limit": "5.0",
+        "thd_total_limit": "8.0",
+        "voltage_tolerance_max_percent": "7.35",
+        "voltage_tolerance_min_percent": "1.9"
+      }
+    ]
+  },
+  "public.alerts_limitalert": {
+    "schema": "public",
+    "table": "alerts_limitalert",
+    "columns": [
+      {
+        "column": "id",
+        "type": "bigint",
+        "nullable": false,
+        "default": null
+      },
+      {
+        "column": "created_at",
+        "type": "timestamp with time zone",
+        "nullable": false,
+        "default": null
+      },
+      {
+        "column": "modified_at",
+        "type": "timestamp with time zone",
+        "nullable": false,
+        "default": null
+      },
+      {
+        "column": "indicator",
+        "type": "character varying",
+        "nullable": false,
+        "default": null
+      },
+      {
+        "column": "unit",
+        "type": "character varying",
+        "nullable": false,
+        "default": null
+      },
+      {
+        "column": "value",
+        "type": "character varying",
+        "nullable": false,
+        "default": null
+      },
+      {
+        "column": "level",
+        "type": "character varying",
+        "nullable": false,
+        "default": null
+      },
+      {
+        "column": "resolved",
+        "type": "boolean",
+        "nullable": false,
+        "default": null
+      },
+      {
+        "column": "device_id",
+        "type": "bigint",
+        "nullable": false,
+        "default": null
+      },
+      {
+        "column": "room_id",
+        "type": "bigint",
+        "nullable": false,
+        "default": null
+      }
+    ],
+    "primary_key": [
+      "id"
+    ],
+    "foreign_keys": [
+      {
+        "column": "device_id",
+        "references": "public.devices_deviceairquality.id"
+      },
+      {
+        "column": "room_id",
+        "references": "public.enterprises_room.id"
+      }
+    ],
+    "approx_rows": 0,
+    "sample": []
+  },
+  "public.auth_group": {
+    "schema": "public",
+    "table": "auth_group",
+    "columns": [
+      {
+        "column": "id",
+        "type": "integer",
+        "nullable": false,
+        "default": null
+      },
+      {
+        "column": "name",
+        "type": "character varying",
+        "nullable": false,
+        "default": null
+      }
+    ],
+    "primary_key": [
+      "id"
+    ],
+    "foreign_keys": [],
+    "approx_rows": 0,
+    "sample": []
+  },
+  "public.auth_group_permissions": {
+    "schema": "public",
+    "table": "auth_group_permissions",
+    "columns": [
+      {
+        "column": "id",
+        "type": "bigint",
+        "nullable": false,
+        "default": null
+      },
+      {
+        "column": "group_id",
+        "type": "integer",
+        "nullable": false,
+        "default": null
+      },
+      {
+        "column": "permission_id",
+        "type": "integer",
+        "nullable": false,
+        "default": null
+      }
+    ],
+    "primary_key": [
+      "id"
+    ],
+    "foreign_keys": [
+      {
+        "column": "permission_id",
+        "references": "public.auth_permission.id"
+      },
+      {
+        "column": "group_id",
+        "references": "public.auth_group.id"
+      }
+    ],
+    "approx_rows": 0,
+    "sample": []
+  },
+  "public.auth_permission": {
+    "schema": "public",
+    "table": "auth_permission",
+    "columns": [
+      {
+        "column": "id",
+        "type": "integer",
+        "nullable": false,
+        "default": null
+      },
+      {
+        "column": "name",
+        "type": "character varying",
+        "nullable": false,
+        "default": null
+      },
+      {
+        "column": "content_type_id",
+        "type": "integer",
+        "nullable": false,
+        "default": null
+      },
+      {
+        "column": "codename",
+        "type": "character varying",
+        "nullable": false,
+        "default": null
+      }
+    ],
+    "primary_key": [
+      "id"
+    ],
+    "foreign_keys": [
+      {
+        "column": "content_type_id",
+        "references": "public.django_content_type.id"
+      }
+    ],
+    "approx_rows": 216,
+    "sample": [
+      {
+        "id": "1",
+        "name": "Can add log entry",
+        "content_type_id": "1",
+        "codename": "add_logentry"
+      },
+      {
+        "id": "2",
+        "name": "Can change log entry",
+        "content_type_id": "1",
+        "codename": "change_logentry"
+      },
+      {
+        "id": "3",
+        "name": "Can delete log entry",
+        "content_type_id": "1",
+        "codename": "delete_logentry"
+      }
+    ]
+  },
+  "public.authtoken_token": {
+    "schema": "public",
+    "table": "authtoken_token",
+    "columns": [
+      {
+        "column": "key",
+        "type": "character varying",
+        "nullable": false,
+        "default": null
+      },
+      {
+        "column": "created",
+        "type": "timestamp with time zone",
+        "nullable": false,
+        "default": null
+      },
+      {
+        "column": "user_id",
+        "type": "bigint",
+        "nullable": false,
+        "default": null
+      }
+    ],
+    "primary_key": [
+      "key"
+    ],
+    "foreign_keys": [
+      {
+        "column": "user_id",
+        "references": "public.accounts_user.id"
+      }
+    ],
+    "approx_rows": 42,
+    "sample": [
+      {
+        "key": "ceb44dfe6ba27b0cb8f0b299d008fd64894d8a09",
+        "created": "2025-12-09 17:44:42.093819+00:00",
+        "user_id": "67"
+      },
+      {
+        "key": "43aaab261f089234dd32cbe64285018d594ac35a",
+        "created": "2025-12-09 17:45:17.908495+00:00",
+        "user_id": "34"
+      },
+      {
+        "key": "781ed1468656cd20e278ed8e7237d1e178b1baca",
+        "created": "2025-12-09 17:45:23.520780+00:00",
+        "user_id": "36"
+      }
+    ]
+  },
+  "public.control_devices_controldevice": {
+    "schema": "public",
+    "table": "control_devices_controldevice",
+    "columns": [
+      {
+        "column": "id",
+        "type": "bigint",
+        "nullable": false,
+        "default": null
+      },
+      {
+        "column": "created_at",
+        "type": "timestamp with time zone",
+        "nullable": false,
+        "default": null
+      },
+      {
+        "column": "modified_at",
+        "type": "timestamp with time zone",
+        "nullable": false,
+        "default": null
+      },
+      {
+        "column": "dev_uid",
+        "type": "character varying",
+        "nullable": false,
+        "default": null
+      },
+      {
+        "column": "name",
+        "type": "character varying",
+        "nullable": false,
+        "default": null
+      },
+      {
+        "column": "state",
+        "type": "character varying",
+        "nullable": false,
+        "default": null
+      },
+      {
+        "column": "is_active",
+        "type": "boolean",
+        "nullable": false,
+        "default": null
+      },
+      {
+        "column": "room_id",
+        "type": "bigint",
+        "nullable": true,
+        "default": null
+      },
+      {
+        "column": "controlled_device_id",
+        "type": "bigint",
+        "nullable": true,
+        "default": null
+      }
+    ],
+    "primary_key": [
+      "id"
+    ],
+    "foreign_keys": [
+      {
+        "column": "controlled_device_id",
+        "references": "public.control_devices_controlleddevice.id"
+      },
+      {
+        "column": "room_id",
+        "references": "public.enterprises_room.id"
+      }
+    ],
+    "approx_rows": 0,
+    "sample": []
+  },
+  "public.control_devices_controldevicedata": {
+    "schema": "public",
+    "table": "control_devices_controldevicedata",
+    "columns": [
+      {
+        "column": "id",
+        "type": "bigint",
+        "nullable": false,
+        "default": null
+      },
+      {
+        "column": "created_at",
+        "type": "timestamp with time zone",
+        "nullable": false,
+        "default": null
+      },
+      {
+        "column": "modified_at",
+        "type": "timestamp with time zone",
+        "nullable": false,
+        "default": null
+      },
+      {
+        "column": "voltage",
+        "type": "double precision",
+        "nullable": true,
+        "default": null
+      },
+      {
+        "column": "active_power",
+        "type": "double precision",
+        "nullable": true,
+        "default": null
+      },
+      {
+        "column": "power_factor",
+        "type": "double precision",
+        "nullable": true,
+        "default": null
+      },
+      {
+        "column": "power_consumed",
+        "type": "double precision",
+        "nullable": true,
+        "default": null
+      },
+      {
+        "column": "current",
+        "type": "double precision",
+        "nullable": true,
+        "default": null
+      },
+      {
+        "column": "state",
+        "type": "character varying",
+        "nullable": false,
+        "default": null
+      },
+      {
+        "column": "time",
+        "type": "double precision",
+        "nullable": false,
+        "default": null
+      },
+      {
+        "column": "control_device_id",
+        "type": "bigint",
+        "nullable": true,
+        "default": null
+      }
+    ],
+    "primary_key": [
+      "id"
+    ],
+    "foreign_keys": [
+      {
+        "column": "control_device_id",
+        "references": "public.control_devices_controldevice.id"
+      }
+    ],
+    "approx_rows": 0,
+    "sample": []
+  },
+  "public.control_devices_controlleddevice": {
+    "schema": "public",
+    "table": "control_devices_controlleddevice",
+    "columns": [
+      {
+        "column": "id",
+        "type": "bigint",
+        "nullable": false,
+        "default": null
+      },
+      {
+        "column": "created_at",
+        "type": "timestamp with time zone",
+        "nullable": false,
+        "default": null
+      },
+      {
+        "column": "modified_at",
+        "type": "timestamp with time zone",
+        "nullable": false,
+        "default": null
+      },
+      {
+        "column": "name",
+        "type": "character varying",
+        "nullable": false,
+        "default": null
+      }
+    ],
+    "primary_key": [
+      "id"
+    ],
+    "foreign_keys": [],
+    "approx_rows": 0,
+    "sample": []
+  },
+  "public.devices_device": {
+    "schema": "public",
+    "table": "devices_device",
+    "columns": [
+      {
+        "column": "id",
+        "type": "bigint",
+        "nullable": false,
+        "default": null
+      },
+      {
+        "column": "created_at",
+        "type": "timestamp with time zone",
+        "nullable": false,
+        "default": null
+      },
+      {
+        "column": "modified_at",
+        "type": "timestamp with time zone",
+        "nullable": false,
+        "default": null
+      },
+      {
+        "column": "dev_eui",
+        "type": "character varying",
+        "nullable": false,
+        "default": null
+      },
+      {
+        "column": "name",
+        "type": "character varying",
+        "nullable": false,
+        "default": null
+      },
+      {
+        "column": "model",
+        "type": "character varying",
+        "nullable": false,
+        "default": null
+      },
+      {
+        "column": "phase_type",
+        "type": "character varying",
+        "nullable": false,
+        "default": null
+      },
+      {
+        "column": "is_active",
+        "type": "boolean",
+        "nullable": false,
+        "default": null
+      },
+      {
+        "column": "is_multichannel",
+        "type": "boolean",
+        "nullable": false,
+        "default": null
+      },
+      {
+        "column": "number_of_channels",
+        "type": "integer",
+        "nullable": false,
+        "default": null
+      },
+      {
+        "column": "electrical_panel_id",
+        "type": "bigint",
+        "nullable": true,
+        "default": null
+      }
+    ],
+    "primary_key": [
+      "id"
+    ],
+    "foreign_keys": [
+      {
+        "column": "electrical_panel_id",
+        "references": "public.enterprises_electricalpanel.id"
+      }
+    ],
+    "approx_rows": 48,
+    "sample": [
+      {
+        "id": "1",
+        "created_at": "2025-12-04 23:06:56.563239+00:00",
+        "modified_at": "2025-12-11 17:34:53.678084+00:00",
+        "dev_eui": "009569060004f73e",
+        "name": "Analizador de red Trifasico - 4000A",
+        "model": "ADW300",
+        "phase_type": "three_phase",
+        "is_active": "True",
+        "is_multichannel": "False",
+        "number_of_channels": "1",
+        "electrical_panel_id": "1"
+      },
+      {
+        "id": "2",
+        "created_at": "2025-12-04 23:07:47.757135+00:00",
+        "modified_at": "2025-12-11 17:34:57.543734+00:00",
+        "dev_eui": "00956906000506c8",
+        "name": "Analizador de red Trifasico - 4000A",
+        "model": "ADW300",
+        "phase_type": "three_phase",
+        "is_active": "True",
+        "is_multichannel": "False",
+        "number_of_channels": "1",
+        "electrical_panel_id": "2"
+      },
+      {
+        "id": "3",
+        "created_at": "2025-12-04 23:08:19.002456+00:00",
+        "modified_at": "2025-12-11 17:35:07.505697+00:00",
+        "dev_eui": "24e124621f210952",
+        "name": "Analizador de red Trifásico - 600A - Pinza 1",
+        "model": "ADW210",
+        "phase_type": "three_phase",
+        "is_active": "True",
+        "is_multichannel": "False",
+        "number_of_channels": "1",
+        "electrical_panel_id": "3"
+      }
+    ]
+  },
+  "public.devices_deviceairquality": {
+    "schema": "public",
+    "table": "devices_deviceairquality",
+    "columns": [
+      {
+        "column": "id",
+        "type": "bigint",
+        "nullable": false,
+        "default": null
+      },
+      {
+        "column": "dev_eui",
+        "type": "character varying",
+        "nullable": false,
+        "default": null
+      },
+      {
+        "column": "type_sensor",
+        "type": "character varying",
+        "nullable": false,
+        "default": null
+      },
+      {
+        "column": "is_activated",
+        "type": "boolean",
+        "nullable": false,
+        "default": null
+      },
+      {
+        "column": "no_data_alert",
+        "type": "boolean",
+        "nullable": false,
+        "default": null
+      },
+      {
+        "column": "last_missing_alert_sent",
+        "type": "timestamp with time zone",
+        "nullable": true,
+        "default": null
+      },
+      {
+        "column": "room_id",
+        "type": "bigint",
+        "nullable": false,
+        "default": null
+      }
+    ],
+    "primary_key": [
+      "id"
+    ],
+    "foreign_keys": [
+      {
+        "column": "room_id",
+        "references": "public.enterprises_room.id"
+      }
+    ],
+    "approx_rows": 0,
+    "sample": []
+  },
+  "public.devices_deviceindicator": {
+    "schema": "public",
+    "table": "devices_deviceindicator",
+    "columns": [
+      {
+        "column": "id",
+        "type": "bigint",
+        "nullable": false,
+        "default": null
+      },
+      {
+        "column": "created_at",
+        "type": "timestamp with time zone",
+        "nullable": false,
+        "default": null
+      },
+      {
+        "column": "modified_at",
+        "type": "timestamp with time zone",
+        "nullable": false,
+        "default": null
+      },
+      {
+        "column": "is_active",
+        "type": "boolean",
+        "nullable": false,
+        "default": null
+      },
+      {
+        "column": "device_id",
+        "type": "bigint",
+        "nullable": false,
+        "default": null
+      },
+      {
+        "column": "indicator_id",
+        "type": "bigint",
+        "nullable": false,
+        "default": null
+      }
+    ],
+    "primary_key": [
+      "id"
+    ],
+    "foreign_keys": [
+      {
+        "column": "indicator_id",
+        "references": "public.indicators_indicator.id"
+      },
+      {
+        "column": "device_id",
+        "references": "public.devices_device.id"
+      }
+    ],
+    "approx_rows": 0,
+    "sample": []
+  },
+  "public.devices_indicatordevice": {
+    "schema": "public",
+    "table": "devices_indicatordevice",
+    "columns": [
+      {
+        "column": "id",
+        "type": "bigint",
+        "nullable": false,
+        "default": null
+      },
+      {
+        "column": "is_numeric",
+        "type": "boolean",
+        "nullable": false,
+        "default": null
+      },
+      {
+        "column": "is_activated",
+        "type": "boolean",
+        "nullable": false,
+        "default": null
+      },
+      {
+        "column": "alert_high_on",
+        "type": "boolean",
+        "nullable": false,
+        "default": null
+      },
+      {
+        "column": "alert_missing_on",
+        "type": "boolean",
+        "nullable": false,
+        "default": null
+      },
+      {
+        "column": "device_id",
+        "type": "bigint",
+        "nullable": false,
+        "default": null
+      },
+      {
+        "column": "indicator_id",
+        "type": "bigint",
+        "nullable": false,
+        "default": null
+      },
+      {
+        "column": "unit_id",
+        "type": "bigint",
+        "nullable": false,
+        "default": null
+      }
+    ],
+    "primary_key": [
+      "id"
+    ],
+    "foreign_keys": [
+      {
+        "column": "device_id",
+        "references": "public.devices_deviceairquality.id"
+      },
+      {
+        "column": "indicator_id",
+        "references": "public.indicators_indicator.id"
+      },
+      {
+        "column": "unit_id",
+        "references": "public.indicators_unitmeasure.id"
+      }
+    ],
+    "approx_rows": 0,
+    "sample": []
+  },
+  "public.devices_indicatorroom": {
+    "schema": "public",
+    "table": "devices_indicatorroom",
+    "columns": [
+      {
+        "column": "id",
+        "type": "bigint",
+        "nullable": false,
+        "default": null
+      },
+      {
+        "column": "is_activated",
+        "type": "boolean",
+        "nullable": false,
+        "default": null
+      },
+      {
+        "column": "indicator_id",
+        "type": "bigint",
+        "nullable": false,
+        "default": null
+      },
+      {
+        "column": "room_id",
+        "type": "bigint",
+        "nullable": false,
+        "default": null
+      },
+      {
+        "column": "unit_id",
+        "type": "bigint",
+        "nullable": false,
+        "default": null
+      }
+    ],
+    "primary_key": [
+      "id"
+    ],
+    "foreign_keys": [
+      {
+        "column": "indicator_id",
+        "references": "public.indicators_indicator.id"
+      },
+      {
+        "column": "unit_id",
+        "references": "public.indicators_unitmeasure.id"
+      },
+      {
+        "column": "room_id",
+        "references": "public.enterprises_room.id"
+      }
+    ],
+    "approx_rows": 0,
+    "sample": []
+  },
+  "public.django_admin_log": {
+    "schema": "public",
+    "table": "django_admin_log",
+    "columns": [
+      {
+        "column": "id",
+        "type": "integer",
+        "nullable": false,
+        "default": null
+      },
+      {
+        "column": "action_time",
+        "type": "timestamp with time zone",
+        "nullable": false,
+        "default": null
+      },
+      {
+        "column": "object_id",
+        "type": "text",
+        "nullable": true,
+        "default": null
+      },
+      {
+        "column": "object_repr",
+        "type": "character varying",
+        "nullable": false,
+        "default": null
+      },
+      {
+        "column": "action_flag",
+        "type": "smallint",
+        "nullable": false,
+        "default": null
+      },
+      {
+        "column": "change_message",
+        "type": "text",
+        "nullable": false,
+        "default": null
+      },
+      {
+        "column": "content_type_id",
+        "type": "integer",
+        "nullable": true,
+        "default": null
+      },
+      {
+        "column": "user_id",
+        "type": "bigint",
+        "nullable": false,
+        "default": null
+      }
+    ],
+    "primary_key": [
+      "id"
+    ],
+    "foreign_keys": [
+      {
+        "column": "content_type_id",
+        "references": "public.django_content_type.id"
+      },
+      {
+        "column": "user_id",
+        "references": "public.accounts_user.id"
+      }
+    ],
+    "approx_rows": 1239,
+    "sample": [
+      {
+        "id": "1",
+        "action_time": "2025-11-26 16:04:10.935377+00:00",
+        "object_id": "1",
+        "object_repr": "admin@zeia.com.pe",
+        "action_flag": "2",
+        "change_message": "[{\"changed\": {\"fields\": [\"First name\", \"Last name\", \"Send email\", \"User Energy Monitoring\"]}}]",
+        "content_type_id": "7",
+        "user_id": "1"
+      },
+      {
+        "id": "2",
+        "action_time": "2025-11-26 16:11:28.747755+00:00",
+        "object_id": "1",
+        "object_repr": "Consumo tarifario",
+        "action_flag": "1",
+        "change_message": "[{\"added\": {}}]",
+        "content_type_id": "8",
+        "user_id": "1"
+      },
+      {
+        "id": "3",
+        "action_time": "2025-11-26 16:12:00.436078+00:00",
+        "object_id": "2",
+        "object_repr": "Monitoreo de potencia",
+        "action_flag": "1",
+        "change_message": "[{\"added\": {}}]",
+        "content_type_id": "8",
+        "user_id": "1"
+      }
+    ]
+  },
+  "public.django_celery_beat_clockedschedule": {
+    "schema": "public",
+    "table": "django_celery_beat_clockedschedule",
+    "columns": [
+      {
+        "column": "id",
+        "type": "integer",
+        "nullable": false,
+        "default": null
+      },
+      {
+        "column": "clocked_time",
+        "type": "timestamp with time zone",
+        "nullable": false,
+        "default": null
+      }
+    ],
+    "primary_key": [
+      "id"
+    ],
+    "foreign_keys": [],
+    "approx_rows": 0,
+    "sample": []
+  },
+  "public.django_celery_beat_crontabschedule": {
+    "schema": "public",
+    "table": "django_celery_beat_crontabschedule",
+    "columns": [
+      {
+        "column": "id",
+        "type": "integer",
+        "nullable": false,
+        "default": null
+      },
+      {
+        "column": "minute",
+        "type": "character varying",
+        "nullable": false,
+        "default": null
+      },
+      {
+        "column": "hour",
+        "type": "character varying",
+        "nullable": false,
+        "default": null
+      },
+      {
+        "column": "day_of_week",
+        "type": "character varying",
+        "nullable": false,
+        "default": null
+      },
+      {
+        "column": "day_of_month",
+        "type": "character varying",
+        "nullable": false,
+        "default": null
+      },
+      {
+        "column": "month_of_year",
+        "type": "character varying",
+        "nullable": false,
+        "default": null
+      },
+      {
+        "column": "timezone",
+        "type": "character varying",
+        "nullable": false,
+        "default": null
+      }
+    ],
+    "primary_key": [
+      "id"
+    ],
+    "foreign_keys": [],
+    "approx_rows": 0,
+    "sample": []
+  },
+  "public.django_celery_beat_intervalschedule": {
+    "schema": "public",
+    "table": "django_celery_beat_intervalschedule",
+    "columns": [
+      {
+        "column": "id",
+        "type": "integer",
+        "nullable": false,
+        "default": null
+      },
+      {
+        "column": "every",
+        "type": "integer",
+        "nullable": false,
+        "default": null
+      },
+      {
+        "column": "period",
+        "type": "character varying",
+        "nullable": false,
+        "default": null
+      }
+    ],
+    "primary_key": [
+      "id"
+    ],
+    "foreign_keys": [],
+    "approx_rows": 0,
+    "sample": []
+  },
+  "public.django_celery_beat_periodictask": {
+    "schema": "public",
+    "table": "django_celery_beat_periodictask",
+    "columns": [
+      {
+        "column": "id",
+        "type": "integer",
+        "nullable": false,
+        "default": null
+      },
+      {
+        "column": "name",
+        "type": "character varying",
+        "nullable": false,
+        "default": null
+      },
+      {
+        "column": "task",
+        "type": "character varying",
+        "nullable": false,
+        "default": null
+      },
+      {
+        "column": "args",
+        "type": "text",
+        "nullable": false,
+        "default": null
+      },
+      {
+        "column": "kwargs",
+        "type": "text",
+        "nullable": false,
+        "default": null
+      },
+      {
+        "column": "queue",
+        "type": "character varying",
+        "nullable": true,
+        "default": null
+      },
+      {
+        "column": "exchange",
+        "type": "character varying",
+        "nullable": true,
+        "default": null
+      },
+      {
+        "column": "routing_key",
+        "type": "character varying",
+        "nullable": true,
+        "default": null
+      },
+      {
+        "column": "expires",
+        "type": "timestamp with time zone",
+        "nullable": true,
+        "default": null
+      },
+      {
+        "column": "enabled",
+        "type": "boolean",
+        "nullable": false,
+        "default": null
+      },
+      {
+        "column": "last_run_at",
+        "type": "timestamp with time zone",
+        "nullable": true,
+        "default": null
+      },
+      {
+        "column": "total_run_count",
+        "type": "integer",
+        "nullable": false,
+        "default": null
+      },
+      {
+        "column": "date_changed",
+        "type": "timestamp with time zone",
+        "nullable": false,
+        "default": null
+      },
+      {
+        "column": "description",
+        "type": "text",
+        "nullable": false,
+        "default": null
+      },
+      {
+        "column": "crontab_id",
+        "type": "integer",
+        "nullable": true,
+        "default": null
+      },
+      {
+        "column": "interval_id",
+        "type": "integer",
+        "nullable": true,
+        "default": null
+      },
+      {
+        "column": "solar_id",
+        "type": "integer",
+        "nullable": true,
+        "default": null
+      },
+      {
+        "column": "one_off",
+        "type": "boolean",
+        "nullable": false,
+        "default": null
+      },
+      {
+        "column": "start_time",
+        "type": "timestamp with time zone",
+        "nullable": true,
+        "default": null
+      },
+      {
+        "column": "priority",
+        "type": "integer",
+        "nullable": true,
+        "default": null
+      },
+      {
+        "column": "headers",
+        "type": "text",
+        "nullable": false,
+        "default": null
+      },
+      {
+        "column": "clocked_id",
+        "type": "integer",
+        "nullable": true,
+        "default": null
+      },
+      {
+        "column": "expire_seconds",
+        "type": "integer",
+        "nullable": true,
+        "default": null
+      }
+    ],
+    "primary_key": [
+      "id"
+    ],
+    "foreign_keys": [
+      {
+        "column": "clocked_id",
+        "references": "public.django_celery_beat_clockedschedule.id"
+      },
+      {
+        "column": "crontab_id",
+        "references": "public.django_celery_beat_crontabschedule.id"
+      },
+      {
+        "column": "interval_id",
+        "references": "public.django_celery_beat_intervalschedule.id"
+      },
+      {
+        "column": "solar_id",
+        "references": "public.django_celery_beat_solarschedule.id"
+      }
+    ],
+    "approx_rows": 0,
+    "sample": []
+  },
+  "public.django_celery_beat_periodictasks": {
+    "schema": "public",
+    "table": "django_celery_beat_periodictasks",
+    "columns": [
+      {
+        "column": "ident",
+        "type": "smallint",
+        "nullable": false,
+        "default": null
+      },
+      {
+        "column": "last_update",
+        "type": "timestamp with time zone",
+        "nullable": false,
+        "default": null
+      }
+    ],
+    "primary_key": [
+      "ident"
+    ],
+    "foreign_keys": [],
+    "approx_rows": 0,
+    "sample": []
+  },
+  "public.django_celery_beat_solarschedule": {
+    "schema": "public",
+    "table": "django_celery_beat_solarschedule",
+    "columns": [
+      {
+        "column": "id",
+        "type": "integer",
+        "nullable": false,
+        "default": null
+      },
+      {
+        "column": "event",
+        "type": "character varying",
+        "nullable": false,
+        "default": null
+      },
+      {
+        "column": "latitude",
+        "type": "numeric",
+        "nullable": false,
+        "default": null
+      },
+      {
+        "column": "longitude",
+        "type": "numeric",
+        "nullable": false,
+        "default": null
+      }
+    ],
+    "primary_key": [
+      "id"
+    ],
+    "foreign_keys": [],
+    "approx_rows": 0,
+    "sample": []
+  },
+  "public.django_celery_results_chordcounter": {
+    "schema": "public",
+    "table": "django_celery_results_chordcounter",
+    "columns": [
+      {
+        "column": "id",
+        "type": "integer",
+        "nullable": false,
+        "default": null
+      },
+      {
+        "column": "group_id",
+        "type": "character varying",
+        "nullable": false,
+        "default": null
+      },
+      {
+        "column": "sub_tasks",
+        "type": "text",
+        "nullable": false,
+        "default": null
+      },
+      {
+        "column": "count",
+        "type": "integer",
+        "nullable": false,
+        "default": null
+      }
+    ],
+    "primary_key": [
+      "id"
+    ],
+    "foreign_keys": [],
+    "approx_rows": 0,
+    "sample": []
+  },
+  "public.django_celery_results_groupresult": {
+    "schema": "public",
+    "table": "django_celery_results_groupresult",
+    "columns": [
+      {
+        "column": "id",
+        "type": "integer",
+        "nullable": false,
+        "default": null
+      },
+      {
+        "column": "group_id",
+        "type": "character varying",
+        "nullable": false,
+        "default": null
+      },
+      {
+        "column": "date_created",
+        "type": "timestamp with time zone",
+        "nullable": false,
+        "default": null
+      },
+      {
+        "column": "date_done",
+        "type": "timestamp with time zone",
+        "nullable": false,
+        "default": null
+      },
+      {
+        "column": "content_type",
+        "type": "character varying",
+        "nullable": false,
+        "default": null
+      },
+      {
+        "column": "content_encoding",
+        "type": "character varying",
+        "nullable": false,
+        "default": null
+      },
+      {
+        "column": "result",
+        "type": "text",
+        "nullable": true,
+        "default": null
+      }
+    ],
+    "primary_key": [
+      "id"
+    ],
+    "foreign_keys": [],
+    "approx_rows": 0,
+    "sample": []
+  },
+  "public.django_celery_results_taskresult": {
+    "schema": "public",
+    "table": "django_celery_results_taskresult",
+    "columns": [
+      {
+        "column": "id",
+        "type": "integer",
+        "nullable": false,
+        "default": null
+      },
+      {
+        "column": "task_id",
+        "type": "character varying",
+        "nullable": false,
+        "default": null
+      },
+      {
+        "column": "status",
+        "type": "character varying",
+        "nullable": false,
+        "default": null
+      },
+      {
+        "column": "content_type",
+        "type": "character varying",
+        "nullable": false,
+        "default": null
+      },
+      {
+        "column": "content_encoding",
+        "type": "character varying",
+        "nullable": false,
+        "default": null
+      },
+      {
+        "column": "result",
+        "type": "text",
+        "nullable": true,
+        "default": null
+      },
+      {
+        "column": "date_done",
+        "type": "timestamp with time zone",
+        "nullable": false,
+        "default": null
+      },
+      {
+        "column": "traceback",
+        "type": "text",
+        "nullable": true,
+        "default": null
+      },
+      {
+        "column": "meta",
+        "type": "text",
+        "nullable": true,
+        "default": null
+      },
+      {
+        "column": "task_args",
+        "type": "text",
+        "nullable": true,
+        "default": null
+      },
+      {
+        "column": "task_kwargs",
+        "type": "text",
+        "nullable": true,
+        "default": null
+      },
+      {
+        "column": "task_name",
+        "type": "character varying",
+        "nullable": true,
+        "default": null
+      },
+      {
+        "column": "worker",
+        "type": "character varying",
+        "nullable": true,
+        "default": null
+      },
+      {
+        "column": "date_created",
+        "type": "timestamp with time zone",
+        "nullable": false,
+        "default": null
+      },
+      {
+        "column": "periodic_task_name",
+        "type": "character varying",
+        "nullable": true,
+        "default": null
+      }
+    ],
+    "primary_key": [
+      "id"
+    ],
+    "foreign_keys": [],
+    "approx_rows": 4353,
+    "sample": [
+      {
+        "id": "137028",
+        "task_id": "45c4e479-fb92-4b65-ae22-87dbb7a8d7a8",
+        "status": "SUCCESS",
+        "content_type": "application/json",
+        "content_encoding": "utf-8",
+        "result": "null",
+        "date_done": "2026-07-28 09:01:00.031690+00:00",
+        "traceback": "None",
+        "meta": "{\"children\": []}",
+        "task_args": "None",
+        "task_kwargs": "None",
+        "task_name": "None",
+        "worker": "None",
+        "date_created": "2026-07-28 09:01:00.031674+00:00",
+        "periodic_task_name": "None"
+      },
+      {
+        "id": "138222",
+        "task_id": "36f50880-03c0-429e-b56e-e441704f437b",
+        "status": "SUCCESS",
+        "content_type": "application/json",
+        "content_encoding": "utf-8",
+        "result": "null",
+        "date_done": "2026-07-28 18:57:00.036231+00:00",
+        "traceback": "None",
+        "meta": "{\"children\": []}",
+        "task_args": "None",
+        "task_kwargs": "None",
+        "task_name": "None",
+        "worker": "None",
+        "date_created": "2026-07-28 18:57:00.036218+00:00",
+        "periodic_task_name": "None"
+      },
+      {
+        "id": "134140",
+        "task_id": "96fe4a3e-4b0b-4c76-9a4c-0fa024122924",
+        "status": "SUCCESS",
+        "content_type": "application/json",
+        "content_encoding": "utf-8",
+        "result": "null",
+        "date_done": "2026-07-27 09:01:00.062539+00:00",
+        "traceback": "None",
+        "meta": "{\"children\": []}",
+        "task_args": "None",
+        "task_kwargs": "None",
+        "task_name": "None",
+        "worker": "None",
+        "date_created": "2026-07-27 09:01:00.062518+00:00",
+        "periodic_task_name": "None"
+      }
+    ]
+  },
+  "public.django_content_type": {
+    "schema": "public",
+    "table": "django_content_type",
+    "columns": [
+      {
+        "column": "id",
+        "type": "integer",
+        "nullable": false,
+        "default": null
+      },
+      {
+        "column": "app_label",
+        "type": "character varying",
+        "nullable": false,
+        "default": null
+      },
+      {
+        "column": "model",
+        "type": "character varying",
+        "nullable": false,
+        "default": null
+      }
+    ],
+    "primary_key": [
+      "id"
+    ],
+    "foreign_keys": [],
+    "approx_rows": 54,
+    "sample": [
+      {
+        "id": "1",
+        "app_label": "admin",
+        "model": "logentry"
+      },
+      {
+        "id": "2",
+        "app_label": "auth",
+        "model": "permission"
+      },
+      {
+        "id": "3",
+        "app_label": "auth",
+        "model": "group"
+      }
+    ]
+  },
+  "public.django_migrations": {
+    "schema": "public",
+    "table": "django_migrations",
+    "columns": [
+      {
+        "column": "id",
+        "type": "bigint",
+        "nullable": false,
+        "default": null
+      },
+      {
+        "column": "app",
+        "type": "character varying",
+        "nullable": false,
+        "default": null
+      },
+      {
+        "column": "name",
+        "type": "character varying",
+        "nullable": false,
+        "default": null
+      },
+      {
+        "column": "applied",
+        "type": "timestamp with time zone",
+        "nullable": false,
+        "default": null
+      }
+    ],
+    "primary_key": [
+      "id"
+    ],
+    "foreign_keys": [],
+    "approx_rows": 127,
+    "sample": [
+      {
+        "id": "1",
+        "app": "devices",
+        "name": "0001_initial",
+        "applied": "2025-11-26 15:56:45.813243+00:00"
+      },
+      {
+        "id": "2",
+        "app": "enterprises",
+        "name": "0001_initial",
+        "applied": "2025-11-26 15:56:48.243313+00:00"
+      },
+      {
+        "id": "3",
+        "app": "contenttypes",
+        "name": "0001_initial",
+        "applied": "2025-11-26 15:56:48.628029+00:00"
+      }
+    ]
+  },
+  "public.django_session": {
+    "schema": "public",
+    "table": "django_session",
+    "columns": [
+      {
+        "column": "session_key",
+        "type": "character varying",
+        "nullable": false,
+        "default": null
+      },
+      {
+        "column": "session_data",
+        "type": "text",
+        "nullable": false,
+        "default": null
+      },
+      {
+        "column": "expire_date",
+        "type": "timestamp with time zone",
+        "nullable": false,
+        "default": null
+      }
+    ],
+    "primary_key": [
+      "session_key"
+    ],
+    "foreign_keys": [],
+    "approx_rows": 21,
+    "sample": [
+      {
+        "session_key": "rtx9vzrhq5iglhtjtkvgbp9us6dghbol",
+        "session_data": ".eJxVjDEOAiEQRe9CbcgADoKlvWcgzACyaiBZdivj3XWTLbT9773_EiGuSw3ryHOYkjgLJQ6_G0V-5LaBdI_t1iX3tswTyU2ROx3y2lN-Xnb376DGUb-1Qy4uGZuQnWJPYIC08ZaoFAuegYzSJ3QAeEzFezZsrUZC7bMGy-L9AdmaN0U:1vOHzL:3_3tRzFaalHRHZhqbw_06gqkaZ82CIPTKXME3si8fAY",
+        "expire_date": "2025-12-10 16:03:27.002940+00:00"
+      },
+      {
+        "session_key": "vxchk4rtzyxe55lshfrg67tzin8zlwu8",
+        "session_data": ".eJxVjDsOwjAQBe_iGln-sjElfc5gre1dHECOFCcV4u4QKQW0b2beS0Tc1hq3TkucirgILU6_W8L8oLaDcsd2m2We27pMSe6KPGiX41zoeT3cv4OKvX5rsoNCYxxbhT5onTKnlG2CoiB7bQMX74tyRjPoMzjwAzsiC0w-OKXE-wPcyzdr:1vRIBd:uJ0SI0mS1jc3UxiNDd66Iwa-wb-tntz2GDb0CyHWT4Y",
+        "expire_date": "2025-12-18 22:52:33.323899+00:00"
+      },
+      {
+        "session_key": "gg7onimxmmpg4v6e82xhybwsjb2q31ay",
+        "session_data": ".eJxVjDsOwjAQBe_iGlnZ2PGHkp4zWLvrDQ4gR4qTCnF3iJQC2jcz76USbmtJW5MlTVmdFajT70bID6k7yHest1nzXNdlIr0r-qBNX-csz8vh_h0UbOVbUw8EQYLtMATvyEYUS5SNGyVHz-INGbadAdvHyAQIEAYBHmAE40C9P-XRN5U:1vRYHM:18Rx6jVQpBKvRIIYkORkwcOon35QWOL4XpxYePQZA1I",
+        "expire_date": "2025-12-19 16:03:32.295745+00:00"
+      }
+    ]
+  },
+  "public.enterprises_billingactive": {
+    "schema": "public",
+    "table": "enterprises_billingactive",
+    "columns": [
+      {
+        "column": "id",
+        "type": "bigint",
+        "nullable": false,
+        "default": null
+      },
+      {
+        "column": "created_at",
+        "type": "timestamp with time zone",
+        "nullable": false,
+        "default": null
+      },
+      {
+        "column": "modified_at",
+        "type": "timestamp with time zone",
+        "nullable": false,
+        "default": null
+      },
+      {
+        "column": "is_active",
+        "type": "boolean",
+        "nullable": false,
+        "default": null
+      },
+      {
+        "column": "billing_permission_id",
+        "type": "bigint",
+        "nullable": false,
+        "default": null
+      },
+      {
+        "column": "energy_headquarter_id",
+        "type": "bigint",
+        "nullable": false,
+        "default": null
+      },
+      {
+        "column": "currency",
+        "type": "character varying",
+        "nullable": true,
+        "default": null
+      }
+    ],
+    "primary_key": [
+      "id"
+    ],
+    "foreign_keys": [
+      {
+        "column": "billing_permission_id",
+        "references": "public.enterprises_billingpermission.id"
+      },
+      {
+        "column": "energy_headquarter_id",
+        "references": "public.enterprises_energyheadquarter.id"
+      }
+    ],
+    "approx_rows": null,
+    "sample": [
+      {
+        "id": "1",
+        "created_at": "2026-07-20 20:16:43.132989+00:00",
+        "modified_at": "2026-07-20 20:16:43.133001+00:00",
+        "is_active": "True",
+        "billing_permission_id": "3",
+        "energy_headquarter_id": "67",
+        "currency": "None"
+      },
+      {
+        "id": "2",
+        "created_at": "2026-07-20 20:16:56.013657+00:00",
+        "modified_at": "2026-07-20 20:16:56.013669+00:00",
+        "is_active": "True",
+        "billing_permission_id": "2",
+        "energy_headquarter_id": "67",
+        "currency": "None"
+      },
+      {
+        "id": "3",
+        "created_at": "2026-07-20 20:17:12.630037+00:00",
+        "modified_at": "2026-07-20 20:17:12.630050+00:00",
+        "is_active": "True",
+        "billing_permission_id": "4",
+        "energy_headquarter_id": "67",
+        "currency": "None"
+      }
+    ]
+  },
+  "public.enterprises_billingcycle": {
+    "schema": "public",
+    "table": "enterprises_billingcycle",
+    "columns": [
+      {
+        "column": "id",
+        "type": "bigint",
+        "nullable": false,
+        "default": null
+      },
+      {
+        "column": "created_at",
+        "type": "timestamp with time zone",
+        "nullable": false,
+        "default": null
+      },
+      {
+        "column": "modified_at",
+        "type": "timestamp with time zone",
+        "nullable": false,
+        "default": null
+      },
+      {
+        "column": "start_date",
+        "type": "date",
+        "nullable": false,
+        "default": null
+      },
+      {
+        "column": "end_date",
+        "type": "date",
+        "nullable": false,
+        "default": null
+      },
+      {
+        "column": "is_current",
+        "type": "boolean",
+        "nullable": false,
+        "default": null
+      },
+      {
+        "column": "energy_headquarter_id",
+        "type": "bigint",
+        "nullable": false,
+        "default": null
+      }
+    ],
+    "primary_key": [
+      "id"
+    ],
+    "foreign_keys": [
+      {
+        "column": "energy_headquarter_id",
+        "references": "public.enterprises_energyheadquarter.id"
+      }
+    ],
+    "approx_rows": null,
+    "sample": [
+      {
+        "id": "4",
+        "created_at": "2026-07-20 20:03:32.602077+00:00",
+        "modified_at": "2026-07-20 20:21:29.132696+00:00",
+        "start_date": "2026-03-01",
+        "end_date": "2026-03-31",
+        "is_current": "False",
+        "energy_headquarter_id": "67"
+      },
+      {
+        "id": "5",
+        "created_at": "2026-07-20 20:21:21.411250+00:00",
+        "modified_at": "2026-07-20 20:22:44.877928+00:00",
+        "start_date": "2026-04-01",
+        "end_date": "2026-04-30",
+        "is_current": "False",
+        "energy_headquarter_id": "67"
+      },
+      {
+        "id": "6",
+        "created_at": "2026-07-20 20:23:23.067265+00:00",
+        "modified_at": "2026-07-20 20:23:30.034513+00:00",
+        "start_date": "2026-05-01",
+        "end_date": "2026-05-31",
+        "is_current": "False",
+        "energy_headquarter_id": "67"
+      }
+    ]
+  },
+  "public.enterprises_billingdata": {
+    "schema": "public",
+    "table": "enterprises_billingdata",
+    "columns": [
+      {
+        "column": "id",
+        "type": "bigint",
+        "nullable": false,
+        "default": null
+      },
+      {
+        "column": "billing_name",
+        "type": "character varying",
+        "nullable": false,
+        "default": null
+      },
+      {
+        "column": "description",
+        "type": "text",
+        "nullable": false,
+        "default": null
+      },
+      {
+        "column": "monthly_fixed_charge",
+        "type": "double precision",
+        "nullable": true,
+        "default": null
+      },
+      {
+        "column": "charge_for_active_energy",
+        "type": "double precision",
+        "nullable": true,
+        "default": null
+      },
+      {
+        "column": "charge_for_active_energy_peak",
+        "type": "double precision",
+        "nullable": true,
+        "default": null
+      },
+      {
+        "column": "charge_for_active_energy_off_peak",
+        "type": "double precision",
+        "nullable": true,
+        "default": null
+      },
+      {
+        "column": "charge_for_active_power_generation_peak",
+        "type": "double precision",
+        "nullable": true,
+        "default": null
+      },
+      {
+        "column": "charge_for_active_power_generation_off_peak",
+        "type": "double precision",
+        "nullable": true,
+        "default": null
+      },
+      {
+        "column": "charge_for_active_power_distribution_peak",
+        "type": "double precision",
+        "nullable": true,
+        "default": null
+      },
+      {
+        "column": "charge_for_active_power_distribution_off_peak",
+        "type": "double precision",
+        "nullable": true,
+        "default": null
+      },
+      {
+        "column": "charge_for_reactive_energy_exceeding_30_percent",
+        "type": "double precision",
+        "nullable": true,
+        "default": null
+      },
+      {
+        "column": "currency",
+        "type": "character varying",
+        "nullable": false,
+        "default": null
+      },
+      {
+        "column": "energy_unit",
+        "type": "character varying",
+        "nullable": false,
+        "default": null
+      },
+      {
+        "column": "power_unit",
+        "type": "character varying",
+        "nullable": false,
+        "default": null
+      }
+    ],
+    "primary_key": [
+      "id"
+    ],
+    "foreign_keys": [],
+    "approx_rows": 4,
+    "sample": [
+      {
+        "id": "35",
+        "billing_name": "CLIENTES LIBRES - Burger King - Salaverry",
+        "description": "",
+        "monthly_fixed_charge": "0.0",
+        "charge_for_active_energy": "0.0",
+        "charge_for_active_energy_peak": "0.65",
+        "charge_for_active_energy_off_peak": "0.65",
+        "charge_for_active_power_generation_peak": "0.0",
+        "charge_for_active_power_generation_off_peak": "0.0",
+        "charge_for_active_power_distribution_peak": "0.0",
+        "charge_for_active_power_distribution_off_peak": "0.0",
+        "charge_for_reactive_energy_exceeding_30_percent": "0.0",
+        "currency": "PEN",
+        "energy_unit": "kWh",
+        "power_unit": "kW"
+      },
+      {
+        "id": "36",
+        "billing_name": "CLIENTES LIBRES - KFC - Salaverry",
+        "description": "",
+        "monthly_fixed_charge": "0.0",
+        "charge_for_active_energy": "0.0",
+        "charge_for_active_energy_peak": "0.65",
+        "charge_for_active_energy_off_peak": "0.65",
+        "charge_for_active_power_generation_peak": "0.0",
+        "charge_for_active_power_generation_off_peak": "0.0",
+        "charge_for_active_power_distribution_peak": "0.0",
+        "charge_for_active_power_distribution_off_peak": "0.0",
+        "charge_for_reactive_energy_exceeding_30_percent": "0.0",
+        "currency": "PEN",
+        "energy_unit": "kWh",
+        "power_unit": "kW"
+      },
+      {
+        "id": "34",
+        "billing_name": "CLIENTES LIBRES - Pizza Hut - Salaverry",
+        "description": "",
+        "monthly_fixed_charge": "0.0",
+        "charge_for_active_energy": "0.0",
+        "charge_for_active_energy_peak": "0.65",
+        "charge_for_active_energy_off_peak": "0.65",
+        "charge_for_active_power_generation_peak": "0.0",
+        "charge_for_active_power_generation_off_peak": "0.0",
+        "charge_for_active_power_distribution_peak": "0.0",
+        "charge_for_active_power_distribution_off_peak": "0.0",
+        "charge_for_reactive_energy_exceeding_30_percent": "0.0",
+        "currency": "PEN",
+        "energy_unit": "kWh",
+        "power_unit": "kW"
+      }
+    ]
+  },
+  "public.enterprises_billingpermission": {
+    "schema": "public",
+    "table": "enterprises_billingpermission",
+    "columns": [
+      {
+        "column": "id",
+        "type": "bigint",
+        "nullable": false,
+        "default": null
+      },
+      {
+        "column": "created_at",
+        "type": "timestamp with time zone",
+        "nullable": false,
+        "default": null
+      },
+      {
+        "column": "modified_at",
+        "type": "timestamp with time zone",
+        "nullable": false,
+        "default": null
+      },
+      {
+        "column": "name",
+        "type": "character varying",
+        "nullable": false,
+        "default": null
+      },
+      {
+        "column": "is_active",
+        "type": "boolean",
+        "nullable": false,
+        "default": null
+      },
+      {
+        "column": "code",
+        "type": "character varying",
+        "nullable": false,
+        "default": null
+      }
+    ],
+    "primary_key": [
+      "id"
+    ],
+    "foreign_keys": [],
+    "approx_rows": 14,
+    "sample": [
+      {
+        "id": "1",
+        "created_at": "2026-07-20 20:03:32.437397+00:00",
+        "modified_at": "2026-07-20 20:03:32.437413+00:00",
+        "name": "Cargo fijo mensual",
+        "is_active": "True",
+        "code": "cargo_fijo_mensual"
+      },
+      {
+        "id": "2",
+        "created_at": "2026-07-20 20:03:32.440219+00:00",
+        "modified_at": "2026-07-20 20:03:32.440231+00:00",
+        "name": "Cargo por energía activa en horas punta",
+        "is_active": "True",
+        "code": "energia_activa_horas_punta"
+      },
+      {
+        "id": "3",
+        "created_at": "2026-07-20 20:03:32.442130+00:00",
+        "modified_at": "2026-07-20 20:03:32.442138+00:00",
+        "name": "Cargo por energía activa en horas fuera de punta",
+        "is_active": "True",
+        "code": "energia_activa_horas_fuera_punta"
+      }
+    ]
+  },
+  "public.enterprises_clampassignment": {
+    "schema": "public",
+    "table": "enterprises_clampassignment",
+    "columns": [
+      {
+        "column": "id",
+        "type": "bigint",
+        "nullable": false,
+        "default": null
+      },
+      {
+        "column": "created_at",
+        "type": "timestamp with time zone",
+        "nullable": false,
+        "default": null
+      },
+      {
+        "column": "modified_at",
+        "type": "timestamp with time zone",
+        "nullable": false,
+        "default": null
+      },
+      {
+        "column": "clamp_serial_number",
+        "type": "character varying",
+        "nullable": false,
+        "default": null
+      },
+      {
+        "column": "channel",
+        "type": "character varying",
+        "nullable": false,
+        "default": null
+      },
+      {
+        "column": "assigned_at",
+        "type": "timestamp with time zone",
+        "nullable": false,
+        "default": null
+      },
+      {
+        "column": "unassigned_at",
+        "type": "timestamp with time zone",
+        "nullable": true,
+        "default": null
+      },
+      {
+        "column": "notes",
+        "type": "text",
+        "nullable": true,
+        "default": null
+      },
+      {
+        "column": "is_active",
+        "type": "boolean",
+        "nullable": false,
+        "default": null
+      },
+      {
+        "column": "device_id",
+        "type": "bigint",
+        "nullable": false,
+        "default": null
+      },
+      {
+        "column": "measurement_point_id",
+        "type": "bigint",
+        "nullable": false,
+        "default": null
+      }
+    ],
+    "primary_key": [
+      "id"
+    ],
+    "foreign_keys": [
+      {
+        "column": "device_id",
+        "references": "public.devices_device.id"
+      },
+      {
+        "column": "measurement_point_id",
+        "references": "public.enterprises_measurementpoint.id"
+      }
+    ],
+    "approx_rows": 36,
+    "sample": [
+      {
+        "id": "1",
+        "created_at": "2025-12-09 17:34:10.013913+00:00",
+        "modified_at": "2025-12-09 17:34:10.013924+00:00",
+        "clamp_serial_number": "P001",
+        "channel": "channel 1",
+        "assigned_at": "2025-12-09 17:33:40+00:00",
+        "unassigned_at": "None",
+        "notes": "",
+        "is_active": "True",
+        "device_id": "1",
+        "measurement_point_id": "1"
+      },
+      {
+        "id": "2",
+        "created_at": "2025-12-09 17:38:00.969201+00:00",
+        "modified_at": "2025-12-09 17:38:00.969212+00:00",
+        "clamp_serial_number": "P001",
+        "channel": "channel 1",
+        "assigned_at": "2025-12-09 17:37:56+00:00",
+        "unassigned_at": "None",
+        "notes": "",
+        "is_active": "True",
+        "device_id": "2",
+        "measurement_point_id": "2"
+      },
+      {
+        "id": "3",
+        "created_at": "2025-12-09 17:38:55.537364+00:00",
+        "modified_at": "2025-12-09 17:38:55.537373+00:00",
+        "clamp_serial_number": "P001",
+        "channel": "channel 1",
+        "assigned_at": "2025-12-09 17:38:53+00:00",
+        "unassigned_at": "None",
+        "notes": "",
+        "is_active": "True",
+        "device_id": "3",
+        "measurement_point_id": "3"
+      }
+    ]
+  },
+  "public.enterprises_electricalpanel": {
+    "schema": "public",
+    "table": "enterprises_electricalpanel",
+    "columns": [
+      {
+        "column": "id",
+        "type": "bigint",
+        "nullable": false,
+        "default": null
+      },
+      {
+        "column": "created_at",
+        "type": "timestamp with time zone",
+        "nullable": false,
+        "default": null
+      },
+      {
+        "column": "modified_at",
+        "type": "timestamp with time zone",
+        "nullable": false,
+        "default": null
+      },
+      {
+        "column": "type",
+        "type": "character varying",
+        "nullable": false,
+        "default": null
+      },
+      {
+        "column": "threads",
+        "type": "integer",
+        "nullable": true,
+        "default": null
+      },
+      {
+        "column": "name",
+        "type": "character varying",
+        "nullable": false,
+        "default": null
+      },
+      {
+        "column": "is_active",
+        "type": "boolean",
+        "nullable": false,
+        "default": null
+      },
+      {
+        "column": "is_main",
+        "type": "boolean",
+        "nullable": false,
+        "default": null
+      },
+      {
+        "column": "energy_headquarter_id",
+        "type": "bigint",
+        "nullable": false,
+        "default": null
+      }
+    ],
+    "primary_key": [
+      "id"
+    ],
+    "foreign_keys": [
+      {
+        "column": "energy_headquarter_id",
+        "references": "public.enterprises_energyheadquarter.id"
+      }
+    ],
+    "approx_rows": 13,
+    "sample": [
+      {
+        "id": "2",
+        "created_at": "2025-12-04 23:04:15.208720+00:00",
+        "modified_at": "2025-12-04 23:04:15.208736+00:00",
+        "type": "trifasico",
+        "threads": "3",
+        "name": "Tablero General TG-RT",
+        "is_active": "True",
+        "is_main": "False",
+        "energy_headquarter_id": "1"
+      },
+      {
+        "id": "1",
+        "created_at": "2025-12-04 23:03:32.468965+00:00",
+        "modified_at": "2025-12-16 15:12:04.949490+00:00",
+        "type": "trifasico",
+        "threads": "3",
+        "name": "Tablero General TG-P1",
+        "is_active": "True",
+        "is_main": "False",
+        "energy_headquarter_id": "1"
+      },
+      {
+        "id": "3",
+        "created_at": "2025-12-04 23:04:33.779340+00:00",
+        "modified_at": "2025-12-29 18:36:29.693754+00:00",
+        "type": "trifasico",
+        "threads": "3",
+        "name": "Tablero Fuerza y Control Bomba agua Fria (TFC-BAF)",
+        "is_active": "True",
+        "is_main": "False",
+        "energy_headquarter_id": "1"
+      }
+    ]
+  },
+  "public.enterprises_energyheadquarter": {
+    "schema": "public",
+    "table": "enterprises_energyheadquarter",
+    "columns": [
+      {
+        "column": "id",
+        "type": "bigint",
+        "nullable": false,
+        "default": null
+      },
+      {
+        "column": "created_at",
+        "type": "timestamp with time zone",
+        "nullable": false,
+        "default": null
+      },
+      {
+        "column": "modified_at",
+        "type": "timestamp with time zone",
+        "nullable": false,
+        "default": null
+      },
+      {
+        "column": "name",
+        "type": "character varying",
+        "nullable": true,
+        "default": null
+      },
+      {
+        "column": "is_active",
+        "type": "boolean",
+        "nullable": false,
+        "default": null
+      },
+      {
+        "column": "energy_provider",
+        "type": "character varying",
+        "nullable": true,
+        "default": null
+      },
+      {
+        "column": "supply_number",
+        "type": "integer",
+        "nullable": true,
+        "default": null
+      },
+      {
+        "column": "tariff_rating",
+        "type": "boolean",
+        "nullable": false,
+        "default": null
+      },
+      {
+        "column": "reactive_energy_capacitive",
+        "type": "boolean",
+        "nullable": false,
+        "default": null
+      },
+      {
+        "column": "first_max_demand_last_six_months",
+        "type": "double precision",
+        "nullable": true,
+        "default": null
+      },
+      {
+        "column": "second_max_demand_last_six_months",
+        "type": "double precision",
+        "nullable": true,
+        "default": null
+      },
+      {
+        "column": "home_assistant_webhook",
+        "type": "character varying",
+        "nullable": true,
+        "default": null
+      },
+      {
+        "column": "billing_data_id",
+        "type": "bigint",
+        "nullable": true,
+        "default": null
+      },
+      {
+        "column": "enterprise_id",
+        "type": "bigint",
+        "nullable": false,
+        "default": null
+      }
+    ],
+    "primary_key": [
+      "id"
+    ],
+    "foreign_keys": [
+      {
+        "column": "billing_data_id",
+        "references": "public.enterprises_billingdata.id"
+      },
+      {
+        "column": "enterprise_id",
+        "references": "public.enterprises_enterprise.id"
+      }
+    ],
+    "approx_rows": 8,
+    "sample": [
+      {
+        "id": "1",
+        "created_at": "2025-11-26 16:16:33.218742+00:00",
+        "modified_at": "2025-11-26 16:16:33.218771+00:00",
+        "name": "San Borja",
+        "is_active": "True",
+        "energy_provider": "Luz del Sur",
+        "supply_number": "None",
+        "tariff_rating": "False",
+        "reactive_energy_capacitive": "False",
+        "first_max_demand_last_six_months": "None",
+        "second_max_demand_last_six_months": "None",
+        "home_assistant_webhook": "None",
+        "billing_data_id": "None",
+        "enterprise_id": "1"
+      },
+      {
+        "id": "34",
+        "created_at": "2025-12-09 18:34:19.996831+00:00",
+        "modified_at": "2025-12-16 15:04:51.929612+00:00",
+        "name": "San Isidro",
+        "is_active": "False",
+        "energy_provider": "Luz del Sur",
+        "supply_number": "123",
+        "tariff_rating": "False",
+        "reactive_energy_capacitive": "False",
+        "first_max_demand_last_six_months": "None",
+        "second_max_demand_last_six_months": "None",
+        "home_assistant_webhook": "None",
+        "billing_data_id": "None",
+        "enterprise_id": "1"
+      },
+      {
+        "id": "133",
+        "created_at": "2026-04-20 14:18:42.160987+00:00",
+        "modified_at": "2026-04-20 14:18:42.161001+00:00",
+        "name": "Óvalo Gutierrez",
+        "is_active": "True",
+        "energy_provider": "None",
+        "supply_number": "None",
+        "tariff_rating": "False",
+        "reactive_energy_capacitive": "False",
+        "first_max_demand_last_six_months": "None",
+        "second_max_demand_last_six_months": "None",
+        "home_assistant_webhook": "None",
+        "billing_data_id": "None",
+        "enterprise_id": "67"
+      }
+    ]
+  },
+  "public.enterprises_enterprise": {
+    "schema": "public",
+    "table": "enterprises_enterprise",
+    "columns": [
+      {
+        "column": "id",
+        "type": "bigint",
+        "nullable": false,
+        "default": null
+      },
+      {
+        "column": "name",
+        "type": "character varying",
+        "nullable": true,
+        "default": null
+      },
+      {
+        "column": "acronym",
+        "type": "character varying",
+        "nullable": true,
+        "default": null
+      },
+      {
+        "column": "date_installation",
+        "type": "date",
+        "nullable": true,
+        "default": null
+      },
+      {
+        "column": "background_color",
+        "type": "character varying",
+        "nullable": true,
+        "default": null
+      }
+    ],
+    "primary_key": [
+      "id"
+    ],
+    "foreign_keys": [],
+    "approx_rows": 8,
+    "sample": [
+      {
+        "id": "1",
+        "name": "Sanna",
+        "acronym": "None",
+        "date_installation": "None",
+        "background_color": "None"
+      },
+      {
+        "id": "2",
+        "name": "BanBif",
+        "acronym": "None",
+        "date_installation": "None",
+        "background_color": "None"
+      },
+      {
+        "id": "3",
+        "name": "Oechsle",
+        "acronym": "Oe",
+        "date_installation": "2026-01-27",
+        "background_color": "None"
+      }
+    ]
+  },
+  "public.enterprises_favoritepoint": {
+    "schema": "public",
+    "table": "enterprises_favoritepoint",
+    "columns": [
+      {
+        "column": "id",
+        "type": "bigint",
+        "nullable": false,
+        "default": null
+      },
+      {
+        "column": "created_at",
+        "type": "timestamp with time zone",
+        "nullable": false,
+        "default": null
+      },
+      {
+        "column": "modified_at",
+        "type": "timestamp with time zone",
+        "nullable": false,
+        "default": null
+      },
+      {
+        "column": "name",
+        "type": "character varying",
+        "nullable": false,
+        "default": null
+      },
+      {
+        "column": "electrical_panel_id",
+        "type": "bigint",
+        "nullable": false,
+        "default": null
+      },
+      {
+        "column": "energy_headquarter_id",
+        "type": "bigint",
+        "nullable": false,
+        "default": null
+      },
+      {
+        "column": "enterprise_id",
+        "type": "bigint",
+        "nullable": false,
+        "default": null
+      },
+      {
+        "column": "measurement_point_id",
+        "type": "bigint",
+        "nullable": false,
+        "default": null
+      }
+    ],
+    "primary_key": [
+      "id"
+    ],
+    "foreign_keys": [
+      {
+        "column": "electrical_panel_id",
+        "references": "public.enterprises_electricalpanel.id"
+      },
+      {
+        "column": "energy_headquarter_id",
+        "references": "public.enterprises_energyheadquarter.id"
+      },
+      {
+        "column": "enterprise_id",
+        "references": "public.enterprises_enterprise.id"
+      },
+      {
+        "column": "measurement_point_id",
+        "references": "public.enterprises_measurementpoint.id"
+      }
+    ],
+    "approx_rows": 7,
+    "sample": [
+      {
+        "id": "1",
+        "created_at": "2026-04-23 16:53:56.101680+00:00",
+        "modified_at": "2026-04-23 16:53:56.101695+00:00",
+        "name": "Chiller 1",
+        "electrical_panel_id": "39",
+        "energy_headquarter_id": "67",
+        "enterprise_id": "3",
+        "measurement_point_id": "77"
+      },
+      {
+        "id": "2",
+        "created_at": "2026-04-23 16:55:02.184486+00:00",
+        "modified_at": "2026-04-23 16:55:02.184503+00:00",
+        "name": "Chiller 2",
+        "electrical_panel_id": "39",
+        "energy_headquarter_id": "67",
+        "enterprise_id": "3",
+        "measurement_point_id": "78"
+      },
+      {
+        "id": "3",
+        "created_at": "2026-04-23 16:56:50.335427+00:00",
+        "modified_at": "2026-04-23 16:56:50.335443+00:00",
+        "name": "Resonador",
+        "electrical_panel_id": "4",
+        "energy_headquarter_id": "1",
+        "enterprise_id": "1",
+        "measurement_point_id": "5"
+      }
+    ]
+  },
+  "public.enterprises_headquartertariffpdf": {
+    "schema": "public",
+    "table": "enterprises_headquartertariffpdf",
+    "columns": [
+      {
+        "column": "id",
+        "type": "bigint",
+        "nullable": false,
+        "default": null
+      },
+      {
+        "column": "created_at",
+        "type": "timestamp with time zone",
+        "nullable": false,
+        "default": null
+      },
+      {
+        "column": "modified_at",
+        "type": "timestamp with time zone",
+        "nullable": false,
+        "default": null
+      },
+      {
+        "column": "title",
+        "type": "character varying",
+        "nullable": false,
+        "default": null
+      },
+      {
+        "column": "pdf_url",
+        "type": "character varying",
+        "nullable": false,
+        "default": null
+      },
+      {
+        "column": "month_date",
+        "type": "date",
+        "nullable": false,
+        "default": null
+      },
+      {
+        "column": "energy_headquarter_id",
+        "type": "bigint",
+        "nullable": false,
+        "default": null
+      }
+    ],
+    "primary_key": [
+      "id"
+    ],
+    "foreign_keys": [
+      {
+        "column": "energy_headquarter_id",
+        "references": "public.enterprises_energyheadquarter.id"
+      }
+    ],
+    "approx_rows": null,
+    "sample": [
+      {
+        "id": "3",
+        "created_at": "2026-06-25 19:52:10.487662+00:00",
+        "modified_at": "2026-06-25 19:52:10.487675+00:00",
+        "title": "Factura Mayo 2026",
+        "pdf_url": "https://drive.google.com/file/d/1rcumLSYpEIKl9rvG30giRm77x-2gv5k6/view?usp=sharing",
+        "month_date": "2026-05-30",
+        "energy_headquarter_id": "67"
+      },
+      {
+        "id": "1",
+        "created_at": "2026-06-25 19:50:43.896979+00:00",
+        "modified_at": "2026-06-25 19:52:15.913826+00:00",
+        "title": "Factura Abril 2026",
+        "pdf_url": "https://drive.google.com/file/d/1-OVQH5E1DBpo9RDUhlzoV0K-EtAQQZ5T/view?usp=sharing",
+        "month_date": "2026-04-30",
+        "energy_headquarter_id": "67"
+      },
+      {
+        "id": "2",
+        "created_at": "2026-06-25 19:51:28.012104+00:00",
+        "modified_at": "2026-06-25 19:52:19.494313+00:00",
+        "title": "Factura Marzo 2026",
+        "pdf_url": "https://drive.google.com/file/d/1DSjeSbAGZ4Z8Q-18vTZb6UxotPP-UCFc/view?usp=sharing",
+        "month_date": "2026-03-31",
+        "energy_headquarter_id": "67"
+      }
+    ]
+  },
+  "public.enterprises_measurementpoint": {
+    "schema": "public",
+    "table": "enterprises_measurementpoint",
+    "columns": [
+      {
+        "column": "id",
+        "type": "bigint",
+        "nullable": false,
+        "default": null
+      },
+      {
+        "column": "created_at",
+        "type": "timestamp with time zone",
+        "nullable": false,
+        "default": null
+      },
+      {
+        "column": "modified_at",
+        "type": "timestamp with time zone",
+        "nullable": false,
+        "default": null
+      },
+      {
+        "column": "name",
+        "type": "character varying",
+        "nullable": false,
+        "default": null
+      },
+      {
+        "column": "is_active",
+        "type": "boolean",
+        "nullable": false,
+        "default": null
+      },
+      {
+        "column": "is_main",
+        "type": "boolean",
+        "nullable": false,
+        "default": null
+      },
+      {
+        "column": "channel",
+        "type": "character varying",
+        "nullable": false,
+        "default": null
+      },
+      {
+        "column": "type",
+        "type": "character varying",
+        "nullable": false,
+        "default": null
+      },
+      {
+        "column": "key",
+        "type": "character varying",
+        "nullable": true,
+        "default": null
+      },
+      {
+        "column": "capacity",
+        "type": "character varying",
+        "nullable": true,
+        "default": null
+      },
+      {
+        "column": "hardware",
+        "type": "character varying",
+        "nullable": true,
+        "default": null
+      },
+      {
+        "column": "device_id",
+        "type": "bigint",
+        "nullable": true,
+        "default": null
+      },
+      {
+        "column": "capacity_amperage",
+        "type": "integer",
+        "nullable": false,
+        "default": null
+      },
+      {
+        "column": "capacity_voltage",
+        "type": "integer",
+        "nullable": false,
+        "default": null
+      },
+      {
+        "column": "installation_date",
+        "type": "date",
+        "nullable": true,
+        "default": null
+      },
+      {
+        "column": "location_reference",
+        "type": "text",
+        "nullable": true,
+        "default": null
+      },
+      {
+        "column": "last_threshold_calculation",
+        "type": "timestamp with time zone",
+        "nullable": true,
+        "default": null
+      },
+      {
+        "column": "saturday_threshold_inferior_limit",
+        "type": "double precision",
+        "nullable": true,
+        "default": null
+      },
+      {
+        "column": "saturday_threshold_superior_limit",
+        "type": "double precision",
+        "nullable": true,
+        "default": null
+      },
+      {
+        "column": "sunday_threshold_inferior_limit",
+        "type": "double precision",
+        "nullable": true,
+        "default": null
+      },
+      {
+        "column": "sunday_threshold_superior_limit",
+        "type": "double precision",
+        "nullable": true,
+        "default": null
+      },
+      {
+        "column": "workday_threshold_inferior_limit",
+        "type": "double precision",
+        "nullable": true,
+        "default": null
+      },
+      {
+        "column": "workday_threshold_superior_limit",
+        "type": "double precision",
+        "nullable": true,
+        "default": null
+      },
+      {
+        "column": "monitoring_topology",
+        "type": "character varying",
+        "nullable": false,
+        "default": null
+      }
+    ],
+    "primary_key": [
+      "id"
+    ],
+    "foreign_keys": [
+      {
+        "column": "device_id",
+        "references": "public.devices_device.id"
+      }
+    ],
+    "approx_rows": 85,
+    "sample": [
+      {
+        "id": "38",
+        "created_at": "2025-12-09 18:22:49.172758+00:00",
+        "modified_at": "2025-12-29 16:32:53.739029+00:00",
+        "name": "Ascensor lado derecho - PB",
+        "is_active": "True",
+        "is_main": "False",
+        "channel": "channel 1",
+        "type": "trifasico",
+        "key": "C7",
+        "capacity": "220v/",
+        "hardware": "Analizador de red Trifásico - 600A - Pinza 1",
+        "device_id": "37",
+        "capacity_amperage": "0",
+        "capacity_voltage": "220",
+        "installation_date": "None",
+        "location_reference": "https://61nni6xmyf.ufs.sh/f/rDA5hrgTnRJUV9m7CTpB0bkhuGegt5NomCDqJ6s9nFQ8T4fi",
+        "last_threshold_calculation": "None",
+        "saturday_threshold_inferior_limit": "0.0",
+        "saturday_threshold_superior_limit": "0.0",
+        "sunday_threshold_inferior_limit": "0.0",
+        "sunday_threshold_superior_limit": "0.0",
+        "workday_threshold_inferior_limit": "0.0",
+        "workday_threshold_superior_limit": "0.0",
+        "monitoring_topology": "three_phase_3w"
+      },
+      {
+        "id": "3",
+        "created_at": "2025-12-04 23:25:33.615173+00:00",
+        "modified_at": "2025-12-29 17:32:18.540653+00:00",
+        "name": "Llave general cuarto de bombas",
+        "is_active": "True",
+        "is_main": "True",
+        "channel": "channel 1",
+        "type": "trifasico",
+        "key": "IG",
+        "capacity": "220v/100A",
+        "hardware": "Analizador de red Trifásico - 600A",
+        "device_id": "3",
+        "capacity_amperage": "100",
+        "capacity_voltage": "220",
+        "installation_date": "None",
+        "location_reference": "https://61nni6xmyf.ufs.sh/f/rDA5hrgTnRJUhwvBTWc9mH3vcdFUW6EnYVTGqpbN7zJjeCQa",
+        "last_threshold_calculation": "None",
+        "saturday_threshold_inferior_limit": "0.0",
+        "saturday_threshold_superior_limit": "0.0",
+        "sunday_threshold_inferior_limit": "0.0",
+        "sunday_threshold_superior_limit": "0.0",
+        "workday_threshold_inferior_limit": "0.0",
+        "workday_threshold_superior_limit": "0.0",
+        "monitoring_topology": "three_phase_3w"
+      },
+      {
+        "id": "52",
+        "created_at": "2025-12-29 18:44:49.352839+00:00",
+        "modified_at": "2025-12-29 18:44:49.352853+00:00",
+        "name": "No identificados",
+        "is_active": "False",
+        "is_main": "False",
+        "channel": "channel 2",
+        "type": "monofasico",
+        "key": "C4",
+        "capacity": "220v/",
+        "hardware": "None",
+        "device_id": "44",
+        "capacity_amperage": "20",
+        "capacity_voltage": "220",
+        "installation_date": "None",
+        "location_reference": "",
+        "last_threshold_calculation": "None",
+        "saturday_threshold_inferior_limit": "0.0",
+        "saturday_threshold_superior_limit": "0.0",
+        "sunday_threshold_inferior_limit": "0.0",
+        "sunday_threshold_superior_limit": "0.0",
+        "workday_threshold_inferior_limit": "0.0",
+        "workday_threshold_superior_limit": "0.0",
+        "monitoring_topology": "three_phase_3w"
+      }
+    ]
+  },
+  "public.enterprises_panelautomatizationzeia": {
+    "schema": "public",
+    "table": "enterprises_panelautomatizationzeia",
+    "columns": [
+      {
+        "column": "id",
+        "type": "bigint",
+        "nullable": false,
+        "default": null
+      },
+      {
+        "column": "created_at",
+        "type": "timestamp with time zone",
+        "nullable": false,
+        "default": null
+      },
+      {
+        "column": "modified_at",
+        "type": "timestamp with time zone",
+        "nullable": false,
+        "default": null
+      },
+      {
+        "column": "type",
+        "type": "character varying",
+        "nullable": false,
+        "default": null
+      },
+      {
+        "column": "name",
+        "type": "character varying",
+        "nullable": false,
+        "default": null
+      },
+      {
+        "column": "is_active",
+        "type": "boolean",
+        "nullable": false,
+        "default": null
+      },
+      {
+        "column": "energy_headquarter_id",
+        "type": "bigint",
+        "nullable": false,
+        "default": null
+      }
+    ],
+    "primary_key": [
+      "id"
+    ],
+    "foreign_keys": [
+      {
+        "column": "energy_headquarter_id",
+        "references": "public.enterprises_energyheadquarter.id"
+      }
+    ],
+    "approx_rows": 0,
+    "sample": []
+  },
+  "public.enterprises_power": {
+    "schema": "public",
+    "table": "enterprises_power",
+    "columns": [
+      {
+        "column": "id",
+        "type": "bigint",
+        "nullable": false,
+        "default": null
+      },
+      {
+        "column": "created_at",
+        "type": "timestamp with time zone",
+        "nullable": false,
+        "default": null
+      },
+      {
+        "column": "modified_at",
+        "type": "timestamp with time zone",
+        "nullable": false,
+        "default": null
+      },
+      {
+        "column": "power_installed",
+        "type": "double precision",
+        "nullable": false,
+        "default": null
+      },
+      {
+        "column": "is_power_installed_active",
+        "type": "boolean",
+        "nullable": false,
+        "default": null
+      },
+      {
+        "column": "power_contracted",
+        "type": "double precision",
+        "nullable": false,
+        "default": null
+      },
+      {
+        "column": "is_power_contracted_active",
+        "type": "boolean",
+        "nullable": false,
+        "default": null
+      },
+      {
+        "column": "power_max",
+        "type": "double precision",
+        "nullable": false,
+        "default": null
+      },
+      {
+        "column": "is_power_max_active",
+        "type": "boolean",
+        "nullable": false,
+        "default": null
+      },
+      {
+        "column": "energy_headquarter_id",
+        "type": "bigint",
+        "nullable": false,
+        "default": null
+      }
+    ],
+    "primary_key": [
+      "id"
+    ],
+    "foreign_keys": [
+      {
+        "column": "energy_headquarter_id",
+        "references": "public.enterprises_energyheadquarter.id"
+      }
+    ],
+    "approx_rows": 2,
+    "sample": [
+      {
+        "id": "34",
+        "created_at": "2026-02-18 15:01:25.120117+00:00",
+        "modified_at": "2026-02-18 15:01:25.120134+00:00",
+        "power_installed": "0.0",
+        "is_power_installed_active": "False",
+        "power_contracted": "686.0",
+        "is_power_contracted_active": "True",
+        "power_max": "0.0",
+        "is_power_max_active": "False",
+        "energy_headquarter_id": "67"
+      },
+      {
+        "id": "1",
+        "created_at": "2025-12-05 16:33:46.700941+00:00",
+        "modified_at": "2026-02-18 15:31:34.796356+00:00",
+        "power_installed": "0.0",
+        "is_power_installed_active": "False",
+        "power_contracted": "1200.0",
+        "is_power_contracted_active": "True",
+        "power_max": "0.0",
+        "is_power_max_active": "False",
+        "energy_headquarter_id": "1"
+      }
+    ]
+  },
+  "public.enterprises_room": {
+    "schema": "public",
+    "table": "enterprises_room",
+    "columns": [
+      {
+        "column": "id",
+        "type": "bigint",
+        "nullable": false,
+        "default": null
+      },
+      {
+        "column": "created_at",
+        "type": "timestamp with time zone",
+        "nullable": false,
+        "default": null
+      },
+      {
+        "column": "modified_at",
+        "type": "timestamp with time zone",
+        "nullable": false,
+        "default": null
+      },
+      {
+        "column": "name",
+        "type": "character varying",
+        "nullable": true,
+        "default": null
+      },
+      {
+        "column": "is_active",
+        "type": "boolean",
+        "nullable": false,
+        "default": null
+      },
+      {
+        "column": "headquarter_id",
+        "type": "bigint",
+        "nullable": false,
+        "default": null
+      }
+    ],
+    "primary_key": [
+      "id"
+    ],
+    "foreign_keys": [
+      {
+        "column": "headquarter_id",
+        "references": "public.enterprises_energyheadquarter.id"
+      }
+    ],
+    "approx_rows": 0,
+    "sample": []
+  },
+  "public.historical_readinghistory": {
+    "schema": "public",
+    "table": "historical_readinghistory",
+    "columns": [
+      {
+        "column": "id",
+        "type": "bigint",
+        "nullable": false,
+        "default": null
+      },
+      {
+        "column": "created_at",
+        "type": "timestamp with time zone",
+        "nullable": false,
+        "default": null
+      },
+      {
+        "column": "modified_at",
+        "type": "timestamp with time zone",
+        "nullable": false,
+        "default": null
+      },
+      {
+        "column": "data",
+        "type": "jsonb",
+        "nullable": false,
+        "default": null
+      },
+      {
+        "column": "electrical_panel_id",
+        "type": "bigint",
+        "nullable": false,
+        "default": null
+      }
+    ],
+    "primary_key": [
+      "id"
+    ],
+    "foreign_keys": [
+      {
+        "column": "electrical_panel_id",
+        "references": "public.enterprises_electricalpanel.id"
+      }
+    ],
+    "approx_rows": 8267592,
+    "sample": [
+      {
+        "id": "1",
+        "created_at": "2025-12-09 18:36:44.820742+00:00",
+        "modified_at": "2025-12-09 18:36:44.820742+00:00",
+        "data": "{'snr': 12.8, 'rssi': -45, 'devEUI': '24e124468e392370', 'channels': {'CH1': {'P': 0, 'Q': 0, 'Ia': 0, 'Ib': 0, 'Ic': 0, 'Ua': 0, 'Ub': 0, 'Uc': 0, 'EPneg': 0, 'EPpos': 0, 'EQneg': 0, 'EQpos': 0}}, 'password': 'VIoT-2025$'}",
+        "electrical_panel_id": "4"
+      },
+      {
+        "id": "2",
+        "created_at": "2025-12-09 18:36:51.393625+00:00",
+        "modified_at": "2025-12-09 18:36:51.393625+00:00",
+        "data": "{'snr': 13.8, 'rssi': -45, 'devEUI': '24e124621f211202', 'channels': {'CH1': {'P': 0, 'Q': 0, 'Ia': 0, 'Ib': 0, 'Ic': 0, 'Ua': 0, 'Ub': 0, 'Uc': 0, 'EPneg': 0, 'EPpos': 0, 'EQneg': 0, 'EQpos': 0}}, 'password': 'VIoT-2025$'}",
+        "electrical_panel_id": "4"
+      },
+      {
+        "id": "3",
+        "created_at": "2025-12-09 18:37:21.589848+00:00",
+        "modified_at": "2025-12-09 18:37:21.589848+00:00",
+        "data": "{'snr': 13.8, 'rssi': -46, 'devEUI': '24e124468e392350', 'channels': {'CH1': {'P': 0, 'Q': 0, 'Ia': 0, 'Ib': 0, 'Ic': 0, 'Ua': 0, 'Ub': 0, 'Uc': 0, 'EPneg': 0, 'EPpos': 0, 'EQneg': 0, 'EQpos': 0}}, 'password': 'VIoT-2025$'}",
+        "electrical_panel_id": "4"
+      }
+    ]
+  },
+  "public.historical_readinghistoryairqualityco2temphum": {
+    "schema": "public",
+    "table": "historical_readinghistoryairqualityco2temphum",
+    "columns": [
+      {
+        "column": "id",
+        "type": "bigint",
+        "nullable": false,
+        "default": null
+      },
+      {
+        "column": "created_at",
+        "type": "timestamp with time zone",
+        "nullable": false,
+        "default": null
+      },
+      {
+        "column": "modified_at",
+        "type": "timestamp with time zone",
+        "nullable": false,
+        "default": null
+      },
+      {
+        "column": "data",
+        "type": "jsonb",
+        "nullable": false,
+        "default": null
+      },
+      {
+        "column": "room_id",
+        "type": "bigint",
+        "nullable": true,
+        "default": null
+      }
+    ],
+    "primary_key": [
+      "id"
+    ],
+    "foreign_keys": [
+      {
+        "column": "room_id",
+        "references": "public.enterprises_room.id"
+      }
+    ],
+    "approx_rows": 0,
+    "sample": []
+  },
+  "public.historical_readinghistoryenergyrelays": {
+    "schema": "public",
+    "table": "historical_readinghistoryenergyrelays",
+    "columns": [
+      {
+        "column": "id",
+        "type": "bigint",
+        "nullable": false,
+        "default": null
+      },
+      {
+        "column": "created_at",
+        "type": "timestamp with time zone",
+        "nullable": false,
+        "default": null
+      },
+      {
+        "column": "modified_at",
+        "type": "timestamp with time zone",
+        "nullable": false,
+        "default": null
+      },
+      {
+        "column": "data",
+        "type": "jsonb",
+        "nullable": false,
+        "default": null
+      },
+      {
+        "column": "panel_automatization_id",
+        "type": "bigint",
+        "nullable": true,
+        "default": null
+      }
+    ],
+    "primary_key": [
+      "id"
+    ],
+    "foreign_keys": [
+      {
+        "column": "panel_automatization_id",
+        "references": "public.enterprises_panelautomatizationzeia.id"
+      }
+    ],
+    "approx_rows": 0,
+    "sample": []
+  },
+  "public.historical_readinghistorythermalcomfortpersonsensor": {
+    "schema": "public",
+    "table": "historical_readinghistorythermalcomfortpersonsensor",
+    "columns": [
+      {
+        "column": "id",
+        "type": "bigint",
+        "nullable": false,
+        "default": null
+      },
+      {
+        "column": "created_at",
+        "type": "timestamp with time zone",
+        "nullable": false,
+        "default": null
+      },
+      {
+        "column": "modified_at",
+        "type": "timestamp with time zone",
+        "nullable": false,
+        "default": null
+      },
+      {
+        "column": "data",
+        "type": "jsonb",
+        "nullable": false,
+        "default": null
+      },
+      {
+        "column": "room_id",
+        "type": "bigint",
+        "nullable": true,
+        "default": null
+      }
+    ],
+    "primary_key": [
+      "id"
+    ],
+    "foreign_keys": [
+      {
+        "column": "room_id",
+        "references": "public.enterprises_room.id"
+      }
+    ],
+    "approx_rows": 0,
+    "sample": []
+  },
+  "public.historical_readinghistorythermalcomfortrelaybraker": {
+    "schema": "public",
+    "table": "historical_readinghistorythermalcomfortrelaybraker",
+    "columns": [
+      {
+        "column": "id",
+        "type": "bigint",
+        "nullable": false,
+        "default": null
+      },
+      {
+        "column": "created_at",
+        "type": "timestamp with time zone",
+        "nullable": false,
+        "default": null
+      },
+      {
+        "column": "modified_at",
+        "type": "timestamp with time zone",
+        "nullable": false,
+        "default": null
+      },
+      {
+        "column": "data",
+        "type": "jsonb",
+        "nullable": false,
+        "default": null
+      },
+      {
+        "column": "panel_automatization_id",
+        "type": "bigint",
+        "nullable": true,
+        "default": null
+      }
+    ],
+    "primary_key": [
+      "id"
+    ],
+    "foreign_keys": [
+      {
+        "column": "panel_automatization_id",
+        "references": "public.enterprises_panelautomatizationzeia.id"
+      }
+    ],
+    "approx_rows": 0,
+    "sample": []
+  },
+  "public.historical_readinghistorythermalcomforttemphum": {
+    "schema": "public",
+    "table": "historical_readinghistorythermalcomforttemphum",
+    "columns": [
+      {
+        "column": "id",
+        "type": "bigint",
+        "nullable": false,
+        "default": null
+      },
+      {
+        "column": "created_at",
+        "type": "timestamp with time zone",
+        "nullable": false,
+        "default": null
+      },
+      {
+        "column": "modified_at",
+        "type": "timestamp with time zone",
+        "nullable": false,
+        "default": null
+      },
+      {
+        "column": "data",
+        "type": "jsonb",
+        "nullable": false,
+        "default": null
+      },
+      {
+        "column": "room_id",
+        "type": "bigint",
+        "nullable": true,
+        "default": null
+      }
+    ],
+    "primary_key": [
+      "id"
+    ],
+    "foreign_keys": [
+      {
+        "column": "room_id",
+        "references": "public.enterprises_room.id"
+      }
+    ],
+    "approx_rows": 0,
+    "sample": []
+  },
+  "public.indicators_indicator": {
+    "schema": "public",
+    "table": "indicators_indicator",
+    "columns": [
+      {
+        "column": "id",
+        "type": "bigint",
+        "nullable": false,
+        "default": null
+      },
+      {
+        "column": "created_at",
+        "type": "timestamp with time zone",
+        "nullable": false,
+        "default": null
+      },
+      {
+        "column": "modified_at",
+        "type": "timestamp with time zone",
+        "nullable": false,
+        "default": null
+      },
+      {
+        "column": "name",
+        "type": "character varying",
+        "nullable": false,
+        "default": null
+      },
+      {
+        "column": "abbreviation",
+        "type": "character varying",
+        "nullable": false,
+        "default": null
+      },
+      {
+        "column": "is_active",
+        "type": "boolean",
+        "nullable": false,
+        "default": null
+      },
+      {
+        "column": "unit_measure_id",
+        "type": "bigint",
+        "nullable": true,
+        "default": null
+      }
+    ],
+    "primary_key": [
+      "id"
+    ],
+    "foreign_keys": [
+      {
+        "column": "unit_measure_id",
+        "references": "public.indicators_unitmeasure.id"
+      }
+    ],
+    "approx_rows": 0,
+    "sample": []
+  },
+  "public.indicators_unitmeasure": {
+    "schema": "public",
+    "table": "indicators_unitmeasure",
+    "columns": [
+      {
+        "column": "id",
+        "type": "bigint",
+        "nullable": false,
+        "default": null
+      },
+      {
+        "column": "created_at",
+        "type": "timestamp with time zone",
+        "nullable": false,
+        "default": null
+      },
+      {
+        "column": "modified_at",
+        "type": "timestamp with time zone",
+        "nullable": false,
+        "default": null
+      },
+      {
+        "column": "name",
+        "type": "character varying",
+        "nullable": false,
+        "default": null
+      },
+      {
+        "column": "abbreviation",
+        "type": "character varying",
+        "nullable": false,
+        "default": null
+      },
+      {
+        "column": "is_active",
+        "type": "boolean",
+        "nullable": false,
+        "default": null
+      }
+    ],
+    "primary_key": [
+      "id"
+    ],
+    "foreign_keys": [],
+    "approx_rows": 0,
+    "sample": []
+  },
+  "public.pruebabruno": {
+    "schema": "public",
+    "table": "pruebabruno",
+    "columns": [
+      {
+        "column": "campo1",
+        "type": "character",
+        "nullable": true,
+        "default": null
+      }
+    ],
+    "primary_key": [],
+    "foreign_keys": [],
+    "approx_rows": 10,
+    "sample": [
+      {
+        "campo1": "aaa  "
+      },
+      {
+        "campo1": "bbb  "
+      },
+      {
+        "campo1": "ccc  "
+      }
+    ]
+  },
+  "public.readings_reading": {
+    "schema": "public",
+    "table": "readings_reading",
+    "columns": [
+      {
+        "column": "id",
+        "type": "bigint",
+        "nullable": false,
+        "default": null
+      },
+      {
+        "column": "created_at",
+        "type": "timestamp with time zone",
+        "nullable": false,
+        "default": null
+      },
+      {
+        "column": "modified_at",
+        "type": "timestamp with time zone",
+        "nullable": false,
+        "default": null
+      },
+      {
+        "column": "values_per_channel",
+        "type": "ARRAY",
+        "nullable": false,
+        "default": null
+      },
+      {
+        "column": "P_value",
+        "type": "double precision",
+        "nullable": true,
+        "default": null
+      },
+      {
+        "column": "Q_value",
+        "type": "double precision",
+        "nullable": true,
+        "default": null
+      },
+      {
+        "column": "S_value",
+        "type": "double precision",
+        "nullable": true,
+        "default": null
+      },
+      {
+        "column": "PF_value",
+        "type": "double precision",
+        "nullable": true,
+        "default": null
+      },
+      {
+        "column": "F_value",
+        "type": "double precision",
+        "nullable": true,
+        "default": null
+      },
+      {
+        "column": "EPpos_value",
+        "type": "double precision",
+        "nullable": true,
+        "default": null
+      },
+      {
+        "column": "EPneg_value",
+        "type": "double precision",
+        "nullable": true,
+        "default": null
+      },
+      {
+        "column": "EQpos_value",
+        "type": "double precision",
+        "nullable": true,
+        "default": null
+      },
+      {
+        "column": "EQneg_value",
+        "type": "double precision",
+        "nullable": true,
+        "default": null
+      },
+      {
+        "column": "Ua_value",
+        "type": "double precision",
+        "nullable": true,
+        "default": null
+      },
+      {
+        "column": "Ub_value",
+        "type": "double precision",
+        "nullable": true,
+        "default": null
+      },
+      {
+        "column": "Uc_value",
+        "type": "double precision",
+        "nullable": true,
+        "default": null
+      },
+      {
+        "column": "Uab_value",
+        "type": "double precision",
+        "nullable": true,
+        "default": null
+      },
+      {
+        "column": "Ubc_value",
+        "type": "double precision",
+        "nullable": true,
+        "default": null
+      },
+      {
+        "column": "Uac_value",
+        "type": "double precision",
+        "nullable": true,
+        "default": null
+      },
+      {
+        "column": "Ia_value",
+        "type": "double precision",
+        "nullable": true,
+        "default": null
+      },
+      {
+        "column": "Ib_value",
+        "type": "double precision",
+        "nullable": true,
+        "default": null
+      },
+      {
+        "column": "Ic_value",
+        "type": "double precision",
+        "nullable": true,
+        "default": null
+      },
+      {
+        "column": "In_value",
+        "type": "double precision",
+        "nullable": true,
+        "default": null
+      },
+      {
+        "column": "THDUa_value",
+        "type": "double precision",
+        "nullable": true,
+        "default": null
+      },
+      {
+        "column": "THDUb_value",
+        "type": "double precision",
+        "nullable": true,
+        "default": null
+      },
+      {
+        "column": "THDUc_value",
+        "type": "double precision",
+        "nullable": true,
+        "default": null
+      },
+      {
+        "column": "THDIa_value",
+        "type": "double precision",
+        "nullable": true,
+        "default": null
+      },
+      {
+        "column": "THDIb_value",
+        "type": "double precision",
+        "nullable": true,
+        "default": null
+      },
+      {
+        "column": "THDIc_value",
+        "type": "double precision",
+        "nullable": true,
+        "default": null
+      },
+      {
+        "column": "device_id",
+        "type": "bigint",
+        "nullable": false,
+        "default": null
+      },
+      {
+        "column": "measurement_point_id",
+        "type": "bigint",
+        "nullable": false,
+        "default": null
+      },
+      {
+        "column": "clamp_assignment_id",
+        "type": "bigint",
+        "nullable": true,
+        "default": null
+      },
+      {
+        "column": "U_value",
+        "type": "double precision",
+        "nullable": true,
+        "default": null
+      },
+      {
+        "column": "I_value",
+        "type": "double precision",
+        "nullable": true,
+        "default": null
+      },
+      {
+        "column": "EP_value",
+        "type": "double precision",
+        "nullable": true,
+        "default": null
+      },
+      {
+        "column": "EQ_value",
+        "type": "double precision",
+        "nullable": true,
+        "default": null
+      }
+    ],
+    "primary_key": [
+      "id"
+    ],
+    "foreign_keys": [
+      {
+        "column": "clamp_assignment_id",
+        "references": "public.enterprises_clampassignment.id"
+      },
+      {
+        "column": "device_id",
+        "references": "public.devices_device.id"
+      },
+      {
+        "column": "measurement_point_id",
+        "references": "public.enterprises_measurementpoint.id"
+      }
+    ],
+    "approx_rows": 8261127,
+    "sample": [
+      {
+        "id": "1",
+        "created_at": "2025-12-09 18:36:44.820742+00:00",
+        "modified_at": "2025-12-09 18:36:44.820742+00:00",
+        "values_per_channel": "[[{'values': {'P': 0, 'Q': 0, 'Ia': 0, 'Ib': 0, 'Ic': 0, 'Ua': 0, 'Ub': 0, 'Uc': 0, 'EPneg': 0, 'EPpos': 0, 'EQneg': 0, 'EQpos': 0}, 'channel': 1}]]",
+        "P_value": "0.0",
+        "Q_value": "0.0",
+        "S_value": "None",
+        "PF_value": "None",
+        "F_value": "None",
+        "EPpos_value": "0.0",
+        "EPneg_value": "0.0",
+        "EQpos_value": "0.0",
+        "EQneg_value": "0.0",
+        "Ua_value": "0.0",
+        "Ub_value": "0.0",
+        "Uc_value": "0.0",
+        "Uab_value": "None",
+        "Ubc_value": "None",
+        "Uac_value": "None",
+        "Ia_value": "0.0",
+        "Ib_value": "0.0",
+        "Ic_value": "0.0",
+        "In_value": "None",
+        "THDUa_value": "None",
+        "THDUb_value": "None",
+        "THDUc_value": "None",
+        "THDIa_value": "None",
+        "THDIb_value": "None",
+        "THDIc_value": "None",
+        "device_id": "34",
+        "measurement_point_id": "35",
+        "clamp_assignment_id": "7",
+        "U_value": "None",
+        "I_value": "None",
+        "EP_value": "None",
+        "EQ_value": "None"
+      },
+      {
+        "id": "2",
+        "created_at": "2025-12-09 18:36:51.393625+00:00",
+        "modified_at": "2025-12-09 18:36:51.393625+00:00",
+        "values_per_channel": "[[{'values': {'P': 0, 'Q': 0, 'Ia': 0, 'Ib': 0, 'Ic': 0, 'Ua': 0, 'Ub': 0, 'Uc': 0, 'EPneg': 0, 'EPpos': 0, 'EQneg': 0, 'EQpos': 0}, 'channel': 1}]]",
+        "P_value": "0.0",
+        "Q_value": "0.0",
+        "S_value": "None",
+        "PF_value": "None",
+        "F_value": "None",
+        "EPpos_value": "0.0",
+        "EPneg_value": "0.0",
+        "EQpos_value": "0.0",
+        "EQneg_value": "0.0",
+        "Ua_value": "0.0",
+        "Ub_value": "0.0",
+        "Uc_value": "0.0",
+        "Uab_value": "None",
+        "Ubc_value": "None",
+        "Uac_value": "None",
+        "Ia_value": "0.0",
+        "Ib_value": "0.0",
+        "Ic_value": "0.0",
+        "In_value": "None",
+        "THDUa_value": "None",
+        "THDUb_value": "None",
+        "THDUc_value": "None",
+        "THDIa_value": "None",
+        "THDIb_value": "None",
+        "THDIc_value": "None",
+        "device_id": "36",
+        "measurement_point_id": "37",
+        "clamp_assignment_id": "9",
+        "U_value": "None",
+        "I_value": "None",
+        "EP_value": "None",
+        "EQ_value": "None"
+      },
+      {
+        "id": "3",
+        "created_at": "2025-12-09 18:37:21.589848+00:00",
+        "modified_at": "2025-12-09 18:37:21.589848+00:00",
+        "values_per_channel": "[[{'values': {'P': 0, 'Q': 0, 'Ia': 0, 'Ib': 0, 'Ic': 0, 'Ua': 0, 'Ub': 0, 'Uc': 0, 'EPneg': 0, 'EPpos': 0, 'EQneg': 0, 'EQpos': 0}, 'channel': 1}]]",
+        "P_value": "0.0",
+        "Q_value": "0.0",
+        "S_value": "None",
+        "PF_value": "None",
+        "F_value": "None",
+        "EPpos_value": "0.0",
+        "EPneg_value": "0.0",
+        "EQpos_value": "0.0",
+        "EQneg_value": "0.0",
+        "Ua_value": "0.0",
+        "Ub_value": "0.0",
+        "Uc_value": "0.0",
+        "Uab_value": "None",
+        "Ubc_value": "None",
+        "Uac_value": "None",
+        "Ia_value": "0.0",
+        "Ib_value": "0.0",
+        "Ic_value": "0.0",
+        "In_value": "None",
+        "THDUa_value": "None",
+        "THDUb_value": "None",
+        "THDUc_value": "None",
+        "THDIa_value": "None",
+        "THDIb_value": "None",
+        "THDIc_value": "None",
+        "device_id": "35",
+        "measurement_point_id": "36",
+        "clamp_assignment_id": "8",
+        "U_value": "None",
+        "I_value": "None",
+        "EP_value": "None",
+        "EQ_value": "None"
+      }
+    ]
+  },
+  "public.readings_readingairqualityandenergy": {
+    "schema": "public",
+    "table": "readings_readingairqualityandenergy",
+    "columns": [
+      {
+        "column": "id",
+        "type": "bigint",
+        "nullable": false,
+        "default": null
+      },
+      {
+        "column": "created_at",
+        "type": "timestamp with time zone",
+        "nullable": false,
+        "default": null
+      },
+      {
+        "column": "modified_at",
+        "type": "timestamp with time zone",
+        "nullable": false,
+        "default": null
+      },
+      {
+        "column": "value",
+        "type": "character varying",
+        "nullable": true,
+        "default": null
+      },
+      {
+        "column": "status_ica",
+        "type": "character varying",
+        "nullable": true,
+        "default": null
+      },
+      {
+        "column": "indicator_device_id",
+        "type": "bigint",
+        "nullable": true,
+        "default": null
+      },
+      {
+        "column": "room_id",
+        "type": "bigint",
+        "nullable": true,
+        "default": null
+      }
+    ],
+    "primary_key": [
+      "id"
+    ],
+    "foreign_keys": [
+      {
+        "column": "indicator_device_id",
+        "references": "public.devices_indicatordevice.id"
+      },
+      {
+        "column": "room_id",
+        "references": "public.enterprises_room.id"
+      }
+    ],
+    "approx_rows": 0,
+    "sample": []
+  },
+  "public.readings_readingthermalcomfort": {
+    "schema": "public",
+    "table": "readings_readingthermalcomfort",
+    "columns": [
+      {
+        "column": "id",
+        "type": "bigint",
+        "nullable": false,
+        "default": null
+      },
+      {
+        "column": "created_at",
+        "type": "timestamp with time zone",
+        "nullable": false,
+        "default": null
+      },
+      {
+        "column": "modified_at",
+        "type": "timestamp with time zone",
+        "nullable": false,
+        "default": null
+      }
+    ],
+    "primary_key": [
+      "id"
+    ],
+    "foreign_keys": [],
+    "approx_rows": 0,
+    "sample": []
+  }
+}

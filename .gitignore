@@ -1,0 +1,18 @@
+# Secretos
+.env
+*.pem
+
+# Python
+venv/
+__pycache__/
+*.pyc
+.pytest_cache/
+
+# Resultados de evaluación (pueden contener datos)
+eval/results/
+
+# Logs
+*.log
+
+# SO
+.DS_Store
