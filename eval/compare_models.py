@@ -112,7 +112,9 @@ def main() -> None:
                 f"{len(r.queries)} queries | ${cost:.5f}"
             )
             # Guardar incrementalmente por si algo falla a mitad
-            out_path.write_text(json.dumps(results, ensure_ascii=False, indent=2))
+            out_path.write_text(
+                json.dumps(results, ensure_ascii=False, indent=2), encoding="utf-8"
+            )
 
     # Resumen por modelo
     print(f"\n{'='*70}\nRESUMEN\n{'='*70}")
