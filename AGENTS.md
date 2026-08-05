@@ -19,6 +19,10 @@ src/
   tools.py              Function calling: list_schemas/list_tables/describe_table/
                         run_query/render_chart (gráficos: specs capturadas en agent.py
                         y renderizadas por la web; en CLI se ignoran)
+                        + list_documents/extract_pdf_text (leer PDFs de la raíz)
+  pdf_tools.py          Lista y extrae PDFs del proyecto (pdf-inspector → Markdown
+                        con tablas; fallback pypdf). Facturas Kallpa: enero-2025.pdf…
+                        diciembre-2025.pdf (Tiendas Peruanas S.A. = Oechsle Salaverry)
   agent.py              Loop del agente (OpenRouter, máx 15 iteraciones, temperature 0.1)
   prompts.py            System prompt con TODO el conocimiento del dominio (¡mantener al día!)
 docs/
@@ -83,6 +87,24 @@ docs/
 - **Total de tablero/sede**: punto `is_main` si existe; si no, Σ puntos.
   NUNCA llave + subcircuitos (duplica). TG-RT no tiene is_main (su carga
   principal es el punto "Tomógrafo").
+- **⚠️ Total de Oechsle Salaverry (criterio del cliente, sesión 8)**: el
+  consumo de la sede = SOLO los 2 tableros "Llave general TG-TR1" (punto 75)
+  + "TG-TR2 (TF-AA) - HVAC" (punto 76). NO sumar "Red normal" (67) ni
+  "Llave General TGE-TR1" (69) aunque tengan is_main=true. Con esta regla el
+  monitoreo queda ~33% por debajo de la factura → pendiente validar qué
+  miden esos otros 2 puntos y el periodo de lectura del medidor BRG.
+- **⚠️ Salto de contador TG-TR2 (punto 76) el 23-mar-2026**: +62,979 kWh en
+  un día (único evento en feb-jul 2026). **EXPLICADO (sesión 9)**: el ADW300
+  (dispositivo 71) contaba al 50% desde su instalación (12-feb): ~1,400
+  kWh/día vs ~2,800 kWh/día que sumaban sus subcircuitos (49-50% exacto). El
+  23-mar 16:11 lo corrigieron: el salto de +62,499 = la energía no contada
+  acumulada (~45 días × ~1,390/día) y desde entonces marca 100% de sus
+  subcircuitos. NO es defecto general del ADW300: el punto 75 (TG-TR1, mismo
+  modelo) rinde 110-117% de sus subcircuitos de forma estable, y ningún otro
+  punto de Oechsle/Sanna/Madam Tusan saltó. Marzo registrado (121 MWh) incluye
+  la corrección → el real fue ~90 MWh. Los demás "duplicados" feb→mar de
+  Oechsle son artefacto: las lecturas EPpos arrancaron progresivamente el
+  07-14-feb (febrero parcial).
 - **Tarifa Oechsle = 39.15 S//kWh** en billingdata: casi seguro error de
   digitación en la fuente (las demás son 0.65). Reportarlo con transparencia,
   no ajustar en silencio. Sanna NO tiene tarifa registrada (billing_data_id
@@ -91,6 +113,15 @@ docs/
 - **Performance DB**: agregación 3 meses × 1 punto ≈ 25s; 2 puntos 60–100s.
   statement_timeout = 120s. Recomendación DBA: índice covering
   (measurement_point_id, created_at) INCLUDE ("EPpos_value","P_value").
+- **⚠️ P_value: unidades INCONSISTENTES por dispositivo** (sesión 7): Sanna
+  TGA en kW, Sanna "cuarto de bombas" en W, Oechsle en unidades raras
+  (avg ~1.8, máx ~400 — nada cuadra con EPpos). NO usar P_value de Oechsle
+  para demanda/potencia; validar unidades antes de reportar kW. El EPpos
+  (contador) sí es confiable.
+- **Facturas 2026**: enero-2026.pdf…junio-2026.pdf en la raíz (mismos campos
+  que 2025). Precio 2026: 38.2–39.2 US$/MWh; mayo-2026 = 39.15 = billingdata
+  exacto (tarifa validada). Demanda HFP superó 686 kW (ene/mar) sin recargo
+  (Exceso HP/HFP = 0.000).
 
 ## Resultados de la comparación de modelos (eval 2026-07-28)
 

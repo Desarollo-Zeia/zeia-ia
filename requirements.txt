@@ -6,3 +6,5 @@ pyyaml>=6.0
 sqlparse>=0.5
 fastapi>=0.110
 uvicorn>=0.29
+pypdf>=4.0
+pdf-inspector>=0.2

@@ -34,6 +34,7 @@ STATIC = ROOT / "web" / "static"
 # Modelos ofrecidos en el selector (resultado de la evaluación comparativa)
 MODEL_OPTIONS = [
     {"id": "qwen/qwen3-coder", "label": "Qwen 3 Coder (recomendado)"},
+    {"id": "deepseek/deepseek-v4-flash", "label": "DeepSeek V4 Flash (rápido/barato)"},
     {"id": "google/gemini-2.5-flash", "label": "Gemini 2.5 Flash (rápido)"},
     {"id": "openai/gpt-4.1-mini", "label": "GPT-4.1 mini"},
     {"id": "anthropic/claude-sonnet-4.5", "label": "Claude Sonnet 4.5 (premium)"},
