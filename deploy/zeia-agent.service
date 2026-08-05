@@ -1,0 +1,15 @@
+[Unit]
+Description=ZEIA agente de energia (FastAPI)
+After=network.target
+
+[Service]
+Type=simple
+User=ubuntu
+WorkingDirectory=/home/ubuntu/zeia-ia
+Environment=PORT=8000
+ExecStart=/home/ubuntu/zeia-ia/venv/bin/python webapp.py
+Restart=always
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target
