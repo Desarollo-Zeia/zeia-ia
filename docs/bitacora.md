@@ -397,3 +397,101 @@ el 23-mar 16:11 fue corregido: el salto +62,499 = energía no contada acumulada
   dispositivo 71 (dev id 71, ADW300 TG-TR2) para confirmar; aplicar la misma
   auditoría llave-vs-subcircuitos a otras sedes como chequeo de salud.
 - Actualizados: AGENTS.md, src/prompts.py (aviso del salto → explicación).
+
+## Sesión 10 — 2026-08-12: Voz con ElevenLabs (push-to-talk, todo local)
+
+### Objetivo
+Hablar con ZEIA por voz desde la app web local. Se dejó de lado (por ahora) el
+plan de producción agente↔Django↔frontend; todo corre en local (:8000).
+
+### Decisiones
+- ZEIA sigue siendo el cerebro; ElevenLabs solo STT + TTS (NO "ElevenLabs
+  Agents", que reemplazaría al agente con su propio LLM).
+- Push-to-talk (pointerdown/up), no toggle. Auto-stop a los 60 s (costos).
+- STT: `scribe_v1` con `language_code=es`. TTS: `eleven_flash_v2_5` (baja
+  latencia, buena calidad en español).
+- La voz NO lee markdown: `clean_for_speech()` quita tablas/`**`/emojis y
+  trunca a 1,500 chars ("…la respuesta completa está en pantalla").
+- Sin dependencias nuevas: httpx (ya venía con openai). `/api/voice/transcribe`
+  recibe el audio crudo en el body → no hace falta python-multipart.
+- Barge-in: presionar el micrófono detiene el audio que ZEIA está hablando.
+- Respuesta hablada SOLO si la pregunta vino del micrófono (flag viaVoice).
+
+### Implementación
+- `src/elevenlabs.py`: transcribe(), synthesize(), clean_for_speech(),
+  ElevenLabsError. `src/config.py`: ELEVENLABS_API_KEY / VOICE_ID / STT_MODEL /
+  TTS_MODEL (voz por defecto 21m00Tcm4TlvDq8ikWAM).
+- `webapp.py`: GET /api/voice/status, POST /api/voice/transcribe (máx 10 MB),
+  POST /api/voice/tts → audio/mpeg. Sin API key → 502 claro y la UI
+  deshabilita el botón 🎙.
+- `web/static/index.html`: botón 🎙 push-to-talk (webm/opus vía MediaRecorder),
+  indicador "transcribiendo", auto-envío del texto transcrito al flujo de chat.
+
+### Verificación
+- Sintaxis OK. Servidor local: status → {"enabled": false}; transcribe/tts sin
+  key → 502 "Falta ELEVENLABS_API_KEY en .env"; index 200.
+- Con key real (sk_…): status → {"enabled": true}.
+- **STT verificado** ✔: wav de prueba → 200 (Scribe describió el tono como
+  "[tono de llamada]"). Auth + permiso speech_to_text OK.
+- **TTS bloqueado por plan free**: 402 "Free users cannot use library voices
+  via the API" con la voz por defecto (Rachel). Solución: crear una voz propia
+  con Voice Design (gratis, usable por API) y poner su ID en
+  ELEVENLABS_VOICE_ID, o pasar a plan Starter.
+- Notas: la primera key que se pegó era el key ID (64 hex), no la key (sk_…).
+  La key real se creó con permisos restringidos (sin user_read/voices_read) —
+  suficiente para la app (STT/TTS), solo no se puede listar voces por API.
+- Detalle Windows: curl con acentos en -d rompe el JSON (cp1252); usar ASCII
+  en pruebas de shell. El navegador manda UTF-8 correcto.
+- **RESUELTO (mismo día)**: el usuario creó una voz con Voice Design
+  (ELEVENLABS_VOICE_ID=fITBqw6gMUKNgN9nO0aF). Circuito completo verificado:
+  TTS → 120 KB audio/mpeg (200) → ese MP3 → STT → 200 con el texto correcto
+  (Scribe transcribió "Zeia" como "Seya" — quirk cosmético, sin importancia).
+- Todo local listo: navegador → 🎙 push-to-talk → STT → ZEIA → TTS → audio.
+
+### Ajuste UX (mismo día): asistente de voz conversacional
+- **La voz ya NO lee la respuesta textual**: nuevo `src/speech.py` +
+  `POST /api/voice/speak`. Un LLM rápido (VOICE_SUMMARY_MODEL =
+  gemini-2.5-flash vía OpenRouter) convierte la respuesta en 1-3 frases
+  habladas con las cifras clave + insight accionable; fallback =
+  clean_for_speech. Prompt con regla anti-alteración de cifras/unidades
+  (verificado: 1,691.2 kWh / S/ 262.1 / 310 kWh 00:00-05:00 exactos).
+  Tablas/gráficos quedan SOLO en pantalla.
+- **Push-to-talk → modo conversación (VAD)**: el botón 🎙/⏹ activa/desactiva.
+  Web Audio API mide energía RMS: >0.02 = habla (empieza a grabar), 1.3 s de
+  silencio = fin de turno → transcribe → ZEIA → habla. getUserMedia con
+  echoCancellation + noiseSuppression; barge-in (hablar corta el TTS);
+  descarta audios <1,500 bytes; indicador de estado (Escuchando/Te escucho/
+  Transcribiendo/ZEIA está pensando). Constantes en index.html: VAD_THRESHOLD,
+  SILENCE_MS, MIN_AUDIO_BYTES (ajustables según ambiente ruidoso).
+- Nota: Scribe transcribe "Sanna" como "Sana/Seya" a veces (cosmético; el
+  audio TTS sí dice "Sanna").
+
+---
+
+## Sesión 11 — 2026-08-17: Cambio a DB local + prueba de DeepSeek V4 Pro
+
+### Infraestructura: producción → DB local
+- `.env` ahora apunta a PostgreSQL local: `DB_HOST=127.0.0.1`,
+  `DB_PORT=5432`, `DB_NAME=energy`, usuario `postgres` (petición del usuario:
+  dejar de usar producción).
+- Nuevo flag `USE_SSH_TUNNEL` (.env → `src/config.py`): con `false` el código
+  NUNCA abre el túnel SSH hacia producción; si el puerto local no responde,
+  `tunnel.ensure_tunnel()` lanza error claro. Default de `DB_PORT` ahora 5432.
+- Verificado con `scripts/test_connection.py`: PostgreSQL 16.14 local,
+  `db=energy`, usuario `postgres`, `read_only=on`, esquema `public`. Web
+  reiniciada en :8000 con la nueva configuración.
+- Para volver a producción: `DB_PORT=55432` + `USE_SSH_TUNNEL=true` en `.env`.
+
+### Prueba de DeepSeek V4 Pro (q1, q2, q7, q10, contra la DB local)
+- `deepseek/deepseek-v4-pro`: 4/4 ok, 110.9s medio, $0.325 total
+  (eval/results/run_20260817_151421.json).
+- `deepseek/deepseek-v4-pro-0813`: 4/4 ok, 103.4s medio, $0.267 total
+  (run_20260817_152246.json) — más rápido y barato: menos queries en q7
+  (9 vs 12) y q10 (17 vs 26).
+- Calidad verificada: q1 correcto (6 empresas, 84 puntos); q2 usa EPpos
+  max−min por tablero; q7/q10 honestos ante datos faltantes: "sin datos" para
+  julio-2026 en Madam Tusan (datos hasta 14-may) y Burger King (hasta 11-abr),
+  usando marzo como referencia en BK — sin alucinar.
+- **Candidato para el selector de la web** como opción de analítica pesada
+  (alternativa a gpt-4.1-mini). Contra v3.2: misma solidez sin su lentitud
+  extrema (v3.2: hasta 8 min/pregunta).

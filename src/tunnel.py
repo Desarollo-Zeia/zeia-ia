@@ -30,6 +30,12 @@ def ensure_tunnel() -> None:
     if port_open():
         return  # ya hay un túnel (nuestro o externo)
 
+    if not config.USE_SSH_TUNNEL:
+        raise RuntimeError(
+            f"No se pudo conectar a la base de datos local en "
+            f"{config.DB_HOST}:{config.DB_PORT}; el túnel SSH está desactivado."
+        )
+
     cmd = [
         "ssh", "-i", config.SSH_KEY,
         "-N",

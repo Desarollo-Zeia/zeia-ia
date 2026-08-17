@@ -111,6 +111,18 @@
     font-weight: 700; cursor: pointer;
   }
   #send:disabled { background: var(--border); color: var(--muted); cursor: wait; }
+  #mic {
+    background: var(--panel-2); color: var(--text);
+    border: 1px solid var(--border); border-radius: 10px;
+    padding: 0 14px; font-size: 17px; cursor: pointer;
+    user-select: none; touch-action: none; -webkit-user-select: none;
+  }
+  #mic.recording { background: var(--danger); border-color: var(--danger); color: #fff; }
+  #mic:disabled { opacity: .35; cursor: not-allowed; }
+  #voicestatus {
+    max-width: 820px; margin: 0 auto 6px; width: 100%;
+    font-size: 12.5px; color: var(--accent); min-height: 16px;
+  }
   .typing { display: inline-flex; gap: 4px; padding: 6px 0; }
   .typing i {
     width: 7px; height: 7px; border-radius: 50%; background: var(--accent);
@@ -134,8 +146,10 @@
 
 <div id="inputbar">
   <div id="suggestions"></div>
+  <div id="voicestatus"></div>
   <div class="inner">
     <textarea id="question" rows="1" placeholder="Pregunta sobre consumo, alertas, ahorro… (Enter para enviar)"></textarea>
+    <button id="mic" title="Iniciar conversación por voz">🎙</button>
     <button id="send">Enviar</button>
   </div>
 </div>
@@ -267,7 +281,7 @@ function addTyping() {
   chat.scrollTop = chat.scrollHeight;
 }
 
-async function send(text) {
+async function send(text, viaVoice = false) {
   const message = (text ?? q.value).trim();
   if (!message) return;
   q.value = '';
@@ -289,6 +303,7 @@ async function send(text) {
       sessionId = data.session_id;
       localStorage.setItem('zeia_session', sessionId);
       addMessage('agent', data.answer, data);
+      if (viaVoice) speakAnswer(data.answer);
     }
   } catch (e) {
     document.getElementById('typing').remove();
@@ -324,7 +339,159 @@ function showSuggestions() {
   });
 }
 
+// --- Voz: modo conversación con detección de voz (VAD) ---
+const micBtn = document.getElementById('mic');
+const vstatus = document.getElementById('voicestatus');
+let convoOn = false, convoStream = null, audioCtx = null, analyser = null;
+let speaking = false, silenceStart = 0, vadRecorder = null, vadChunks = [], vadMime = '';
+let currentAudio = null, voiceBusy = false;  // voiceBusy: transcribiendo/pensando
+
+const VAD_THRESHOLD = 0.02;    // energía RMS mínima para considerar habla
+const SILENCE_MS = 1300;       // silencio que cierra el turno del usuario
+const MIN_AUDIO_BYTES = 1500;  // descarta ruidos cortos (< ~1 s de audio)
+
+function setVStatus(t) { vstatus.textContent = t || ''; }
+
+function stopAudio() {
+  if (currentAudio) { currentAudio.pause(); URL.revokeObjectURL(currentAudio.src); currentAudio = null; }
+}
+
+async function speakAnswer(text) {
+  try {
+    const res = await fetch('/api/voice/speak', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ text }),
+    });
+    if (!res.ok) return;  // el detalle completo ya está en pantalla
+    const blob = await res.blob();
+    stopAudio();
+    currentAudio = new Audio(URL.createObjectURL(blob));
+    currentAudio.play();
+  } catch { /* la respuesta queda solo en pantalla */ }
+}
+
+function startUtterance() {
+  vadChunks = [];
+  vadRecorder = new MediaRecorder(convoStream, vadMime ? { mimeType: vadMime } : undefined);
+  vadRecorder.ondataavailable = ev => { if (ev.data.size) vadChunks.push(ev.data); };
+  vadRecorder.onstop = onUtteranceStop;
+  vadRecorder.start();
+}
+
+function endUtterance() {
+  if (vadRecorder && vadRecorder.state !== 'inactive') vadRecorder.stop();
+  vadRecorder = null;
+}
+
+async function onUtteranceStop() {
+  if (!convoOn) return;
+  const blob = new Blob(vadChunks, { type: vadMime || 'audio/webm' });
+  vadChunks = [];
+  if (blob.size < MIN_AUDIO_BYTES) { setVStatus('Escuchando…'); return; }
+  voiceBusy = true;
+  setVStatus('Transcribiendo…');
+  try {
+    const res = await fetch('/api/voice/transcribe', {
+      method: 'POST',
+      headers: { 'Content-Type': blob.type || 'audio/webm' },
+      body: blob,
+    });
+    const data = await res.json();
+    if (res.ok && data.text) {
+      setVStatus('ZEIA está pensando…');
+      await send(data.text, true);  // send() llama speakAnswer() al terminar
+    } else if (!res.ok) {
+      addMessage('agent', 'No pude transcribir el audio.', { error: data.detail });
+    } else {
+      setVStatus('No escuché nada, intenta de nuevo');
+      await new Promise(r => setTimeout(r, 1200));
+    }
+  } catch (e) {
+    addMessage('agent', 'No pude conectarme con el servidor.', { error: String(e) });
+  }
+  voiceBusy = false;
+  if (convoOn) setVStatus('Escuchando…');
+}
+
+function vadTick() {
+  if (!convoOn || !analyser) return;
+  const buf = new Float32Array(analyser.fftSize);
+  analyser.getFloatTimeDomainData(buf);
+  let s = 0;
+  for (let i = 0; i < buf.length; i++) s += buf[i] * buf[i];
+  const loud = Math.sqrt(s / buf.length) > VAD_THRESHOLD;
+  const now = performance.now();
+  if (voiceBusy) {
+    speaking = false; silenceStart = 0;
+  } else if (!speaking && loud) {
+    speaking = true; silenceStart = 0;
+    stopAudio();  // barge-in: hablar interrumpe la voz de ZEIA
+    setVStatus('Te escucho…');
+    startUtterance();
+  } else if (speaking) {
+    if (loud) {
+      silenceStart = 0;
+    } else {
+      if (!silenceStart) silenceStart = now;
+      if (now - silenceStart > SILENCE_MS) {
+        speaking = false; silenceStart = 0;
+        endUtterance();
+      }
+    }
+  }
+  requestAnimationFrame(vadTick);
+}
+
+async function startConvo() {
+  try {
+    convoStream = await navigator.mediaDevices.getUserMedia({
+      audio: { echoCancellation: true, noiseSuppression: true },
+    });
+  } catch {
+    addMessage('agent', 'No pude acceder al micrófono. Revisa los permisos del navegador.');
+    return;
+  }
+  audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+  analyser = audioCtx.createAnalyser();
+  analyser.fftSize = 2048;
+  audioCtx.createMediaStreamSource(convoStream).connect(analyser);
+  vadMime = MediaRecorder.isTypeSupported('audio/webm;codecs=opus') ? 'audio/webm;codecs=opus'
+          : MediaRecorder.isTypeSupported('audio/webm') ? 'audio/webm' : '';
+  convoOn = true;
+  micBtn.classList.add('recording');
+  micBtn.textContent = '⏹';
+  micBtn.title = 'Terminar la conversación';
+  setVStatus('Escuchando… habla cuando quieras');
+  requestAnimationFrame(vadTick);
+}
+
+function stopConvo() {
+  convoOn = false; speaking = false;
+  endUtterance();
+  if (convoStream) { convoStream.getTracks().forEach(t => t.stop()); convoStream = null; }
+  if (audioCtx) { audioCtx.close(); audioCtx = null; }
+  stopAudio();
+  micBtn.classList.remove('recording');
+  micBtn.textContent = '🎙';
+  micBtn.title = 'Iniciar conversación por voz';
+  setVStatus('');
+}
+
+micBtn.onclick = () => (convoOn ? stopConvo() : startConvo());
+
+async function initVoice() {
+  try {
+    const res = await fetch('/api/voice/status');
+    const data = await res.json();
+    if (!data.enabled) {
+      micBtn.disabled = true;
+      micBtn.title = 'Voz deshabilitada: falta ELEVENLABS_API_KEY en .env';
+    }
+  } catch { micBtn.disabled = true; }
+}
+
 initModels();
+initVoice();
 showSuggestions();
 addMessage('agent', 'Hola, soy **ZEIA**, tu analista de energía. Puedo responder sobre consumo, costos, alertas y oportunidades de ahorro de las sedes monitoreadas. ¿Qué te gustaría saber?');
 </script>

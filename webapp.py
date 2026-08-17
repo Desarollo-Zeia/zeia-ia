@@ -19,13 +19,13 @@ from pathlib import Path
 from typing import Optional
 
 import uvicorn
-from fastapi import FastAPI, HTTPException
-from fastapi.responses import FileResponse
+from fastapi import FastAPI, HTTPException, Request
+from fastapi.responses import FileResponse, Response
 from fastapi.staticfiles import StaticFiles
 from openai import OpenAI
 from pydantic import BaseModel
 
-from src import config
+from src import config, elevenlabs, speech
 from src.agent import EnergyAgent
 
 ROOT = Path(__file__).resolve().parent
@@ -50,6 +50,15 @@ class ChatRequest(BaseModel):
     message: str
     session_id: Optional[str] = None
     model: Optional[str] = None
+
+
+class TTSRequest(BaseModel):
+    text: str
+    voice_id: Optional[str] = None
+
+
+class SpeakRequest(BaseModel):
+    text: str
 
 
 def _to_number(v):
@@ -143,6 +152,71 @@ def reset(req: ChatRequest):
     if req.session_id and req.session_id in _sessions:
         _sessions[req.session_id].reset()
     return {"ok": True}
+
+
+# --- Voz (ElevenLabs) -------------------------------------------------------
+
+MAX_AUDIO_BYTES = 10 * 1024 * 1024  # 10 MB (≈ varios minutos de webm/opus)
+
+_EXT_BY_MIME = {
+    "audio/webm": "webm", "audio/ogg": "ogg", "audio/wav": "wav",
+    "audio/x-wav": "wav", "audio/mpeg": "mp3", "audio/mp3": "mp3",
+    "audio/mp4": "m4a", "audio/x-m4a": "m4a", "audio/aac": "aac",
+    "audio/flac": "flac",
+}
+
+
+@app.get("/api/voice/status")
+def voice_status():
+    """La UI lo consulta al cargar: sin API key, deshabilita el micrófono."""
+    return {"enabled": bool(config.ELEVENLABS_API_KEY)}
+
+
+@app.post("/api/voice/transcribe")
+async def voice_transcribe(request: Request):
+    """Audio crudo en el body (Content-Type: audio/…) → {"text": ...}."""
+    audio = await request.body()
+    if not audio:
+        raise HTTPException(400, "Audio vacío")
+    if len(audio) > MAX_AUDIO_BYTES:
+        raise HTTPException(413, "Audio demasiado grande (máx 10 MB)")
+    mime = (request.headers.get("content-type") or "").split(";")[0].strip().lower()
+    ext = _EXT_BY_MIME.get(mime, "webm")
+    try:
+        text = elevenlabs.transcribe(audio, f"voz.{ext}")
+    except elevenlabs.ElevenLabsError as e:
+        raise HTTPException(502, str(e))
+    return {"text": text}
+
+
+@app.post("/api/voice/tts")
+def voice_tts(req: TTSRequest):
+    """Texto → audio/mpeg. El markdown se limpia para que suene natural."""
+    spoken = elevenlabs.clean_for_speech(req.text)
+    if not spoken:
+        raise HTTPException(400, "Nada que decir")
+    try:
+        audio = elevenlabs.synthesize(spoken, req.voice_id)
+    except elevenlabs.ElevenLabsError as e:
+        raise HTTPException(502, str(e))
+    return Response(content=audio, media_type="audio/mpeg")
+
+
+@app.post("/api/voice/speak")
+def voice_speak(req: SpeakRequest):
+    """Respuesta completa → resumen hablado breve (LLM rápido) → audio/mpeg.
+
+    La voz dice lo esencial (1-3 frases con las cifras clave); el detalle,
+    tablas y gráficos quedan en pantalla.
+    """
+    spoken = speech.summarize_for_voice(req.text)
+    if not spoken:
+        raise HTTPException(400, "Nada que decir")
+    try:
+        audio = elevenlabs.synthesize(spoken)
+    except elevenlabs.ElevenLabsError as e:
+        raise HTTPException(502, str(e))
+    return Response(content=audio, media_type="audio/mpeg")
 
 
 if __name__ == "__main__":

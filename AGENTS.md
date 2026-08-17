@@ -7,12 +7,14 @@ monitoreo energético almacenados en la base PostgreSQL `energy` (producción).
 
 ```
 cli.py                  Chat en terminal
-webapp.py               App web (FastAPI): chat + gráficos → python webapp.py (:8000)
-web/static/index.html   UI de chat (selector de modelo, chips de preguntas)
+webapp.py               App web (FastAPI): chat + gráficos + voz → python webapp.py (:8000)
+web/static/index.html   UI de chat (selector de modelo, chips, 🎙 modo
+                        conversación por voz con VAD: detecta habla/silencio)
 web/static/vendor/      echarts.min.js + marked.min.js locales (sin CDN)
 src/
   config.py             Carga .env; DEFAULT_MODEL y credenciales
-  tunnel.py             Túnel SSH (reutiliza uno existente si el puerto 55432 ya está abierto)
+  tunnel.py             Túnel SSH (reutiliza uno existente si el puerto ya está abierto;
+                        con USE_SSH_TUNNEL=false en .env NUNCA abre el túnel → DB local)
   db.py                 SQLAlchemy + seguridad: read_only, statement_timeout,
                         validación SELECT-only (sqlparse), LIMIT y truncado de resultados;
                         re-verifica el túnel SSH en cada consulta (reconexión automática)
@@ -23,6 +25,14 @@ src/
   pdf_tools.py          Lista y extrae PDFs del proyecto (pdf-inspector → Markdown
                         con tablas; fallback pypdf). Facturas Kallpa: enero-2025.pdf…
                         diciembre-2025.pdf (Tiendas Peruanas S.A. = Oechsle Salaverry)
+  elevenlabs.py         Voz (ElevenLabs): transcribe() STT scribe_v1 (es),
+                        synthesize() TTS eleven_flash_v2_5, clean_for_speech()
+                        (quita markdown/emojis, máx 1,500 chars). Sin API key la
+                        UI deshabilita el mic. Endpoints: /api/voice/{status,
+                        transcribe,tts,speak} (audio crudo en body, máx 10 MB).
+  speech.py             Resumen HABLADO de las respuestas (la voz no lee el
+                        texto: 1-3 frases con cifras clave vía LLM rápido
+                        VOICE_SUMMARY_MODEL; fallback = clean_for_speech).
   agent.py              Loop del agente (OpenRouter, máx 15 iteraciones, temperature 0.1)
   prompts.py            System prompt con TODO el conocimiento del dominio (¡mantener al día!)
 docs/
@@ -51,6 +61,10 @@ docs/
   están gitignored — NUNCA commitear.
 - **DB**: PostgreSQL 16, base `energy`, usuario `postgres` (el manual decía
   `Postgres`/`Energy`/puerto 5435 — todo eso estaba mal; lo correcto está en `.env`).
+- **⚠️ DB local activa (17-ago-2026)**: `.env` apunta a PostgreSQL local
+  (`127.0.0.1:5432`) con `USE_SSH_TUNNEL=false` → el túnel a producción queda
+  totalmente desactivado. Para volver a producción: `DB_PORT=55432` +
+  `USE_SSH_TUNNEL=true` en `.env`.
 
 ## Conocimiento clave del dominio (también en src/prompts.py)
 
@@ -135,6 +149,13 @@ docs/
 | anthropic/claude-sonnet-4.5 | la mejor (transparencia + presentación) | 68 s/preg. | $1.78 | tier premium |
 | deepseek/deepseek-v3.2 | buena | 182 s/preg. (hasta 8 min) | $0.19 | demasiado lento |
 | meta-llama/llama-3.3-70b | alucina, rompe formato de tools | 11 s/preg. | $0.006 | descartado |
+
+Prueba posterior (17-ago-2026, 4 preguntas representativas contra la DB local;
+runs `20260817_151421`/`20260817_152246`): `deepseek/deepseek-v4-pro` y
+`deepseek/deepseek-v4-pro-0813` lograron 4/4 correctas (103–111 s/preg.,
+$0.27–0.33), honestos ante datos faltantes; **-0813** fue el más rápido y
+barato. Candidato a selector web para analítica pesada (alternativa a
+gpt-4.1-mini).
 
 ## Comandos
 
