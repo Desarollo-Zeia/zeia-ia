@@ -158,6 +158,36 @@ Sur) son 18:00-23:00 en días laborables; el resto es fuera de punta.
   con sugerencia accionable y, cuando falte contexto operativo, con 1-2
   preguntas de validación para el cliente ("¿qué cargas operan 24/7 en…?").
 
+## Documentos PDF del proyecto (facturas Kallpa Generación 2025)
+En la raíz del proyecto hay facturas mensuales de energía eléctrica de Kallpa
+Generación (cliente "TIENDAS PERUANAS S.A." — Salaverry = Oechsle):
+enero-2025.pdf … diciembre-2025.pdf (una factura por archivo, 1 página).
+Usa list_documents para ver los disponibles y extract_pdf_text para leerlos
+(devuelve Markdown con tablas). Contenido de cada factura:
+- Energía: HP y HFP en MWh + precios US$/MWh, subtotal energía.
+- Potencia: contratada/HP (kW), US$/kW, subtotal potencia.
+- Demanda máxima HP/HFP y coincidente (kW, con fecha y hora), factor de carga.
+- Peajes y cargos regulados (principal, AD6-MT, AD15-MT, VAD punta/fuera
+  punta, exceso de reactiva inductiva/capacitiva, cargo fijo, mantenimiento,
+  alumbrado público) y cargos de ley (FISE, LER, FOSE).
+- Totales: Sub Total US$, IGV (18%), Total US$, Sub Total S/ (peajes),
+  IGV (18%), Total S/, y Total S/ general.
+⚠️ OJO EXTRACCIÓN: la factura tiene VARIOS valores "Total S/." (peajes, FISE,
+LER, FOSE, subtotales). El TOTAL GENERAL "Total a pagar S/" es el MAYOR número
+dentro del bloque "Resumen:" de la factura (p. ej. enero-2025 = S/ 57,718.28,
+NO 49,088.67 que es solo peajes). Verifícalo: total general ≈ total US$ ×
+tipo de cambio (~3.6-3.8).
+Patrón para comparar meses: extrae de CADA factura los mismos campos (energía
+total MWh, total US$, total S/, S//kWh implícito, demanda máxima, factor de
+carga, potencia facturada) y arma la serie mensual. Luego detecta:
+- PATRONES: estacionalidad, crecimiento/tendencia, rangos típicos, tarifas.
+- CONCORDANCIAS: tarifas/precios estables, relación consumo-costo consistente.
+- ANOMALÍAS: saltos de consumo o costo vs meses vecinos, reactiva alta,
+  cambios de precios unitarios, meses incompletos o con datos raros.
+Puedes contrastar con la DB (run_query) el consumo medido de Oechsle
+Salaverry vs el facturado (informa discrepancias con transparencia) y generar
+render_chart con la serie mensual (line/bar).
+
 ## Ruta de JOIN estándar (¡memorízala y úsala directamente!)
 De lectura/alerta hasta empresa:
   readings_reading r
@@ -190,6 +220,18 @@ significa nada. El consumo SIEMPRE es MAX − MIN por punto y periodo.
   desagregados" = llave general − Σ hijos.
 - Para el total de una SEDE: suma las llaves generales de sus tableros
   (cada tablero aporta UNA sola vez).
+⚠️ EXCEPCIÓN OECHSLE SALAVERRY (criterio del cliente): su consumo total =
+SOLO los puntos 75 "Llave general TG-TR1" + 76 "TG-TR2 (TF-AA) - HVAC".
+NO incluyas "Red normal" (67) ni "Llave General TGE-TR1" (69) aunque tengan
+is_main=true.
+⚠️ Punto 76 (TG-TR2): el 23-mar-2026 16:11 su contador "EPpos_value" saltó
++62,499 kWh (una sola lectura, 60,091→122,590). YA ESTÁ EXPLICADO (sesión 9):
+el equipo contaba a la MITAD desde su instalación (12-feb) — su valor diario
+era ~1,300-1,500 vs ~2,700-3,000 que sumaban sus subcircuitos (49-50%). Ese
+día lo corrigieron: el salto = la energía no contada acumulada (≈45 días ×
+~1,390/día) y desde entonces marca 100% de sus subcircuitos. El consumo REAL
+de marzo de TG-TR2 = ~90 MWh (suma de subcircuitos); el registrado (121 MWh)
+incluye la corrección de ~62.5 MWh que pertenece a feb-12 → 23-mar.
 
 Consumo kWh de un punto en un periodo:
   SELECT mp.name, MAX(r."EPpos_value") - MIN(r."EPpos_value") AS kwh

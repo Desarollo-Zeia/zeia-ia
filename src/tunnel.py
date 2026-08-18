@@ -1,7 +1,9 @@
 """Gestión del túnel SSH hacia la base de datos.
 
 Si el puerto local ya está abierto (p. ej. túnel levantado a mano o por
-pgAdmin), se reutiliza. Si no, se lanza ssh en background con reconexión.
+pgAdmin), se reutiliza. Si no, se lanza ssh en background.
+La reconexión automática ocurre porque db.get_engine() llama a
+ensure_tunnel() antes de cada consulta.
 """
 from __future__ import annotations
 
@@ -27,6 +29,12 @@ def ensure_tunnel() -> None:
     global _tunnel_proc
     if port_open():
         return  # ya hay un túnel (nuestro o externo)
+
+    if not config.USE_SSH_TUNNEL:
+        raise RuntimeError(
+            f"No se pudo conectar a la base de datos local en "
+            f"{config.DB_HOST}:{config.DB_PORT}; el túnel SSH está desactivado."
+        )
 
     cmd = [
         "ssh", "-i", config.SSH_KEY,

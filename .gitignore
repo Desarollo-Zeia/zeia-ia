@@ -11,6 +11,10 @@ __pycache__/
 # Resultados de evaluación (pueden contener datos)
 eval/results/
 
+# Facturas de clientes (datos sensibles) y artefactos de prueba del webapp
+*.pdf
+T*.json
+
 # Logs
 *.log
 

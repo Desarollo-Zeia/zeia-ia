@@ -1,0 +1,289 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>ZEIA · Mockup Monitoreo de Agua (litros)</title>
+<script src="vendor/echarts.min.js"></script>
+<style>
+  :root {
+    --bg: #06281f;
+    --panel: #0b3a2d;
+    --panel-2: #0d4435;
+    --border: #1d4a3a;
+    --accent: #2dd4a7;
+    --blue: #0ea5e9;
+    --amber: #f59e0b;
+    --red: #f87171;
+    --text: #e6edf3;
+    --muted: #8b98a5;
+    --new: #2dd4a7;
+    --new-bg: rgba(45, 212, 167, .12);
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: "Segoe UI", system-ui, sans-serif;
+    padding: 28px 32px 60px;
+    max-width: 1200px;
+    margin: 0 auto;
+  }
+  h1 { font-size: 22px; margin-bottom: 4px; }
+  h1 small { color: var(--muted); font-weight: 400; font-size: 14px; }
+  h2 {
+    font-size: 15px; margin: 40px 0 16px; color: var(--accent);
+    text-transform: uppercase; letter-spacing: .08em;
+    display: flex; align-items: center; gap: 10px;
+  }
+  h2::after { content: ""; flex: 1; height: 1px; background: var(--border); }
+  .sub { color: var(--muted); font-size: 13px; margin-bottom: 20px; }
+  .badge {
+    display: inline-block; font-size: 10px; padding: 2px 8px; border-radius: 20px;
+    background: var(--new-bg); color: var(--new); border: 1px solid var(--new);
+    font-weight: 600; letter-spacing: .04em; vertical-align: middle;
+  }
+  .badge.blue { background: rgba(14,165,233,.12); color: var(--blue); border-color: var(--blue); }
+  .badge.gray { background: rgba(139,152,165,.12); color: var(--muted); border-color: #4a5b68; }
+
+  /* ---- Diagrama BD ---- */
+  .schema { display: flex; align-items: flex-start; gap: 14px; flex-wrap: wrap; }
+  .col {
+    display: flex; flex-direction: column; gap: 14px; justify-content: center;
+  }
+  .tbl {
+    background: var(--panel); border: 1px solid var(--border); border-radius: 10px;
+    width: 250px; overflow: hidden; font-size: 12px;
+  }
+  .tbl.hilite { border-color: var(--new); box-shadow: 0 0 0 1px var(--new), 0 4px 18px rgba(45,212,167,.15); }
+  .tbl-head {
+    padding: 8px 12px; font-weight: 600; font-size: 12.5px;
+    background: rgba(45,212,167,.08); border-bottom: 1px solid var(--border);
+    font-family: Consolas, monospace; display: flex; justify-content: space-between; align-items: center;
+  }
+  .tbl-body { padding: 6px 0; }
+  .tbl-body .row {
+    padding: 4px 12px; display: flex; justify-content: space-between; gap: 8px;
+    color: var(--muted);
+  }
+  .tbl-body .row .t { color: #c9d4dd; font-family: Consolas, monospace; }
+  .tbl-body .row.nueva { background: var(--new-bg); color: var(--new); }
+  .tbl-body .row.nueva .t { color: var(--new); font-weight: 600; }
+  .tbl-body .row.vacia { color: #5a6b76; font-style: italic; }
+  .arrow { align-self: center; color: var(--muted); font-size: 20px; }
+  .legend { margin-top: 16px; font-size: 12.5px; color: var(--muted); }
+  .legend .sq { display: inline-block; width: 12px; height: 12px; border-radius: 3px; vertical-align: -1px; margin-right: 6px; }
+
+  /* ---- Dashboard ---- */
+  .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 14px; }
+  .kpi {
+    background: var(--panel); border: 1px solid var(--border); border-radius: 12px;
+    padding: 16px 18px;
+  }
+  .kpi .label { font-size: 12px; color: var(--muted); text-transform: uppercase; letter-spacing: .05em; }
+  .kpi .value { font-size: 26px; font-weight: 700; margin-top: 6px; }
+  .kpi .delta { font-size: 12px; margin-top: 4px; }
+  .up { color: var(--accent); } .down { color: var(--red); }
+  .chart-row { display: grid; grid-template-columns: 2fr 1fr; gap: 14px; margin-top: 14px; }
+  .panel {
+    background: var(--panel); border: 1px solid var(--border); border-radius: 12px;
+    padding: 14px; min-height: 260px;
+  }
+  .panel h3 { font-size: 13px; color: var(--muted); font-weight: 600; margin-bottom: 8px; }
+  .alert-card {
+    margin-top: 14px; background: rgba(248,113,113,.08); border: 1px solid var(--red);
+    border-radius: 12px; padding: 14px 18px; font-size: 13px;
+  }
+  .alert-card .tag { color: var(--red); font-weight: 700; text-transform: uppercase; font-size: 11px; letter-spacing: .08em; }
+  .alert-card code { font-family: Consolas, monospace; color: #ffd7d7; }
+  .note {
+    margin-top: 26px; background: var(--panel-2); border: 1px solid var(--border);
+    border-radius: 12px; padding: 14px 18px; font-size: 13px; color: var(--muted); line-height: 1.6;
+  }
+  .note b { color: var(--text); }
+  .note .hl { color: var(--accent); }
+  @media (max-width: 900px) { .chart-row { grid-template-columns: 1fr; } }
+</style>
+</head>
+<body>
+
+<h1>ZEIA · Monitoreo de agua en litros <span class="badge">MOCKUP</span></h1>
+<p class="sub">Cómo se vería: (1) el modelo de datos en la DB existente y (2) un preview del dashboard con lecturas simuladas.</p>
+
+<h2>1 · Modelo de datos (lo nuevo en verde)</h2>
+<div class="schema">
+  <div class="col">
+    <div class="tbl">
+      <div class="tbl-head">indicators_unitmeasure</div>
+      <div class="tbl-body">
+        <div class="row"><span class="t">id</span>1</div>
+        <div class="row nueva"><span class="t">name</span>"Litros"</div>
+        <div class="row nueva"><span class="t">abbreviation</span>"L"</div>
+        <div class="row"><span class="t">is_active</span>true</div>
+      </div>
+    </div>
+    <div class="tbl">
+      <div class="tbl-head">indicators_indicator</div>
+      <div class="tbl-body">
+        <div class="row"><span class="t">id</span>1</div>
+        <div class="row nueva"><span class="t">name</span>"Consumo de agua"</div>
+        <div class="row nueva"><span class="t">abbreviation</span>"H2O"</div>
+        <div class="row nueva"><span class="t">unit_measure_id</span>→ Litros</div>
+        <div class="row"><span class="t">is_active</span>true</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="arrow">→</div>
+
+  <div class="col">
+    <div class="tbl">
+      <div class="tbl-head">enterprises_room <span class="badge gray">existe, vacía</span></div>
+      <div class="tbl-body">
+        <div class="row"><span class="t">id</span>1 · <span class="t">name</span>"Sala de máquinas"</div>
+        <div class="row"><span class="t">headquarter_id</span>→ Sanna San Borja</div>
+      </div>
+    </div>
+    <div class="tbl hilite">
+      <div class="tbl-head">devices_deviceairquality <span class="badge">+registro</span></div>
+      <div class="tbl-body">
+        <div class="row"><span class="t">dev_eui</span>"WM-0001"</div>
+        <div class="row nueva"><span class="t">type_sensor</span>'water'</div>
+        <div class="row"><span class="t">room_id</span>→ Sala de máquinas</div>
+        <div class="row"><span class="t">is_activated</span>true</div>
+      </div>
+    </div>
+    <div class="tbl hilite">
+      <div class="tbl-head">devices_indicatordevice <span class="badge">+registro</span></div>
+      <div class="tbl-body">
+        <div class="row"><span class="t">device_id</span>→ WM-0001</div>
+        <div class="row nueva"><span class="t">indicator_id</span>→ Consumo de agua</div>
+        <div class="row nueva"><span class="t">unit_id</span>→ Litros</div>
+        <div class="row"><span class="t">is_activated</span>true</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="arrow">→</div>
+
+  <div class="col">
+    <div class="tbl hilite">
+      <div class="tbl-head">readings_readingwater <span class="badge">NUEVA</span></div>
+      <div class="tbl-body">
+        <div class="row"><span class="t">id</span>bigserial</div>
+        <div class="row"><span class="t">created_at</span>timestamptz</div>
+        <div class="row nueva"><span class="t">volume_value</span>contador L (acumulado)</div>
+        <div class="row nueva"><span class="t">flow_value</span>L/min (instantáneo)</div>
+        <div class="row"><span class="t">device_id</span>→ WM-0001</div>
+        <div class="row"><span class="t">room_id</span>→ Sala de máquinas</div>
+      </div>
+    </div>
+    <div class="tbl">
+      <div class="tbl-head">alerts_alertthreshold <span class="badge gray">existe</span></div>
+      <div class="tbl-body">
+        <div class="row nueva"><span class="t">alert_type</span>'water_consumption'</div>
+        <div class="row nueva"><span class="t">measurement</span>'volume'</div>
+        <div class="row nueva"><span class="t">threshold_value</span>20000 L/día</div>
+        <div class="row"><span class="t">device / room / hq</span>alcance</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="legend">
+  <span class="sq" style="background:var(--new);"></span> filas/registros nuevos&nbsp;&nbsp;
+  <span class="sq" style="background:#1d4a3a;"></span> ya existe en la DB
+</div>
+<div class="note">
+  <b>Alternativa sin tabla nueva:</b> si se prefiere no crear <code>readings_readingwater</code>, las lecturas
+  pueden ir a <code>readings_readingairqualityandenergy</code> (guarda <code>value</code> como texto, como lo hace
+  el módulo de calidad de aire). Se pierde tipo numérico y rendimiento en analítica pesada.
+  <br>
+  <span class="hl">Regla de oro:</span> el medidor entrega un <b>contador acumulado</b> → el consumo de un periodo es
+  <b>MAX − MIN</b>, nunca SUM() (misma lección que <code>"EPpos_value"</code> en energía).
+</div>
+
+<h2>2 · Preview del dashboard</h2>
+<div class="grid">
+  <div class="kpi">
+    <div class="label">Consumo · Julio 2026</div>
+    <div class="value">458.400 <span style="font-size:14px;color:var(--muted)">L</span></div>
+    <div class="delta down">▲ 4.2% vs junio</div>
+  </div>
+  <div class="kpi">
+    <div class="label">Consumo · Hoy</div>
+    <div class="value">12.180 <span style="font-size:14px;color:var(--muted)">L</span></div>
+    <div class="delta up">▼ 18% vs martes previo</div>
+  </div>
+  <div class="kpi">
+    <div class="label">Flujo instantáneo</div>
+    <div class="value">8.5 <span style="font-size:14px;color:var(--muted)">L/min</span></div>
+    <div class="delta">prom. diurno 9.2 L/min</div>
+  </div>
+  <div class="kpi">
+    <div class="label">Costo estimado mes</div>
+    <div class="value">S/ 1.240</div>
+    <div class="delta">tarifa Sedapal ≈ S/ 2.70 /m³</div>
+  </div>
+</div>
+
+<div class="chart-row">
+  <div class="panel"><h3>Consumo diario (L) · últimos 30 días</h3><div id="ch_daily" style="width:100%;height:220px"></div></div>
+  <div class="panel"><h3>Consumo mensual (m³) · Sanna San Borja</h3><div id="ch_monthly" style="width:100%;height:220px"></div></div>
+</div>
+
+<div class="alert-card">
+  <span class="tag">● Alerta · water_consumption · critical</span><br>
+  El <b>23-jul</b> se registraron <b>27.430 L</b> (umbral: 20.000 L/día). Patrón nocturno de <b>4.1 L/min entre 01:00–05:00</b> sugiere fuga en la cisterna. Valor del contador al cierre: <code>volume_value = 5.284.730 L</code>.
+</div>
+
+<div class="note">
+  Los números son <b>simulados</b> para ilustrar; la consulta real del agente usaría el patrón contador
+  (MAX − MIN por punto y día) y el rango de fechas completo.
+</div>
+
+<script>
+  const grid = '#1d4a3a', text = '#e6edf3', accent = '#2dd4a7', blue = '#0ea5e9', amber = '#f59e0b';
+  const daily = echarts.init(document.getElementById('ch_daily'));
+  const dias = [];
+  const cons = [];
+  for (let i = 30; i >= 1; i--) {
+    const d = new Date(2026, 6, 15 - i + 1);
+    dias.push(d.toLocaleDateString('es-PE', { day: '2-digit', month: 'short' }));
+    let v = 15000 + Math.sin(i / 2.3) * 3500 + Math.floor(Math.random() * 4000);
+    if (d.getDate() === 23) v = 27430;
+    if (d.getDay() === 0) v *= 1.25;
+    cons.push(Math.round(v));
+  }
+  daily.setOption({
+    tooltip: { trigger: 'axis' },
+    grid: { left: 45, right: 12, top: 15, bottom: 25 },
+    xAxis: { type: 'category', data: dias, axisLabel: { color: text, fontSize: 10 }, axisLine: { lineStyle: { color: grid } } },
+    yAxis: { type: 'value', axisLabel: { color: text, fontSize: 10 }, splitLine: { lineStyle: { color: grid } } },
+    series: [{
+      type: 'line', data: cons, smooth: true, symbol: 'none',
+      lineStyle: { color: accent, width: 2 },
+      areaStyle: { color: new echarts.graphic.LinearGradient(0, 0, 0, 1, [{ offset: 0, color: 'rgba(45,212,167,.35)' }, { offset: 1, color: 'rgba(45,212,167,0)' }]) },
+      markPoint: {
+        data: [{ coord: ['23 jul', 27430], value: '27.430 L · fuga?', itemStyle: { color: '#f87171' } }],
+        label: { color: '#f87171', fontSize: 10 }
+      },
+      markLine: { silent: true, symbol: 'none', data: [{ yAxis: 20000, label: { formatter: 'umbral 20.000 L', color: amber, fontSize: 10 }, lineStyle: { color: amber, type: 'dashed', width: 1 } }] }
+    }]
+  });
+
+  const monthly = echarts.init(document.getElementById('ch_monthly'));
+  monthly.setOption({
+    tooltip: { trigger: 'axis', valueFormatter: v => v + ' m³' },
+    grid: { left: 45, right: 12, top: 15, bottom: 25 },
+    xAxis: { type: 'category', data: ['Feb', 'Mar', 'Abr', 'May', 'Jun', 'Jul'], axisLabel: { color: text, fontSize: 10 }, axisLine: { lineStyle: { color: grid } } },
+    yAxis: { type: 'value', axisLabel: { color: text, fontSize: 10 }, splitLine: { lineStyle: { color: grid } } },
+    series: [{
+      type: 'bar', data: [395, 412, 428, 440, 432, 458], barWidth: 26,
+      itemStyle: { color: new echarts.graphic.LinearGradient(0, 0, 0, 1, [{ offset: 0, color: accent }, { offset: 1, color: blue }]), borderRadius: [6, 6, 0, 0] }
+    }]
+  });
+  window.addEventListener('resize', () => { daily.resize(); monthly.resize(); });
+</script>
+</body>
+</html>

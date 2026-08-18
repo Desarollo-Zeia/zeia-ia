@@ -4,8 +4,50 @@ from __future__ import annotations
 import json
 
 from . import db
+from . import pdf_tools
 
 TOOL_SPECS = [
+    {
+        "type": "function",
+        "function": {
+            "name": "list_documents",
+            "description": (
+                "Lista los documentos PDF disponibles en la raíz del proyecto "
+                "(p. ej. facturas mensuales de energía: 'enero-2025.pdf', "
+                "'febrero-2025.pdf', ...). Devuelve nombre, tamaño y páginas."
+            ),
+            "parameters": {"type": "object", "properties": {}, "required": []},
+        },
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "extract_pdf_text",
+            "description": (
+                "Extrae el texto de un PDF del proyecto como Markdown "
+                "estructurado (incluye tablas). Úsala tras list_documents para "
+                "leer facturas/reportes y compararlos entre sí."
+            ),
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "filename": {
+                        "type": "string",
+                        "description": "Nombre del PDF en la raíz del proyecto, p. ej. 'enero-2025.pdf'",
+                    },
+                    "page_from": {
+                        "type": "integer",
+                        "description": "Página inicial (1-indexed, opcional)",
+                    },
+                    "page_to": {
+                        "type": "integer",
+                        "description": "Página final inclusive (1-indexed, opcional)",
+                    },
+                },
+                "required": ["filename"],
+            },
+        },
+    },
     {
         "type": "function",
         "function": {
@@ -114,7 +156,15 @@ def dispatch(name: str, arguments_json: str) -> str:
         return json.dumps({"error": "Argumentos JSON inválidos"})
 
     try:
-        if name == "list_schemas":
+        if name == "list_documents":
+            result = pdf_tools.list_documents()
+        elif name == "extract_pdf_text":
+            result = pdf_tools.extract_pdf_text(
+                args["filename"],
+                args.get("page_from"),
+                args.get("page_to"),
+            )
+        elif name == "list_schemas":
             result = db.list_schemas()
         elif name == "list_tables":
             result = db.list_tables(args["schema"])

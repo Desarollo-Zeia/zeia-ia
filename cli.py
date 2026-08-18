@@ -13,6 +13,12 @@ Comandos dentro del chat:
 from __future__ import annotations
 
 import argparse
+import sys
+
+# En Windows la consola usa cp1252; forzar UTF-8 para imprimir "→" y demás.
+if sys.stdout.encoding and sys.stdout.encoding.lower() != "utf-8":
+    sys.stdout.reconfigure(encoding="utf-8", errors="replace")
+    sys.stderr.reconfigure(encoding="utf-8", errors="replace")
 
 from src import config
 from src.agent import EnergyAgent
