@@ -61,10 +61,12 @@ docs/
   están gitignored — NUNCA commitear.
 - **DB**: PostgreSQL 16, base `energy`, usuario `postgres` (el manual decía
   `Postgres`/`Energy`/puerto 5435 — todo eso estaba mal; lo correcto está en `.env`).
-- **⚠️ DB local activa (17-ago-2026)**: `.env` apunta a PostgreSQL local
-  (`127.0.0.1:5432`) con `USE_SSH_TUNNEL=false` → el túnel a producción queda
-  totalmente desactivado. Para volver a producción: `DB_PORT=55432` +
-  `USE_SSH_TUNNEL=true` en `.env`.
+- **⚠️ DB local activa (18-ago-2026)**: backup completo de producción
+  restaurado en PostgreSQL 16.15 local (Homebrew, `127.0.0.1:5432`, base
+  `energy`, 9.2M lecturas). `.env` apunta local con `USE_SSH_TUNNEL=false`.
+  Dump en `backups/energy_prod_20260818_123052.dump` (restaurar con el
+  pg_restore 18 de libpq, no el de PG 16). Para volver a producción:
+  `DB_PORT=55432` + `USE_SSH_TUNNEL=true` en `.env`.
 
 ## Conocimiento clave del dominio (también en src/prompts.py)
 

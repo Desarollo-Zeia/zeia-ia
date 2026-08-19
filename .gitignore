@@ -11,6 +11,12 @@ __pycache__/
 # Resultados de evaluación (pueden contener datos)
 eval/results/
 
+# Dumps de la base (datos sensibles, pueden pesar GB)
+backups/
+
+# Datos derivados del análisis (se regeneran con scripts/analisis_huecos.py)
+analisis/
+
 # Facturas de clientes (datos sensibles) y artefactos de prueba del webapp
 *.pdf
 T*.json

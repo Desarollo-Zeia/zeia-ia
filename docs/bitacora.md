@@ -495,3 +495,31 @@ plan de producción agente↔Django↔frontend; todo corre en local (:8000).
 - **Candidato para el selector de la web** como opción de analítica pesada
   (alternativa a gpt-4.1-mini). Contra v3.2: misma solidez sin su lentitud
   extrema (v3.2: hasta 8 min/pregunta).
+
+---
+
+## Sesión 12 — 2026-08-18: Backup completo de producción → Postgres local
+
+### Backup
+- Dump completo de producción (22 GB → 1.2 GB comprimido, `pg_dump -Fc`) vía
+  túnel SSH: `backups/energy_prod_20260818_123052.dump` (+ `.sha256`).
+  Incluye `historical_readinghistory` (credenciales de dispositivos: guardar
+  con cuidado).
+
+### Instalación y restore en local
+- Servidor NO estaba instalado (solo clientes libpq 18): `brew install
+  postgresql@16` (mismo major que producción). Servicio: `brew services start
+  postgresql@16`.
+- Rol `postgres` (superuser, password = .env) + base `energy` creados.
+- Restore con el pg_restore 18 de libpq (el de PG 16 rechaza el formato 1.16
+  del dump: "unsupported version 1.16 in file header").
+- Errores del restore (120) benignos: GRANTs a roles de producción
+  (`bkamiche`, `energy_user` — creados localmente) + GUC `transaction_timeout`
+  inexistente en PG 16.
+- Verificado: 64 tablas, 9,235,700 lecturas, 77 FKs, secuencias sincronizadas,
+  20 GB.
+
+### Configuración actual
+- `.env` → local: `DB_PORT=5432` + `USE_SSH_TUNNEL=false`. Verificado con
+  `test_connection.py` (PostgreSQL 16.15 Homebrew). Para volver a producción:
+  `DB_PORT=55432` + `USE_SSH_TUNNEL=true`.

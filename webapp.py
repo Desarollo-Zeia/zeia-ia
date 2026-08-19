@@ -24,6 +24,7 @@ from fastapi.responses import FileResponse, Response
 from fastapi.staticfiles import StaticFiles
 from openai import OpenAI
 from pydantic import BaseModel
+import psycopg2
 
 from src import config, elevenlabs, speech
 from src.agent import EnergyAgent
@@ -217,6 +218,88 @@ def voice_speak(req: SpeakRequest):
     except elevenlabs.ElevenLabsError as e:
         raise HTTPException(502, str(e))
     return Response(content=audio, media_type="audio/mpeg")
+
+
+@app.get("/gaps")
+def gaps_page():
+    """Tabla manual de huecos (pérdidas de lecturas) — analisis_huecos."""
+    return FileResponse(STATIC / "gaps.html")
+
+
+@app.get("/api/gaps")
+def gaps_data(empresa: Optional[str] = None,
+              punto: Optional[str] = None,
+              fecha: Optional[str] = None,
+              min_duracion: float = 0):
+    """Lista los huecos registrados en analisis_huecos con filtros."""
+    sql = """SELECT fecha, empresa, sede, tablero, punto, point_id,
+                    to_char(inicio AT TIME ZONE 'America/Lima','YYYY-MM-DD HH24:MI:SS') AS inicio,
+                    to_char(fin AT TIME ZONE 'America/Lima','YYYY-MM-DD HH24:MI:SS') AS fin,
+                    duracion_min, lecturas_faltantes
+             FROM analisis_huecos WHERE true"""
+    params = []
+    if empresa:
+        sql += " AND empresa ILIKE %s"
+        params.append(f"%{empresa}%")
+    if punto:
+        sql += " AND punto ILIKE %s"
+        params.append(f"%{punto}%")
+    if fecha:
+        sql += " AND fecha = %s"
+        params.append(fecha)
+    if min_duracion > 0:
+        sql += " AND duracion_min >= %s"
+        params.append(min_duracion)
+    sql += " ORDER BY duracion_min DESC, inicio"
+    conn = psycopg2.connect(host=config.DB_HOST, port=config.DB_PORT,
+                            user=config.DB_USER, password=config.DB_PASSWORD,
+                            dbname=config.DB_NAME)
+    try:
+        with conn.cursor() as cur:
+            cur.execute(sql, params)
+            cols = [c.name for c in cur.description]
+            return {"rows": [dict(zip(cols, r)) for r in cur.fetchall()],
+                    "total": cur.rowcount if cur.rowcount > 0 else 0}
+    finally:
+        conn.close()
+
+
+@app.get("/api/eventos")
+def eventos_data(empresa: Optional[str] = None,
+                 punto: Optional[str] = None,
+                 fecha: Optional[str] = None,
+                 min_duracion: float = 0):
+    """Eventos agrupados (accidentes) desde analisis_eventos, con filtros."""
+    sql = """SELECT fecha, empresa, sede, tablero, punto, point_id,
+                    to_char(inicio AT TIME ZONE 'America/Lima','YYYY-MM-DD HH24:MI:SS') AS inicio,
+                    to_char(fin AT TIME ZONE 'America/Lima','YYYY-MM-DD HH24:MI:SS') AS fin,
+                    minutos_sin_datos, lecturas_faltantes, n_huecos, gap_mayor_min
+             FROM analisis_eventos WHERE true"""
+    params = []
+    if empresa:
+        sql += " AND empresa ILIKE %s"
+        params.append(f"%{empresa}%")
+    if punto:
+        sql += " AND punto ILIKE %s"
+        params.append(f"%{punto}%")
+    if fecha:
+        sql += " AND fecha = %s"
+        params.append(fecha)
+    if min_duracion > 0:
+        sql += " AND minutos_sin_datos >= %s"
+        params.append(min_duracion)
+    sql += " ORDER BY minutos_sin_datos DESC, inicio"
+    conn = psycopg2.connect(host=config.DB_HOST, port=config.DB_PORT,
+                            user=config.DB_USER, password=config.DB_PASSWORD,
+                            dbname=config.DB_NAME)
+    try:
+        with conn.cursor() as cur:
+            cur.execute(sql, params)
+            cols = [c.name for c in cur.description]
+            rows = [dict(zip(cols, r)) for r in cur.fetchall()]
+            return {"rows": rows, "total": len(rows)}
+    finally:
+        conn.close()
 
 
 if __name__ == "__main__":

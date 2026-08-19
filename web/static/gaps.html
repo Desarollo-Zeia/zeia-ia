@@ -1,0 +1,132 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>ZEIA · Huecos de lectura</title>
+<style>
+  :root { --bg:#0b1410; --panel:#12201b; --text:#e6edf3; --muted:#8b98a5;
+          --accent:#2dd4a7; --danger:#f87171; --warn:#f59e0b; --border:#1e332b; }
+  * { box-sizing:border-box; margin:0; padding:0; }
+  body { font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;
+         background:var(--bg); color:var(--text); padding:24px; }
+  header { display:flex; align-items:baseline; gap:12px; margin-bottom:18px; flex-wrap:wrap; }
+  h1 { font-size:20px; color:var(--accent); }
+  .sub { color:var(--muted); font-size:13px; }
+  .filtros { display:flex; gap:10px; margin-bottom:16px; flex-wrap:wrap; align-items:center; }
+  input, select { background:var(--panel); border:1px solid var(--border); color:var(--text);
+                  padding:7px 10px; border-radius:8px; font-size:13px; }
+  input:focus, select:focus { outline:none; border-color:var(--accent); }
+  label { font-size:12px; color:var(--muted); }
+  .resumen { color:var(--muted); font-size:13px; margin-bottom:10px; }
+  .resumen b { color:var(--accent); }
+  table { width:100%; border-collapse:collapse; font-size:13px; background:var(--panel);
+          border-radius:10px; overflow:hidden; }
+  th { background:var(--border); color:var(--muted); font-weight:600; font-size:11px;
+       text-transform:uppercase; letter-spacing:.04em; text-align:left; padding:9px 10px; }
+  td { padding:8px 10px; border-top:1px solid var(--border); white-space:nowrap; }
+  tr:hover td { background:rgba(45,212,167,.06); }
+  .dur { font-weight:700; }
+  .gravedad-alta { color:var(--danger); }
+  .gravedad-media { color:var(--warn); }
+  .gravedad-baja { color:var(--muted); }
+  .emp { color:var(--accent); }
+  .empty { text-align:center; color:var(--muted); padding:30px 0; font-size:13px; }
+</style>
+</head>
+<body>
+  <header>
+    <h1>ZEIA · Huecos de lectura</h1>
+    <span class="sub">Cada fila = un rango sin lecturas (pérdida de datos). Generado por scripts/analisis_huecos.py</span>
+  </header>
+
+  <div class="filtros">
+    <span><label>Modo</label><br>
+      <select id="f-modo">
+        <option value="eventos">Eventos agrupados</option>
+        <option value="huecos">Huecos individuales</option>
+      </select></span>
+    <span><label>Empresa</label><br><input id="f-empresa" placeholder="Oechsle, Sanna..."></span>
+    <span><label>Punto</label><br><input id="f-punto" placeholder="Tomógrafo, TG-TR2..."></span>
+    <span><label>Fecha</label><br><input id="f-fecha" type="date"></span>
+    <span><label>Duración mínima (min)</label><br><input id="f-min" type="number" min="0" value="0"></span>
+    <span><label>Ordenar por</label><br>
+      <select id="f-orden">
+        <option value="duracion">Duración desc</option>
+        <option value="fecha">Fecha desc</option>
+        <option value="punto">Punto</option>
+      </select></span>
+  </div>
+
+  <div class="resumen"><b id="total">0</b> registros · <b id="horas">0.0</b> h sin datos totales · <b id="puntos">0</b> puntos afectados ·
+    <span id="lbl-ayuda">Un evento = huecos del mismo punto agrupados si la pausa entre ellos fue &le; 10 min</span></div>
+
+  <table>
+    <thead><tr id="thead">
+      <th>Fecha</th><th>Empresa</th><th>Sede</th><th>Tablero</th><th>Punto</th><th>ID</th>
+      <th>Inicio</th><th>Fin</th><th>Sin datos</th><th>Huecos</th><th>Mayor hueco</th><th>Lect. falt.</th>
+    </tr></thead>
+    <tbody id="tbody"></tbody>
+  </table>
+
+<script>
+const tbody = document.getElementById("tbody");
+const estado = { modo:"eventos", empresa:"", punto:"", fecha:"", min:0, orden:"duracion" };
+
+function gravedad(min) {
+  if (min >= 30)  return "gravedad-alta";
+  if (min >= 10)  return "gravedad-media";
+  return "gravedad-baja";
+}
+
+function durH(m) { return (Number(m) / 60).toFixed(1) + " h"; }
+
+async function cargar() {
+  const q = new URLSearchParams();
+  if (estado.empresa) q.set("empresa", estado.empresa);
+  if (estado.punto)   q.set("punto", estado.punto);
+  if (estado.fecha)   q.set("fecha", estado.fecha);
+  if (estado.min > 0) q.set("min_duracion", estado.min);
+  const esEventos = estado.modo === "eventos";
+  const r = await fetch((esEventos ? "/api/eventos" : "/api/gaps") + "?" + q);
+  const data = await r.json();
+  let rows = data.rows;
+  if (estado.orden === "fecha") rows.sort((a,b) => b.inicio.localeCompare(a.inicio));
+  if (estado.orden === "punto") rows.sort((a,b) => a.punto.localeCompare(b.punto));
+  const key = esEventos ? "minutos_sin_datos" : "duracion_min";
+  const horas = rows.reduce((s,r) => s + Number(r[key]), 0) / 60;
+  const pts = new Set(rows.map(r => r.point_id)).size;
+  document.getElementById("total").textContent = rows.length;
+  document.getElementById("horas").textContent = horas.toFixed(1);
+  document.getElementById("puntos").textContent = pts;
+  document.getElementById("lbl-ayuda").style.display = esEventos ? "" : "none";
+  tbody.innerHTML = rows.length === 0
+    ? '<tr><td colspan="12" class="empty">Sin resultados con esos filtros</td></tr>'
+    : rows.map(r => `<tr>
+        <td>${r.fecha}</td>
+        <td class="emp">${r.empresa}</td>
+        <td>${r.sede}</td>
+        <td>${r.tablero}</td>
+        <td>${r.punto}</td>
+        <td>${r.point_id}</td>
+        <td>${r.inicio}</td>
+        <td>${r.fin}</td>
+        <td class="dur ${gravedad(r[key])}">${durH(r[key])}</td>
+        ${esEventos
+          ? `<td>${r.n_huecos}</td><td>${r.gap_mayor_min} min</td><td>${r.lecturas_faltantes}</td>`
+          : `<td>-</td><td>${r.duracion_min} min</td><td>${r.lecturas_faltantes}</td>`}
+      </tr>`).join("");
+}
+
+["f-modo","f-empresa","f-punto","f-fecha","f-min","f-orden"].forEach(id => {
+  document.getElementById(id).addEventListener("input", e => {
+    const key = { "f-modo":"modo", "f-empresa":"empresa", "f-punto":"punto",
+                  "f-fecha":"fecha", "f-min":"min", "f-orden":"orden" }[id];
+    estado[key] = e.target.value;
+    cargar();
+  });
+});
+cargar();
+</script>
+</body>
+</html>
