@@ -1,8 +1,9 @@
 #!/usr/bin/env python
-"""Chat en terminal con el agente de energía.
+"""Chat en terminal con el agente (módulos energía / ambiental).
 
 Uso:
-    python cli.py                     # modelo por defecto
+    python cli.py                     # energía, modelo por defecto
+    python cli.py --base ambiental    # módulo ambiental (base valhalladb)
     python cli.py --model qwen/qwen3-coder
     python cli.py --verbose           # muestra herramientas/SQL usados
 Comandos dentro del chat:
@@ -25,15 +26,18 @@ from src.agent import EnergyAgent
 
 
 def main() -> None:
-    parser = argparse.ArgumentParser(description="Agente IA de monitoreo energético")
+    parser = argparse.ArgumentParser(description="Agente IA de monitoreo (energía / ambiental)")
     parser.add_argument("--model", default=config.DEFAULT_MODEL, help="Modelo de OpenRouter")
+    parser.add_argument("--base", default=config.DEFAULT_BASE,
+                        choices=list(config.DBS), help="Módulo/base de datos")
     parser.add_argument("--verbose", "-v", action="store_true", help="Mostrar herramientas y SQL")
     args = parser.parse_args()
 
-    print(f"Agente de energía — modelo: {args.model}")
+    cfg = config.get_db_config(args.base)
+    print(f"Agente de {cfg.label} (base {cfg.dbname}@{cfg.host}:{cfg.port}) — modelo: {args.model}")
     print("Escribe tu pregunta. /reset reinicia, /sql muestra consultas, /salir termina.\n")
 
-    agent = EnergyAgent(model=args.model, verbose=args.verbose)
+    agent = EnergyAgent(model=args.model, verbose=args.verbose, base=args.base)
     last_result = None
 
     while True:

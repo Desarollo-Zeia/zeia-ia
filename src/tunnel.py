@@ -1,7 +1,8 @@
-"""Gestión del túnel SSH hacia la base de datos.
+"""Gestión de túneles SSH hacia las bases de datos.
 
-Si el puerto local ya está abierto (p. ej. túnel levantado a mano o por
-pgAdmin), se reutiliza. Si no, se lanza ssh en background.
+Hay un túnel independiente por base (energía / ambiental). Si el puerto local
+ya está abierto (p. ej. túnel levantado a mano o por pgAdmin), se reutiliza.
+Si no, se lanza ssh en background.
 La reconexión automática ocurre porque db.get_engine() llama a
 ensure_tunnel() antes de cada consulta.
 """
@@ -12,64 +13,76 @@ import subprocess
 import time
 
 from . import config
+from .config import DBConfig
 
-_tunnel_proc: subprocess.Popen | None = None
 
-
-def port_open(host: str = config.DB_HOST, port: int = config.DB_PORT, timeout: float = 2.0) -> bool:
+def port_open(cfg: DBConfig, timeout: float = 2.0) -> bool:
     try:
-        with socket.create_connection((host, port), timeout=timeout):
+        with socket.create_connection((cfg.host, cfg.port), timeout=timeout):
             return True
     except OSError:
         return False
 
 
-def ensure_tunnel() -> None:
-    """Garantiza que el túnel está activo. Reutiliza uno existente si lo hay."""
-    global _tunnel_proc
-    if port_open():
+# Reutiliza un túnel abierto por nosotros por base
+_tunnels: dict[str, subprocess.Popen] = {}
+
+
+def ensure_tunnel(base: str | None = None) -> None:
+    """Garantiza que el túnel de la base pedida está activo.
+
+    Reutiliza un túnel existente si ya hay algo escuchando en el puerto.
+    """
+    cfg = config.get_db_config(base or config.DEFAULT_BASE)
+
+    if port_open(cfg):
         return  # ya hay un túnel (nuestro o externo)
 
-    if not config.USE_SSH_TUNNEL:
+    if not cfg.use_ssh_tunnel:
         raise RuntimeError(
-            f"No se pudo conectar a la base de datos local en "
-            f"{config.DB_HOST}:{config.DB_PORT}; el túnel SSH está desactivado."
+            f"[{cfg.label}] No se pudo conectar a la base local en "
+            f"{cfg.host}:{cfg.port}; el túnel SSH está desactivado para esta base."
         )
 
     cmd = [
-        "ssh", "-i", config.SSH_KEY,
+        "ssh", "-i", cfg.ssh_key,
         "-N",
-        "-L", f"{config.DB_PORT}:{config.SSH_REMOTE_HOST}:{config.SSH_REMOTE_PORT}",
+        "-L", f"{cfg.port}:{cfg.ssh_remote_host}:{cfg.ssh_remote_port}",
         "-o", "ExitOnForwardFailure=yes",
         "-o", "ServerAliveInterval=30",
         "-o", "ServerAliveCountMax=3",
         "-o", "StrictHostKeyChecking=accept-new",
-        f"{config.SSH_USER}@{config.SSH_HOST}",
+        f"{cfg.ssh_user}@{cfg.ssh_host}",
     ]
-    _tunnel_proc = subprocess.Popen(
+    _tunnels[cfg.name] = subprocess.Popen(
         cmd, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL
     )
 
     # Esperar a que el puerto quede abierto (máx ~15 s)
     for _ in range(30):
-        if port_open():
+        if port_open(cfg):
             return
-        if _tunnel_proc.poll() is not None:
+        proc = _tunnels.get(cfg.name)
+        if proc is not None and proc.poll() is not None:
             raise RuntimeError(
-                "El proceso ssh terminó inesperadamente "
-                f"(código {_tunnel_proc.returncode}). Revisa la llave y la red."
+                f"[{cfg.label}] El proceso ssh terminó inesperadamente "
+                f"(código {proc.returncode}). Revisa la llave y la red."
             )
         time.sleep(0.5)
-    raise RuntimeError("Timeout esperando a que el túnel SSH abra el puerto.")
+    raise RuntimeError(
+        f"[{cfg.label}] Timeout esperando a que el túnel SSH abra el puerto."
+    )
 
 
-def close_tunnel() -> None:
-    """Cierra el túnel solo si lo lanzamos nosotros."""
-    global _tunnel_proc
-    if _tunnel_proc and _tunnel_proc.poll() is None:
-        _tunnel_proc.terminate()
-        try:
-            _tunnel_proc.wait(timeout=5)
-        except subprocess.TimeoutExpired:
-            _tunnel_proc.kill()
-    _tunnel_proc = None
+def close_tunnel(base: str | None = None) -> None:
+    """Cierra el túnel solo si lo lanzamos nosotros (todas o una base)."""
+    bases = [base] if base else list(_tunnels)
+    for b in bases:
+        proc = _tunnels.get(b)
+        if proc and proc.poll() is None:
+            proc.terminate()
+            try:
+                proc.wait(timeout=5)
+            except subprocess.TimeoutExpired:
+                proc.kill()
+        _tunnels.pop(b, None)

@@ -1,9 +1,11 @@
-"""Capa de acceso a datos con seguridad de solo lectura.
+"""Capa de acceso a datos con seguridad de solo lectura (multi-base).
 
-Defensa en profundidad:
+Defensa en profundidad (aplica a CADA base):
 1. Sesión Postgres con default_transaction_read_only=on y statement_timeout.
 2. Validación sintáctica: solo se aceptan sentencias SELECT/WITH/EXPLAIN.
 3. LIMIT automático si la consulta no lo trae, y truncado del resultado.
+
+Cada base (energía / ambiental) tiene su propio engine y su propio túnel SSH.
 """
 from __future__ import annotations
 
@@ -14,6 +16,7 @@ from sqlalchemy import create_engine, text
 from sqlalchemy.engine import Engine, URL
 
 from . import config, tunnel
+from .config import DBConfig
 
 FORBIDDEN = re.compile(
     r"\b(insert|update|delete|drop|alter|create|truncate|grant|revoke|copy|"
@@ -23,24 +26,25 @@ FORBIDDEN = re.compile(
 )
 ALLOWED_STARTERS = {"select", "with", "explain", "show", "values", "table"}
 
-_engine: Engine | None = None
+_engines: dict[str, Engine] = {}
 
 
-def get_engine() -> Engine:
-    global _engine
+def get_engine(base: str | None = None) -> Engine:
+    """Devuelve el engine de la base pedida ('energia' | 'ambiental')."""
+    cfg = config.get_db_config(base or config.DEFAULT_BASE)
     # Re-verifica el túnel SSH en cada acceso: si el proceso ssh murió
     # (hibernación, corte de red), lo relanza antes de consultar.
-    tunnel.ensure_tunnel()
-    if _engine is None:
+    tunnel.ensure_tunnel(cfg.name)
+    if cfg.name not in _engines:
         url = URL.create(
             "postgresql+psycopg2",
-            username=config.DB_USER,
-            password=config.DB_PASSWORD,
-            host=config.DB_HOST,
-            port=config.DB_PORT,
-            database=config.DB_NAME,
+            username=cfg.user,
+            password=cfg.password,
+            host=cfg.host,
+            port=cfg.port,
+            database=cfg.dbname,
         )
-        _engine = create_engine(
+        _engines[cfg.name] = create_engine(
             url,
             pool_pre_ping=True,
             connect_args={
@@ -50,11 +54,11 @@ def get_engine() -> Engine:
                     # ~25s por punto en este servidor; 120s da margen para
                     # consultas multi-punto sin exponer la DB a consultas locas.
                     "-c statement_timeout=120000 "
-                    "-c application_name=zeia-agent"
+                    f"-c application_name=zeia-agent-{cfg.name}"
                 )
             },
         )
-    return _engine
+    return _engines[cfg.name]
 
 
 class UnsafeQueryError(ValueError):
@@ -93,13 +97,14 @@ def _has_limit(sql: str) -> bool:
     )
 
 
-def run_query(sql: str, max_rows: int = 200, max_chars: int = 12000) -> dict:
-    """Ejecuta un SELECT seguro y devuelve dict con columnas, filas y metadatos."""
+def run_query(sql: str, base: str | None = None, max_rows: int = 200, max_chars: int = 12000) -> dict:
+    """Ejecuta un SELECT seguro en la base pedida y devuelve dict con columnas,
+    filas y metadatos."""
     safe_sql = validate_sql(sql)
     if not _has_limit(safe_sql) and safe_sql.lower().startswith(("select", "with", "table")):
         safe_sql = f"{safe_sql} LIMIT {max_rows + 1}"
 
-    with get_engine().connect() as conn:
+    with get_engine(base).connect() as conn:
         result = conn.execute(text(safe_sql))
         columns = list(result.keys())
         rows = [list(r) for r in result.fetchmany(max_rows + 1)]
@@ -128,32 +133,32 @@ def run_query(sql: str, max_rows: int = 200, max_chars: int = 12000) -> dict:
 
 # ---------- Utilidades de introspección (usadas por las herramientas) ----------
 
-def list_schemas() -> list[str]:
+def list_schemas(base: str | None = None) -> list[str]:
     q = """
         SELECT schema_name
         FROM information_schema.schemata
         WHERE schema_name NOT IN ('pg_catalog', 'information_schema', 'pg_toast')
         ORDER BY schema_name
     """
-    with get_engine().connect() as conn:
+    with get_engine(base).connect() as conn:
         return [r[0] for r in conn.execute(text(q))]
 
 
-def list_tables(schema: str) -> list[dict]:
+def list_tables(schema: str, base: str | None = None) -> list[dict]:
     q = text("""
         SELECT table_name, table_type
         FROM information_schema.tables
         WHERE table_schema = :schema
         ORDER BY table_name
     """)
-    with get_engine().connect() as conn:
+    with get_engine(base).connect() as conn:
         return [
             {"table": r[0], "type": r[1]}
             for r in conn.execute(q, {"schema": schema})
         ]
 
 
-def describe_table(schema: str, table: str) -> dict:
+def describe_table(schema: str, table: str, base: str | None = None) -> dict:
     cols_q = text("""
         SELECT column_name, data_type, is_nullable, column_default
         FROM information_schema.columns
@@ -184,7 +189,7 @@ def describe_table(schema: str, table: str) -> dict:
           AND tc.table_schema = :schema AND tc.table_name = :table
     """)
     params = {"schema": schema, "table": table}
-    with get_engine().connect() as conn:
+    with get_engine(base).connect() as conn:
         columns = [
             {"column": r[0], "type": r[1], "nullable": r[2] == "YES", "default": r[3]}
             for r in conn.execute(cols_q, params)

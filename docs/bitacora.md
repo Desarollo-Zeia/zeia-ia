@@ -523,3 +523,53 @@ plan de producción agente↔Django↔frontend; todo corre en local (:8000).
 - `.env` → local: `DB_PORT=5432` + `USE_SSH_TUNNEL=false`. Verificado con
   `test_connection.py` (PostgreSQL 16.15 Homebrew). Para volver a producción:
   `DB_PORT=55432` + `USE_SSH_TUNNEL=true`.
+
+---
+
+## Sesión 13 — 2026-08-20: Asistente multi-base (energía + ambiental) para clientes
+
+### Objetivo
+Producto: agente IA que lee las bases de los clientes y responde cualquier
+pregunta, complementando los módulos actuales. Dos bases independientes en un
+solo proyecto: `energia` (energy, consumo eléctrico) y `ambiental`
+(valhalladb, monitoreo de interiores — Sanna San Borja).
+
+### Hallazgos de valhalladb (base ambiental)
+- 50 tablas, esquema `public`, Django. Jerarquía ocupacional:
+  enterprise_enterprise → enterprise_headquarters → enterprise_room →
+  equipments_device (AM 103/AM 107/TS-201-TH) → equipments_indicatordevice →
+  readings_reading (~15.6M, **1 lectura cada 5 min** por indicador, value TEXT).
+- Módulo por "puntos" (`readings_readingambiental`): sin lecturas desde
+  dic-2024 (885 en total) → respuestas "sin datos" + ofrecer rango 2024.
+- Cliente activo: **Sanna, San Borja** (13 salas; sensores 145-152, 181, 182,
+  184-186). Empresa se llama 'Sanna' (no 'SANNA'): el modelo falló con
+  igualdad exacta → reforzar prompt con nombres exactos e ids.
+- Sensible: account_user, authtoken_token, django_session,
+  historical_*history.data (credenciales de dispositivos).
+- **Misma infraestructura que energía**: ambas en 172.31.29.136:5432, pero
+  pg_hba restringe `energy` desde el host ambiental → 2 claves/bastiones.
+- Contraseña ambiental: `Zeia@2026.` (con punto final; la del manual ya
+  estaba rotada). El puerto del manual (5435) sí aplica al túnel de casa.
+
+### Arquitectura multi-base implementada
+- `.env` con prefijos `ENERGIA_DB_*` / `AMBIENTAL_DB_*` (+ SSH por base).
+  Alias retrocompatibles `DB_*` = energía. `.env.example` como plantilla.
+- `config.py`: DBConfig por base; `db.py`/`tunnel.py`: engines y túneles por
+  base; `tools.py`: dispatch con base; `agent.py`: EnergyAgent(base=...),
+  **inyecta la fecha de hoy (Lima)** al prompt (el modelo usaba 2024);
+  `prompts.py`: SYSTEM_PROMPT_AMBIENTAL completo (esquema, nombres exactos,
+  unidades/umbrales, cadencia 5 min, análisis de huecos).
+- `cli.py --base ambiental`; webapp: /api/chat acepta `base`, selector de
+  módulo en el header, sesiones separadas por base, sugerencias por módulo.
+- `scripts/sync_db.sh <energia|ambiental>` (dump/restore/verifica por base).
+- `docs/producto_cliente.md`: especificaciones y guía de arranque (trabajo:
+  127.0.0.1 5432/5433; casa: túneles).
+
+### Pruebas (agente ambiental, en casa vía túnel 5435)
+- "Salas y sensores" → 4 iteraciones, 2 queries, respuesta correcta.
+- "Promedio CO2 por día Zona Roja 12-18 ago" → tabla correcta (616-651 ppm) ✔
+  (tras inyectar fecha y nombres exactos).
+- Perfil horario de temperatura → gráfico line ✔. Webapp responde en ambas
+  bases (Sanna ayer energía: 1.3 GWh + 💡).
+- Pendiente en el trabajo: escribir credenciales reales en `.env`, restaurar
+  backups en 5432/5433 (sync --restore-only), demo.

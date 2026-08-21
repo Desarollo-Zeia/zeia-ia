@@ -51,6 +51,13 @@ class ChatRequest(BaseModel):
     message: str
     session_id: Optional[str] = None
     model: Optional[str] = None
+    base: Optional[str] = None      # "energia" | "ambiental"
+    persona: Optional[str] = None   # "analista" | "gerente"
+
+
+class PresetRequest(BaseModel):
+    base: str                        # "energia" | "ambiental"
+    persona: Optional[str] = None    # "analista" | "gerente"
 
 
 class TTSRequest(BaseModel):
@@ -103,10 +110,17 @@ def sanitize_chart(spec: dict) -> Optional[dict]:
     }
 
 
-def get_agent(session_id: str, model: Optional[str]) -> EnergyAgent:
+def get_agent(session_id: str, model: Optional[str],
+              base: Optional[str] = None,
+              persona: Optional[str] = None) -> EnergyAgent:
+    """Devuelve el agente de la sesión (separado por base y persona)."""
+    cfg = config.get_db_config(base or config.DEFAULT_BASE)
+    p = persona or "analista"
     agent = _sessions.get(session_id)
-    if agent is None:
-        agent = EnergyAgent(model=model or config.DEFAULT_MODEL)
+    if agent is None or agent.base != cfg.name or agent.persona != p:
+        # Sesión nueva, o cambió módulo/perfil: crear agente
+        agent = EnergyAgent(model=model or config.DEFAULT_MODEL, base=cfg.name,
+                            persona=p)
         _sessions[session_id] = agent
     elif model and model != agent.model:
         # Cambio de modelo: conservar historial, nuevo cliente al mismo endpoint
@@ -125,7 +139,15 @@ def index():
 
 @app.get("/api/models")
 def models():
-    return {"default": config.DEFAULT_MODEL, "options": MODEL_OPTIONS}
+    return {"default": config.DEFAULT_MODEL, "options": MODEL_OPTIONS,
+            "bases": [{"id": c.name, "label": c.label, "dbname": c.dbname}
+                      for c in (config.ENERGIA_DB, config.AMBIENTAL_DB)],
+            "personas": [
+                {"id": "analista", "label": "Analista técnico",
+                 "desc": "Detalle, SQL y análisis minucioso de la data"},
+                {"id": "gerente", "label": "Gerente",
+                 "desc": "Visión general, plata (S/), guiado con opciones"},
+            ]}
 
 
 @app.post("/api/chat")
@@ -135,7 +157,7 @@ def chat(req: ChatRequest):
         raise HTTPException(400, "Mensaje vacío")
     valid_models = {m["id"] for m in MODEL_OPTIONS}
     model = req.model if req.model in valid_models else None
-    agent = get_agent(session_id, model)
+    agent = get_agent(session_id, model, base=req.base, persona=req.persona)
     result = agent.ask(req.message)
     charts = [c for c in (sanitize_chart(s) for s in result.charts) if c]
     return {
@@ -145,7 +167,63 @@ def chat(req: ChatRequest):
         "queries": result.queries,
         "usage": result.usage,
         "error": result.error,
+        "base": agent.base,
+        "persona": agent.persona,
     }
+
+
+# Preguntas predefinidas para el dashboard inicial, por módulo y perfil.
+PRESETS = {
+    ("energia", "gerente"): [
+        "¿Cuál es el consumo total de energía de este mes y cuánto costaría en soles?",
+        "¿Cuánto cuesta cada sede este mes? Ordena de mayor a menor costo.",
+        "¿Hay alertas críticas activas esta semana? Dime en qué sede y de qué tipo.",
+        "Muéstrame la curva de consumo promedio por hora del día de ayer.",
+    ],
+    ("energia", "analista"): [
+        "Detalla el consumo por punto de medición de la sede más consumidora este mes.",
+        "¿Cuál es la demanda máxima (kW) y su P95 de las sedes con datos esta semana?",
+        "¿Qué tableros tienen huecos de lecturas en los últimos 7 días?",
+        "¿Cómo se descompone el consumo entre hora punta y fuera de punta este mes?",
+    ],
+    ("ambiental", "gerente"): [
+        "¿Cuál es el estado general de las salas hoy? Temperatura, humedad y CO2 promedio.",
+        "¿Qué salas tuvieron CO2 por encima de 1000 ppm este mes?",
+        "¿Hubo cortes de monitoreo en agosto? Dime qué salas y cuánto tiempo perdieron.",
+        "¿Cómo ha variado la temperatura de las Salas de Operaciones esta semana?",
+    ],
+    ("ambiental", "analista"): [
+        "Perfil horario de CO2 en la Zona Roja de ayer, cada 3 horas.",
+        "¿Qué salas tuvieron cortes de monitoreo en agosto? Detalla duración y puntos perdidos por sala.",
+        "Compara temperatura y humedad de todas las salas esta semana (promedio, min, max).",
+        "¿Hay indicadores por encima de umbrales (CO2>1200, TEMP>27, HUM>70) en el mes?",
+    ],
+}
+
+
+@app.post("/api/dashboard/preset")
+def dashboard_preset(req: PresetRequest):
+    """Ejecuta las preguntas predefinidas de (base, persona) y devuelve las
+    cards del dashboard inicial con sus respuestas y gráficos."""
+    cfg = config.get_db_config(req.base)
+    persona = req.persona if req.persona in ("analista", "gerente") else "analista"
+    preguntas = PRESETS.get((cfg.name, persona))
+    if not preguntas:
+        raise HTTPException(404, f"Sin preset para {cfg.name}/{persona}")
+
+    cards = []
+    for i, pregunta in enumerate(preguntas):
+        agent = EnergyAgent(base=cfg.name, persona=persona)
+        result = agent.ask(pregunta)
+        charts = [c for c in (sanitize_chart(s) for s in result.charts) if c]
+        cards.append({
+            "id": uuid.uuid4().hex[:8],
+            "prompt": pregunta,
+            "answer": result.answer,
+            "charts": charts,
+            "error": result.error,
+        })
+    return {"base": cfg.name, "persona": persona, "cards": cards}
 
 
 @app.post("/api/reset")

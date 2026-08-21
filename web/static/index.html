@@ -3,497 +3,812 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>ZEIA · Análisis Energético</title>
+<title>ZEIA · Asistente de monitoreo</title>
 <script src="/static/vendor/echarts.min.js"></script>
 <script src="/static/vendor/marked.min.js"></script>
+<script src="/static/vendor/html2canvas.min.js"></script>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,300..800&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
 <style>
-  :root {
-    --bg: #0f1419;
-    --panel: #1a2129;
-    --panel-2: #222b35;
-    --border: #2d3947;
-    --text: #e6edf3;
-    --muted: #8b98a5;
-    --accent: #2dd4a7;
-    --accent-dim: #1a9c7a;
-    --user: #2563eb;
-    --danger: #f87171;
+  :root{
+    --bg:#0b0e13; --panel:#12161d; --panel-2:#171c25; --line:#232a35;
+    --ink:#e8ecf2; --mut:#8b93a3;
+    --accent:#ffb454;           /* energía por defecto */
+    --accent-soft:rgba(255,180,84,.14);
+    --accent-line:rgba(255,180,84,.4);
+    --teal:#2dd4a7; --red:#ff5252; --blue:#5aa7ff; --user:#2563eb;
+    --disp:'Bricolage Grotesque',system-ui,sans-serif;
+    --mono:'IBM Plex Mono',ui-monospace,monospace;
   }
-  * { box-sizing: border-box; margin: 0; padding: 0; }
-  body {
-    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
-    background: var(--bg); color: var(--text);
-    height: 100vh; display: flex; flex-direction: column;
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{
+    font-family:var(--mono);background:var(--bg);color:var(--ink);
+    min-height:100vh;
+    background-image:radial-gradient(circle at 1px 1px, rgba(255,255,255,.03) 1px, transparent 0);
+    background-size:26px 26px;
   }
-  header {
-    display: flex; align-items: center; gap: 12px;
-    padding: 12px 20px; background: var(--panel);
-    border-bottom: 1px solid var(--border);
-  }
-  .logo {
-    width: 34px; height: 34px; border-radius: 9px;
-    background: linear-gradient(135deg, var(--accent), #0ea5e9);
-    display: flex; align-items: center; justify-content: center;
-    font-weight: 800; color: #06281f; font-size: 17px;
-  }
-  header h1 { font-size: 16px; font-weight: 650; }
-  header h1 span { color: var(--muted); font-weight: 400; font-size: 13px; margin-left: 6px; }
-  header .spacer { flex: 1; }
-  select, .btn-reset {
-    background: var(--panel-2); color: var(--text);
-    border: 1px solid var(--border); border-radius: 8px;
-    padding: 7px 10px; font-size: 13px; cursor: pointer;
-  }
-  select:focus { outline: 1px solid var(--accent); }
+  .view{display:none;min-height:100vh}
+  .view.active{display:flex;flex-direction:column}
 
-  #chat {
-    flex: 1; overflow-y: auto; padding: 20px;
-    display: flex; flex-direction: column; gap: 16px;
+  /* ============ LANDING & PERSONA ============ */
+  .hero{
+    flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;
+    padding:40px 20px;gap:14px;animation:rise .6s ease both;
   }
-  .msg { max-width: 820px; width: 100%; margin: 0 auto; display: flex; gap: 10px; }
-  .msg .avatar {
-    width: 30px; height: 30px; border-radius: 8px; flex-shrink: 0;
-    display: flex; align-items: center; justify-content: center;
-    font-size: 13px; font-weight: 700;
+  .hero .badge{
+    font-size:11px;letter-spacing:.22em;text-transform:uppercase;color:var(--mut);
+    border:1px solid var(--line);border-radius:999px;padding:7px 16px;
   }
-  .msg.user .avatar { background: var(--user); color: #fff; }
-  .msg.agent .avatar { background: linear-gradient(135deg, var(--accent), #0ea5e9); color: #06281f; }
-  .msg .body {
-    flex: 1; background: var(--panel); border: 1px solid var(--border);
-    border-radius: 12px; padding: 12px 16px; font-size: 14px; line-height: 1.6;
-    overflow-x: auto;
+  .hero h1{
+    font-family:var(--disp);font-weight:700;font-size:clamp(38px,6vw,64px);
+    letter-spacing:-.02em;text-align:center;line-height:1.02;
   }
-  .msg.user .body { background: #1c2a42; border-color: #2c3e5f; }
-  .msg .body table { border-collapse: collapse; margin: 8px 0; font-size: 13px; }
-  .msg .body th, .msg .body td { border: 1px solid var(--border); padding: 5px 10px; }
-  .msg .body th { background: var(--panel-2); }
-  .msg .body pre { background: var(--panel-2); padding: 10px; border-radius: 8px; overflow-x: auto; margin: 8px 0; }
-  .msg .body code { font-family: ui-monospace, Menlo, monospace; font-size: 12.5px; }
-  .msg .body h1, .msg .body h2, .msg .body h3 { margin: 10px 0 6px; font-size: 15px; }
-  .msg .body ul, .msg .body ol { padding-left: 20px; }
-  .chart {
-    width: 100%; height: 320px; margin-top: 12px;
-    background: var(--panel-2); border: 1px solid var(--border); border-radius: 10px;
+  .hero h1 .accent{color:var(--accent)}
+  .hero p.sub{color:var(--mut);max-width:560px;text-align:center;line-height:1.65;font-size:14px}
+  .choice-grid{display:grid;grid-template-columns:1fr 1fr;gap:18px;margin-top:30px;max-width:760px;width:100%}
+  .choice-card{
+    background:linear-gradient(160deg,var(--panel),var(--panel-2));
+    border:1px solid var(--line);border-radius:18px;padding:30px 26px;cursor:pointer;
+    text-align:left;transition:all .2s;position:relative;overflow:hidden;
+    animation:rise .6s ease both;
   }
-  details.sql {
-    margin-top: 10px; font-size: 12px; color: var(--muted);
+  .choice-card:nth-child(2){animation-delay:.12s}
+  .choice-card::after{
+    content:"";position:absolute;inset:0 0 auto 0;height:3px;
+    background:linear-gradient(90deg,var(--card-accent,var(--accent)),transparent 70%);
+    opacity:0;transition:opacity .2s;
   }
-  details.sql summary { cursor: pointer; user-select: none; }
-  details.sql pre { margin-top: 6px; color: var(--muted); }
-  .meta { font-size: 11px; color: var(--muted); margin-top: 8px; }
-  .error-box { color: var(--danger); font-size: 13px; margin-top: 8px; }
+  .choice-card:hover{transform:translateY(-4px);border-color:var(--card-accent,var(--accent));box-shadow:0 18px 40px rgba(0,0,0,.35)}
+  .choice-card:hover::after{opacity:1}
+  .choice-card .emoji{font-size:30px;margin-bottom:14px}
+  .choice-card h2{font-family:var(--disp);font-size:22px;font-weight:700;margin-bottom:8px}
+  .choice-card p{font-size:12.5px;color:var(--mut);line-height:1.6}
+  .choice-card .meta{font-size:10.5px;letter-spacing:.14em;text-transform:uppercase;color:var(--mut);margin-top:14px}
+  .c-energia{--card-accent:#ffb454}
+  .c-ambiental{--card-accent:#2dd4a7}
+  .c-analista{--card-accent:#5aa7ff}
+  .c-gerente{--card-accent:#ffb454}
+  .hero .backlink{margin-top:26px;color:var(--mut);font-size:12px;background:none;border:none;cursor:pointer;font-family:var(--mono)}
+  .hero .backlink:hover{color:var(--ink)}
 
-  #suggestions {
-    display: flex; gap: 8px; flex-wrap: wrap;
-    max-width: 820px; margin: 0 auto; padding: 0 0 4px; width: 100%;
+  /* ============ HEADER ============ */
+  header{
+    display:flex;align-items:center;gap:12px;padding:12px 20px;
+    background:var(--panel);border-bottom:1px solid var(--line);flex-wrap:wrap;
   }
-  .chip {
-    background: var(--panel-2); border: 1px solid var(--border);
-    color: var(--muted); border-radius: 999px; padding: 6px 13px;
-    font-size: 12.5px; cursor: pointer; transition: all .15s;
+  .logo{
+    width:34px;height:34px;border-radius:9px;display:flex;align-items:center;justify-content:center;
+    font-weight:800;color:#0b0e13;font-size:17px;font-family:var(--disp);
+    background:linear-gradient(135deg,var(--accent),#fff3);
   }
-  .chip:hover { border-color: var(--accent); color: var(--accent); }
+  header h1{font-size:16px;font-weight:650;font-family:var(--disp)}
+  header h1 span{color:var(--mut);font-weight:400;font-size:12.5px;margin-left:6px}
+  .pill-tag{
+    font-size:10.5px;letter-spacing:.1em;text-transform:uppercase;border:1px solid var(--accent-line);
+    color:var(--accent);border-radius:999px;padding:4px 10px;background:var(--accent-soft);cursor:pointer;
+  }
+  .pill-tag:hover{filter:brightness(1.2)}
+  .spacer{flex:1}
+  .tabs{display:flex;gap:6px}
+  .tab{
+    font-family:var(--mono);font-size:11.5px;letter-spacing:.08em;text-transform:uppercase;
+    padding:8px 14px;border-radius:8px;border:1px solid var(--line);cursor:pointer;
+    background:var(--panel-2);color:var(--mut);transition:all .15s;
+  }
+  .tab:hover{border-color:var(--accent);color:var(--ink)}
+  .tab.active{background:var(--accent);color:#14100a;border-color:var(--accent);font-weight:600}
+  select,.btn{
+    background:var(--panel-2);color:var(--ink);border:1px solid var(--line);
+    border-radius:8px;padding:8px 10px;font-size:13px;cursor:pointer;font-family:var(--mono);
+  }
+  select:focus{outline:1px solid var(--accent)}
+  .btn:hover{border-color:var(--accent);color:var(--accent)}
 
-  #inputbar {
-    padding: 12px 20px 16px; background: var(--panel);
-    border-top: 1px solid var(--border);
+  /* ============ DASHBOARD ============ */
+  #tab-dashboard{flex:1;padding:20px clamp(16px,4vw,44px) 60px;overflow-y:auto}
+  .dash-top{max-width:1400px;margin:0 auto 18px;display:flex;flex-direction:column;gap:14px}
+  .dash-title h2{font-family:var(--disp);font-size:24px;font-weight:700;letter-spacing:-.01em}
+  .dash-title p{font-size:12px;color:var(--mut);margin-top:4px}
+  .prompt-global{
+    display:flex;gap:10px;background:var(--panel);border:1px solid var(--line);
+    border-radius:14px;padding:12px;
   }
-  #inputbar .inner { max-width: 820px; margin: 0 auto; display: flex; gap: 10px; }
-  #question {
-    flex: 1; background: var(--panel-2); border: 1px solid var(--border);
-    border-radius: 10px; padding: 12px 14px; color: var(--text);
-    font-size: 14px; resize: none; font-family: inherit;
+  .prompt-global input{
+    flex:1;background:var(--panel-2);border:1px solid var(--line);border-radius:10px;
+    padding:12px 14px;color:var(--ink);font-size:14px;font-family:var(--mono);
   }
-  #question:focus { outline: 1px solid var(--accent); }
-  #send {
-    background: var(--accent); color: #06281f; border: none;
-    border-radius: 10px; padding: 0 22px; font-size: 14px;
-    font-weight: 700; cursor: pointer;
+  .prompt-global input:focus{outline:1px solid var(--accent)}
+  .prompt-global button{
+    background:var(--accent);color:#14100a;border:none;border-radius:10px;
+    padding:0 20px;font-weight:700;cursor:pointer;font-family:var(--mono);
   }
-  #send:disabled { background: var(--border); color: var(--muted); cursor: wait; }
-  #mic {
-    background: var(--panel-2); color: var(--text);
-    border: 1px solid var(--border); border-radius: 10px;
-    padding: 0 14px; font-size: 17px; cursor: pointer;
-    user-select: none; touch-action: none; -webkit-user-select: none;
+  .prompt-global button:disabled{opacity:.5;cursor:wait}
+
+  #grid{
+    max-width:1400px;margin:0 auto;display:grid;gap:16px;
+    grid-template-columns:repeat(12,1fr);align-items:start;
   }
-  #mic.recording { background: var(--danger); border-color: var(--danger); color: #fff; }
-  #mic:disabled { opacity: .35; cursor: not-allowed; }
-  #voicestatus {
-    max-width: 820px; margin: 0 auto 6px; width: 100%;
-    font-size: 12.5px; color: var(--accent); min-height: 16px;
+  .card{
+    background:linear-gradient(165deg,var(--panel),var(--panel-2));
+    border:1px solid var(--line);border-radius:16px;overflow:hidden;
+    display:flex;flex-direction:column;transition:border-color .15s;
+    animation:rise .4s ease both;
   }
-  .typing { display: inline-flex; gap: 4px; padding: 6px 0; }
-  .typing i {
-    width: 7px; height: 7px; border-radius: 50%; background: var(--accent);
-    animation: bounce 1.2s infinite;
+  .card:hover{border-color:var(--accent-line)}
+  .card.dragging{opacity:.4}
+  .card.kpi{grid-column:span 3}
+  .card.half{grid-column:span 6}
+  .card.wide{grid-column:span 8}
+  .card.full{grid-column:span 12}
+  .card .card-head{
+    display:flex;align-items:center;gap:8px;padding:13px 16px;border-bottom:1px solid var(--line);
   }
-  .typing i:nth-child(2) { animation-delay: .2s }
-  .typing i:nth-child(3) { animation-delay: .4s }
-  @keyframes bounce { 0%,60%,100%{opacity:.3;transform:translateY(0)} 30%{opacity:1;transform:translateY(-4px)} }
+  .card .card-head .t{font-family:var(--disp);font-weight:700;font-size:14px;flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .card .card-head button{
+    background:none;border:none;color:var(--mut);cursor:pointer;font-size:14px;padding:4px 6px;border-radius:6px;font-family:var(--mono);
+  }
+  .card .card-head button:hover{color:var(--ink);background:rgba(255,255,255,.06)}
+  .card .card-head .drag{cursor:grab}
+  .card .card-body{padding:14px 16px;font-size:13px;line-height:1.6;overflow-x:auto}
+  .card .card-body p{margin:6px 0}
+  .card .card-body table{border-collapse:collapse;margin:8px 0;font-size:12px;width:100%}
+  .card .card-body th,.card .card-body td{border:1px solid var(--line);padding:5px 9px;text-align:left}
+  .card .card-body th{background:var(--panel-2)}
+  .card .card-body h1,.card .card-body h2,.card .card-body h3{margin:8px 0 5px;font-size:14px;font-family:var(--disp)}
+  .card .card-body ul,.card .card-body ol{padding-left:18px}
+  .card .chart{height:250px;margin-top:8px;background:var(--panel-2);border:1px solid var(--line);border-radius:10px}
+  .card .chart.big{height:300px}
+  .card .card-foot{
+    margin-top:auto;border-top:1px solid var(--line);padding:10px 14px;display:flex;gap:8px;
+  }
+  .card .card-foot input{
+    flex:1;background:var(--panel-2);border:1px solid var(--line);border-radius:8px;
+    padding:8px 10px;color:var(--ink);font-size:12px;font-family:var(--mono);
+  }
+  .card .card-foot input:focus{outline:1px solid var(--accent)}
+  .card .card-foot button{
+    background:var(--accent-soft);color:var(--accent);border:1px solid var(--accent-line);
+    border-radius:8px;padding:0 12px;cursor:pointer;font-size:13px;font-family:var(--mono);
+  }
+  .card .card-foot button:disabled{opacity:.5;cursor:wait}
+  .card.loading .card-body{opacity:.5}
+  .spinner{
+    display:inline-block;width:14px;height:14px;border:2px solid var(--line);
+    border-top-color:var(--accent);border-radius:50%;animation:spin .8s linear infinite;vertical-align:middle;margin-right:6px;
+  }
+  @keyframes spin{to{transform:rotate(360deg)}}
+  .card-kpi .big{
+    font-family:var(--disp);font-weight:800;font-size:clamp(26px,3vw,38px);letter-spacing:-.02em;color:var(--accent);
+  }
+  .card-kpi .sub{font-size:11px;color:var(--mut);margin-top:4px}
+  .empty-state{
+    grid-column:span 12;text-align:center;padding:60px 20px;color:var(--mut);
+    border:1px dashed var(--line);border-radius:16px;font-size:13px;
+  }
+  #add-card{
+    display:block;margin:20px auto 0;max-width:1400px;width:100%;
+    background:none;border:1px dashed var(--accent-line);color:var(--accent);
+    border-radius:14px;padding:16px;font-family:var(--mono);font-size:13px;cursor:pointer;
+  }
+  #add-card:hover{background:var(--accent-soft)}
+
+  /* loading overlay */
+  #overlay{
+    position:fixed;inset:0;background:rgba(11,14,19,.92);z-index:50;display:none;
+    align-items:center;justify-content:center;flex-direction:column;gap:18px;
+  }
+  #overlay.show{display:flex}
+  #overlay .ring{
+    width:46px;height:46px;border:3px solid var(--line);border-top-color:var(--accent);
+    border-radius:50%;animation:spin .9s linear infinite;
+  }
+  #overlay p{color:var(--mut);font-size:13px;text-align:center;line-height:1.6;max-width:320px}
+
+  /* ============ CHAT (tab) ============ */
+  #tab-chat{flex:1;display:flex;flex-direction:column;overflow:hidden}
+  #chat{flex:1;overflow-y:auto;padding:20px;display:flex;flex-direction:column;gap:16px}
+  .msg{max-width:820px;width:100%;margin:0 auto;display:flex;gap:10px}
+  .msg .avatar{
+    width:30px;height:30px;border-radius:8px;flex-shrink:0;display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:700;
+  }
+  .msg.user .avatar{background:var(--user);color:#fff}
+  .msg.agent .avatar{background:linear-gradient(135deg,var(--accent),#fff3);color:#0b0e13}
+  .msg .body{flex:1;background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:12px 16px;font-size:14px;line-height:1.6;overflow-x:auto}
+  .msg.user .body{background:#1c2a42;border-color:#2c3e5f}
+  .msg .body table{border-collapse:collapse;margin:8px 0;font-size:13px}
+  .msg .body th,.msg .body td{border:1px solid var(--line);padding:5px 10px}
+  .msg .body th{background:var(--panel-2)}
+  .msg .body pre{background:var(--panel-2);padding:10px;border-radius:8px;overflow-x:auto;margin:8px 0}
+  .msg .body code{font-family:var(--mono);font-size:12.5px}
+  .msg .body h1,.msg .body h2,.msg .body h3{margin:10px 0 6px;font-size:15px}
+  .msg .body ul,.msg .body ol{padding-left:20px}
+  .chart-c{width:100%;height:320px;margin-top:12px;background:var(--panel-2);border:1px solid var(--border,var(--line));border-radius:10px}
+  details.sql{margin-top:10px;font-size:12px;color:var(--mut)}
+  details.sql summary{cursor:pointer;user-select:none}
+  details.sql pre{margin-top:6px;color:var(--mut)}
+  .meta{font-size:11px;color:var(--mut);margin-top:8px}
+  .error-box{color:var(--red);font-size:13px;margin-top:8px}
+  #suggestions{display:flex;gap:8px;flex-wrap:wrap;max-width:820px;margin:0 auto;padding:0 0 4px;width:100%}
+  .chip{
+    background:var(--panel-2);border:1px solid var(--line);color:var(--mut);border-radius:999px;
+    padding:6px 13px;font-size:12.5px;cursor:pointer;transition:all .15s;font-family:var(--mono);
+  }
+  .chip:hover{border-color:var(--accent);color:var(--accent)}
+  #inputbar{padding:12px 20px 16px;background:var(--panel);border-top:1px solid var(--line)}
+  #inputbar .inner{max-width:820px;margin:0 auto;display:flex;gap:10px}
+  #question{flex:1;background:var(--panel-2);border:1px solid var(--line);border-radius:10px;padding:12px 14px;color:var(--ink);font-size:14px;resize:none;font-family:var(--mono)}
+  #question:focus{outline:1px solid var(--accent)}
+  #send{background:var(--accent);color:#14100a;border:none;border-radius:10px;padding:0 22px;font-size:14px;font-weight:700;cursor:pointer;font-family:var(--mono)}
+  #send:disabled{opacity:.5;cursor:wait}
+  #mic{background:var(--panel-2);color:var(--ink);border:1px solid var(--line);border-radius:10px;padding:0 14px;font-size:17px;cursor:pointer;user-select:none;touch-action:none;-webkit-user-select:none}
+  #mic.recording{background:var(--red);border-color:var(--red);color:#fff}
+  #mic:disabled{opacity:.35;cursor:not-allowed}
+  #voicestatus{max-width:820px;margin:0 auto 6px;width:100%;font-size:12.5px;color:var(--accent);min-height:16px}
+  .typing{display:inline-flex;gap:4px;padding:6px 0}
+  .typing i{width:7px;height:7px;border-radius:50%;background:var(--accent);animation:bounce 1.2s infinite}
+  .typing i:nth-child(2){animation-delay:.2s}
+  .typing i:nth-child(3){animation-delay:.4s}
+  @keyframes bounce{0%,60%,100%{opacity:.3;transform:translateY(0)}30%{opacity:1;transform:translateY(-4px)}}
+  @keyframes rise{from{opacity:0;transform:translateY(14px)}to{opacity:1;transform:none}}
+
+  @media(max-width:1000px){
+    .card.kpi{grid-column:span 6}
+    .card.half,.card.wide{grid-column:span 12}
+    .choice-grid{grid-template-columns:1fr}
+  }
 </style>
 </head>
 <body>
-<header>
-  <div class="logo">Z</div>
-  <h1>ZEIA <span>Análisis de consumo energético</span></h1>
-  <div class="spacer"></div>
-  <select id="model"></select>
-  <button class="btn-reset" id="reset">Nueva conversación</button>
-</header>
 
-<div id="chat"></div>
-
-<div id="inputbar">
-  <div id="suggestions"></div>
-  <div id="voicestatus"></div>
-  <div class="inner">
-    <textarea id="question" rows="1" placeholder="Pregunta sobre consumo, alertas, ahorro… (Enter para enviar)"></textarea>
-    <button id="mic" title="Iniciar conversación por voz">🎙</button>
-    <button id="send">Enviar</button>
+<!-- ============ VISTA 1: LANDING (elegir módulo) ============ -->
+<div id="view-landing" class="view active">
+  <div class="hero">
+    <div class="badge">ZEIA · Asistente de monitoreo</div>
+    <h1>¿Qué quieres <span class="accent">analizar</span>?</h1>
+    <p class="sub">Elige el módulo. Todas las consultas se harán sobre esa base de datos.</p>
+    <div class="choice-grid" id="module-grid"></div>
   </div>
 </div>
 
+<!-- ============ VISTA 2: PERFIL ============ -->
+<div id="view-persona" class="view">
+  <div class="hero">
+    <div class="badge" id="persona-badge">Módulo</div>
+    <h1>¿Quién va a <span class="accent">consultar</span>?</h1>
+    <p class="sub">El asistente ajusta la profundidad y el estilo de las respuestas a tu perfil.</p>
+    <div class="choice-grid" id="persona-grid"></div>
+    <button class="backlink" id="back-landing">← Volver a módulos</button>
+  </div>
+</div>
+
+<!-- ============ VISTA 3: MAIN (Dashboard + Chat) ============ -->
+<div id="view-main" class="view">
+  <header>
+    <div class="logo">Z</div>
+    <h1>ZEIA <span id="title-sub">—</span></h1>
+    <button class="pill-tag" id="switch-mod" title="Cambiar módulo/perfil">⚡ Energía · Analista</button>
+    <div class="spacer"></div>
+    <div class="tabs">
+      <button class="tab active" data-tab="dashboard">Dashboard</button>
+      <button class="tab" data-tab="chat">Conversar</button>
+    </div>
+    <select id="model"></select>
+    <button class="btn" id="screenshot" title="Descargar el dashboard como PNG">📸 PNG</button>
+    <button class="btn" id="reset" title="Reiniciar la conversación del chat">Nueva conversación</button>
+  </header>
+
+  <!-- Dashboard -->
+  <div id="tab-dashboard" class="tabview">
+    <div class="dash-top">
+      <div class="dash-title">
+        <h2 id="dash-title">Tablero</h2>
+        <p id="dash-sub">Cards con datos reales del módulo. Arrastra para reordenar, promptea cada card o crea una nueva.</p>
+      </div>
+      <div class="prompt-global">
+        <input id="global-prompt" placeholder="Pregunta algo para crear una card nueva… (Enter para generar)">
+        <button id="global-send">Generar card</button>
+      </div>
+    </div>
+    <div id="grid"></div>
+    <button id="add-card">+ Nueva card en blanco</button>
+  </div>
+
+  <!-- Chat -->
+  <div id="tab-chat" class="tabview">
+    <div id="chat"></div>
+    <div id="inputbar">
+      <div id="suggestions"></div>
+      <div id="voicestatus"></div>
+      <div class="inner">
+        <textarea id="question" rows="1" placeholder="Pregunta sobre tu módulo… (Enter para enviar)"></textarea>
+        <button id="mic" title="Iniciar conversación por voz">🎙</button>
+        <button id="send">Enviar</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div id="overlay"><div class="ring"></div><p id="overlay-text">Generando tu tablero…</p></div>
+
 <script>
-const SUGGESTIONS = [
-  "¿Qué empresas están monitoreando y cuántos circuitos tiene cada una?",
-  "¿Cuál fue el consumo de Sanna San Borja ayer? Detalla por punto principal",
-  "¿Cómo es la curva de carga horaria de Oechsle esta semana?",
-  "¿Hubo alertas críticas esta semana? ¿De qué tipo y dónde?",
-  "¿Qué porcentaje del consumo de Oechsle ocurre en horas punta este mes?",
-  "¿Hay consumo anómalo de madrugada en alguna sede?",
-  "¿Alguna sede está pagando potencia contratada de más?",
-  "Compara las facturas mensuales 2025 (enero–diciembre): patrones, anomalías y tendencia de costo",
-];
-
-let sessionId = localStorage.getItem('zeia_session') || null;
-const chat = document.getElementById('chat');
-const q = document.getElementById('question');
-const sendBtn = document.getElementById('send');
-const modelSel = document.getElementById('model');
-
 marked.setOptions({ breaks: true });
 
-async function initModels() {
-  const res = await fetch('/api/models');
-  const data = await res.json();
-  data.options.forEach(m => {
+/* ============================ ESTADO ============================ */
+const state = {
+  base: null, persona: null, sessionId: null,
+  cards: [],            // [{id, prompt, answer, charts, sessionId}]
+  dragId: null,
+};
+const TITLES = { energia: 'Análisis de consumo energético', ambiental: 'Monitoreo ambiental de interiores' };
+const ACCENTS = { energia: '#ffb454', ambiental: '#2dd4a7' };
+const EMOJIS = { energia: '⚡', ambiental: '🌡' };
+const PERSONAS = {
+  analista: { label: 'Analista técnico', emoji: '🔬', desc: 'Detalle, SQL visible y análisis minucioso de la data.' },
+  gerente:  { label: 'Gerente',          emoji: '📊', desc: 'Visión general, plata (S/), guiado con opciones.' },
+};
+const SUGGESTIONS = {
+  energia: [
+    "¿Qué empresas están monitoreando y cuántos circuitos tiene cada una?",
+    "¿Cuál fue el consumo de Sanna San Borja ayer?",
+    "¿Cómo es la curva de carga horaria de Oechsle esta semana?",
+    "¿Hubo alertas críticas esta semana? ¿De qué tipo y dónde?",
+    "¿Qué porcentaje del consumo de Oechsle ocurre en horas punta este mes?",
+  ],
+  ambiental: [
+    "¿Qué salas se están monitoreando y con qué sensores?",
+    "¿Cómo fue la temperatura y humedad de las Salas de Operaciones esta semana?",
+    "¿Qué salas tuvieron CO2 por encima de 1000 ppm este mes?",
+    "¿Hubo cortes de monitoreo en agosto? Detállalos por sala",
+  ],
+};
+
+const $ = id => document.getElementById(id);
+const grid = $('grid');
+
+/* ============================ NAVEGACIÓN ============================ */
+function show(id){ document.querySelectorAll('.view').forEach(v=>v.classList.remove('active')); $(id).classList.add('active'); }
+
+async function initModels(){
+  const res = await fetch('/api/models'); const data = await res.json();
+  // módulos (landing)
+  const mg = $('module-grid');
+  data.bases.forEach(b=>{
+    const div = document.createElement('button');
+    div.className = 'choice-card c-' + b.id;
+    div.innerHTML = `<div class="emoji">${EMOJIS[b.id]||'📦'}</div><h2>${b.label}</h2>
+      <p>${b.id==='energia'
+        ? 'Consumo eléctrico de sedes: MWh, costos, alertas, facturas y oportunidades de ahorro.'
+        : 'Calidad de aire y confort de salas: CO2, temperatura, humedad y cortes de monitoreo.'}</p>
+      <div class="meta">Base: ${b.dbname}</div>`;
+    div.onclick = () => { state.base = b.id; enterPersona(); };
+    mg.appendChild(div);
+  });
+  // perfiles (persona)
+  const pg = $('persona-grid');
+  data.personas.forEach(p=>{
+    const div = document.createElement('button');
+    div.className = 'choice-card c-' + p.id;
+    div.innerHTML = `<div class="emoji">${PERSONAS[p.id].emoji}</div><h2>${p.label}</h2><p>${p.desc}</p>
+      <div class="meta">${p.id==='gerente'?'Respuestas breves y guiadas':'Análisis completo y técnico'}</div>`;
+    div.onclick = () => { state.persona = p.id; enterMain(); };
+    pg.appendChild(div);
+  });
+  // modelos
+  const ms = $('model');
+  data.options.forEach(m=>{
     const opt = document.createElement('option');
     opt.value = m.id; opt.textContent = m.label;
     if (m.id === data.default) opt.selected = true;
-    modelSel.appendChild(opt);
+    ms.appendChild(opt);
   });
 }
 
-function renderChart(el, spec) {
-  if (typeof echarts === 'undefined') {
-    el.innerHTML = '<div style="padding:20px;color:#f87171;font-size:13px">No se pudo cargar la librería de gráficos.</div>';
+function enterPersona(){
+  const cfg = state.base;
+  document.documentElement.style.setProperty('--accent', ACCENTS[cfg]);
+  document.documentElement.style.setProperty('--accent-soft', cfg==='energia'?'rgba(255,180,84,.14)':'rgba(45,212,167,.14)');
+  document.documentElement.style.setProperty('--accent-line', cfg==='energia'?'rgba(255,180,84,.4)':'rgba(45,212,167,.4)');
+  $('persona-badge').textContent = EMOJIS[cfg] + ' ' + TITLES[cfg];
+  show('view-persona');
+}
+
+function enterMain(){
+  const cfg = state.base;
+  $('title-sub').textContent = TITLES[cfg];
+  $('switch-mod').innerHTML = `${EMOJIS[cfg]} ${TITLES[cfg]} · ${PERSONAS[state.persona].label}`;
+  $('dash-title').textContent = `${PERSONAS[state.persona].emoji} Tablero — ${PERSONAS[state.persona].label}`;
+  state.sessionId = null;
+  show('view-main');
+  showSuggestions();
+  addMessage('agent', greeting());
+  loadDashboard();
+}
+
+function greeting(){
+  if (state.persona === 'gerente'){
+    return `Hola, soy **ZEIA**. Te voy a dar una visión general y entendible de tu **${TITLES[state.base].toLowerCase()}**. Abajo tienes cards con la información más importante; puedes promptear cualquier card o crear una nueva. También estoy en la pestaña **Conversar** si quieres hablar. ¿Por dónde empezamos?`;
+  }
+  return `Hola, soy **ZEIA**, tu analista. Tienes el **dashboard** con cards de tu módulo **${state.base==='energia'?'Energía':'Ambiental'}** y el modo **Conversar** para análisis detallado. Puedes promptear cada card, reordenarlas o crear nuevas. ¿Qué revisamos?`;
+}
+
+$('switch-mod').onclick = () => { show('view-landing'); state.cards = []; };
+$('back-landing').onclick = () => show('view-landing');
+
+/* tabs */
+document.querySelectorAll('.tab').forEach(t=>{
+  t.onclick = () => {
+    document.querySelectorAll('.tab').forEach(x=>x.classList.remove('active'));
+    document.querySelectorAll('.tabview').forEach(x=>x.classList.remove('active'));
+    t.classList.add('active');
+    $( 'tab-' + t.dataset.tab ).classList.add('active');
+    if (t.dataset.tab === 'dashboard') requestAnimationFrame(()=> resizeCharts());
+  };
+});
+// show tab by default css
+document.getElementById('tab-dashboard').style.display='';
+document.getElementById('tab-chat').style.display='none';
+document.querySelectorAll('.tab').forEach(t=>{
+  t.onclick = () => {
+    document.querySelectorAll('.tab').forEach(x=>x.classList.remove('active'));
+    document.querySelectorAll('.tabview').forEach(x=>x.classList.remove('active'));
+    t.classList.add('active');
+    const tv = $('tab-'+t.dataset.tab);
+    tv.classList.add('active');
+    document.getElementById('tab-dashboard').style.display = t.dataset.tab==='dashboard'?'':'none';
+    document.getElementById('tab-chat').style.display = t.dataset.tab==='chat'?'':'none';
+    if (t.dataset.tab==='dashboard') requestAnimationFrame(()=> resizeCharts());
+  };
+});
+
+/* ============================ CARDS ============================ */
+function sizeFor(card){
+  if (card.charts && card.charts.length) return 'wide';
+  return 'half';
+}
+
+function saveCards(){
+  try{ localStorage.setItem(`zeia_dash_${state.base}_${state.persona}`, JSON.stringify(state.cards.map(c=>({id:c.id,prompt:c.prompt,answer:c.answer,charts:c.charts}))) ); }catch(e){}
+}
+function loadSavedCards(){
+  try{ return JSON.parse(localStorage.getItem(`zeia_dash_${state.base}_${state.persona}`) || '[]'); }catch(e){ return []; }
+}
+
+function renderCards(){
+  grid.innerHTML = '';
+  if (!state.cards.length){
+    grid.innerHTML = `<div class="empty-state">Sin cards todavía. Usa la barra de arriba o "+ Nueva card" para empezar.</div>`;
     return;
   }
-  const c = echarts.init(el, 'dark');
-  const palette = ['#2dd4a7', '#0ea5e9', '#f59e0b', '#a78bfa', '#f87171'];
-  let option;
-  if (spec.chart_type === 'pie') {
-    const s = spec.series[0] || { data: [] };
-    option = {
-      backgroundColor: 'transparent', color: palette,
-      title: { text: spec.title, left: 'center', textStyle: { fontSize: 14 } },
-      tooltip: { trigger: 'item', valueFormatter: v => v + (spec.y_unit ? ' ' + spec.y_unit : '') },
-      series: [{
-        type: 'pie', radius: ['40%', '68%'],
-        data: (spec.x || []).map((name, i) => ({ name, value: s.data[i] })),
-        label: { color: '#e6edf3' }
-      }]
-    };
-  } else {
-    option = {
-      backgroundColor: 'transparent', color: palette,
-      title: { text: spec.title, left: 'center', textStyle: { fontSize: 14 } },
-      tooltip: { trigger: 'axis' },
-      legend: { bottom: 0, textStyle: { color: '#8b98a5' } },
-      grid: { top: 44, left: 56, right: 20, bottom: 44 },
-      xAxis: { type: 'category', data: spec.x || [] },
-      yAxis: { type: 'value', name: spec.y_unit || '' },
-      series: (spec.series || []).map(s => ({
-        name: s.name, data: s.data,
-        type: spec.chart_type === 'bar' ? 'bar' : 'line',
-        smooth: true,
-        areaStyle: spec.chart_type === 'area' ? { opacity: 0.25 } : undefined,
-      }))
-    };
-  }
-  c.setOption(option);
-  window.addEventListener('resize', () => c.resize());
+  state.cards.forEach(card=>{
+    const el = document.createElement('div');
+    el.className = 'card ' + sizeFor(card);
+    el.dataset.id = card.id;
+    el.innerHTML = `
+      <div class="card-head">
+        <span class="drag" title="Arrastrar para mover">⠿</span>
+        <div class="t" title="${card.prompt||'Nueva card'}">${card.prompt||'Nueva card'}</div>
+        <button class="refresh" title="Actualizar datos">⟳</button>
+        <button class="del" title="Eliminar card">✕</button>
+      </div>
+      <div class="card-body"></div>
+      <div class="card-foot">
+        <input placeholder="✨ ¿Qué quieres ver aquí? (Enter para aplicar)">
+        <button class="apply">Aplicar</button>
+      </div>`;
+    el.querySelector('.drag').setAttribute('draggable','true');
+    bindCardEvents(el, card);
+    grid.appendChild(el);
+    renderCardBody(el, card);
+  });
 }
 
-function addMessage(role, content, extras = {}) {
+function renderCardBody(el, card){
+  const body = el.querySelector('.card-body');
+  body.innerHTML = '';
+  if (card.loading){ body.innerHTML = '<span class="spinner"></span> Consultando…'; return; }
+  if (!card.answer){ body.innerHTML = '<span style="color:var(--mut)">Escribe arriba qué quieres ver en esta card y presiona Aplicar.</span>'; return; }
+  const isKpi = !card.charts || !card.charts.length;
+  if (isKpi) body.classList.add('card-kpi');
   const div = document.createElement('div');
-  div.className = 'msg ' + role;
-  const avatar = role === 'user' ? 'Tú' : 'Z';
-  div.innerHTML = `<div class="avatar">${avatar}</div><div class="body"></div>`;
-  const body = div.querySelector('.body');
-  if (role === 'agent') {
-    body.innerHTML = marked.parse(content || '_(sin respuesta)_');
-  } else {
-    body.textContent = content;
-  }
-  (extras.charts || []).forEach(spec => {
-    const el = document.createElement('div');
-    el.className = 'chart';
-    body.appendChild(el);
-    try {
-      renderChart(el, spec);
-    } catch (e) {
-      console.error('chart error', e, spec);
-      el.innerHTML = `<div style="padding:20px;color:#f87171;font-size:13px">No se pudo graficar: ${e.message}</div>`;
-    }
+  div.innerHTML = marked.parse(card.answer);
+  body.appendChild(div);
+  (card.charts||[]).forEach(spec=>{
+    const ch = document.createElement('div');
+    ch.className = 'chart' + (card.charts.length===1?' big':'');
+    body.appendChild(ch);
+    renderChart(ch, spec);
   });
-  if (extras.queries && extras.queries.length) {
-    const det = document.createElement('details');
-    det.className = 'sql';
-    det.innerHTML = `<summary>Ver ${extras.queries.length} consulta(s) SQL</summary>` +
-      extras.queries.map(x => `<pre><code></code></pre>`).join('');
-    det.querySelectorAll('code').forEach((c, i) => c.textContent = extras.queries[i]);
+}
+
+function bindCardEvents(el, card){
+  el.querySelector('.del').onclick = () => {
+    if (!confirm('¿Eliminar esta card?')) return;
+    state.cards = state.cards.filter(c=>c.id!==card.id);
+    saveCards(); renderCards();
+  };
+  el.querySelector('.refresh').onclick = () => {
+    if (!card.prompt) return;
+    runCard(card, card.prompt, false);
+  };
+  const inp = el.querySelector('.card-foot input');
+  const btn = el.querySelector('.apply');
+  const apply = () => {
+    const v = inp.value.trim();
+    if (!v) return;
+    inp.value='';
+    card.prompt = v;
+    runCard(card, v, true);
+  };
+  btn.onclick = apply;
+  inp.addEventListener('keydown', e=>{ if(e.key==='Enter'){ e.preventDefault(); apply(); } });
+  // drag & drop
+  const handle = el.querySelector('.drag');
+  handle.addEventListener('dragstart', e=>{ state.dragId = card.id; el.classList.add('dragging'); });
+  handle.addEventListener('dragend', ()=> el.classList.remove('dragging'));
+  el.addEventListener('dragover', e=> e.preventDefault());
+  el.addEventListener('drop', e=>{
+    e.preventDefault();
+    const from = state.cards.findIndex(c=>c.id===state.dragId);
+    const to = state.cards.findIndex(c=>c.id===card.id);
+    if (from<0 || to<0 || from===to) return;
+    const [moved] = state.cards.splice(from,1);
+    state.cards.splice(to,0,moved);
+    saveCards(); renderCards();
+  });
+}
+
+async function runCard(card, prompt, resetSession){
+  card.loading = true;
+  if (resetSession) card.sessionId = null;
+  renderCards();
+  try{
+    const res = await fetch('/api/chat', {
+      method:'POST', headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({ message: prompt, session_id: card.sessionId, model: $('model').value, base: state.base, persona: state.persona }),
+    });
+    const data = await res.json();
+    card.sessionId = data.session_id;
+    if (res.ok){ card.answer = data.answer; card.charts = data.charts || []; }
+    else { card.answer = 'Ocurrió un error procesando tu solicitud. ' + (data.detail||''); card.charts = []; }
+  }catch(e){
+    card.answer = 'No pude conectarme con el servidor: ' + e; card.charts = [];
+  }
+  card.loading = false;
+  saveCards(); renderCards();
+}
+
+/* preset inicial */
+function loadDashboard(){
+  const saved = loadSavedCards();
+  if (saved.length){ state.cards = saved; renderCards(); return; }
+  showOverlay(`Generando tu tablero de ${state.base==='energia'?'Energía':'Ambiental'} (${state.persona})… puede tardar 1–2 min.`);
+  fetch('/api/dashboard/preset', {
+    method:'POST', headers:{'Content-Type':'application/json'},
+    body: JSON.stringify({ base: state.base, persona: state.persona }),
+  }).then(r=>r.json()).then(data=>{
+    state.cards = (data.cards||[]).map(c=>({id:c.id,prompt:c.prompt,answer:c.answer,charts:c.charts||[],sessionId:null}));
+    saveCards(); renderCards();
+  }).catch(e=>{
+    grid.innerHTML = `<div class="empty-state">No pude cargar el tablero inicial (${e}). Usa la barra de arriba o "+ Nueva card".</div>`;
+  }).finally(hideOverlay);
+}
+
+/* barra global → nueva card */
+$('global-send').onclick = () => {
+  const v = $('global-prompt').value.trim(); if(!v) return;
+  $('global-prompt').value='';
+  const card = { id: crypto.randomUUID().slice(0,8), prompt: v, answer:'', charts:[], sessionId:null, loading:true };
+  state.cards.unshift(card);
+  renderCards();
+  runCard(card, v, true);
+};
+$('global-prompt').addEventListener('keydown', e=>{ if(e.key==='Enter'){ e.preventDefault(); $('global-send').click(); } });
+
+$('add-card').onclick = () => {
+  const card = { id: crypto.randomUUID().slice(0,8), prompt:'', answer:'', charts:[], sessionId:null };
+  state.cards.push(card);
+  saveCards(); renderCards();
+};
+
+/* screenshot */
+$('screenshot').onclick = () => {
+  const target = document.getElementById('tab-dashboard');
+  html2canvas(target, {backgroundColor:'#0b0e13', scale:2}).then(canvas=>{
+    const a = document.createElement('a');
+    a.download = `zeia-${state.base}-${state.persona}-${new Date().toISOString().slice(0,10)}.png`;
+    a.href = canvas.toDataURL('image/png');
+    a.click();
+  }).catch(()=>alert('No se pudo capturar la imagen'));
+};
+
+function showOverlay(t){ $('overlay-text').textContent = t; $('overlay').classList.add('show'); }
+function hideOverlay(){ $('overlay').classList.remove('show'); }
+
+/* ============================ CHAT ============================ */
+let chatSessionId = null;
+const chat = $('chat');
+const q = $('question');
+const sendBtn = $('send');
+const modelSel = $('model');
+
+function renderChart(el, spec){
+  if (typeof echarts === 'undefined'){ el.innerHTML='<div style="padding:20px;color:#ff5252;font-size:13px">No se pudo cargar la librería de gráficos.</div>'; return; }
+  const c = echarts.init(el,'dark');
+  const palette = ['#2dd4a7','#0ea5e9','#f59e0b','#a78bfa','#f87171'];
+  let option;
+  if (spec.chart_type==='pie'){
+    const s = spec.series[0] || {data:[]};
+    option = { backgroundColor:'transparent', color:palette,
+      title:{text:spec.title,left:'center',textStyle:{fontSize:14}},
+      tooltip:{trigger:'item',valueFormatter:v=>v+(spec.y_unit?' '+spec.y_unit:'')},
+      series:[{type:'pie',radius:['40%','68%'],data:(spec.x||[]).map((name,i)=>({name,value:s.data[i]})),label:{color:'#e8ecf2'}}]};
+  } else {
+    option = { backgroundColor:'transparent', color:palette,
+      title:{text:spec.title,left:'center',textStyle:{fontSize:14}},
+      tooltip:{trigger:'axis'}, legend:{bottom:0,textStyle:{color:'#8b93a3'}},
+      grid:{top:44,left:56,right:20,bottom:44},
+      xAxis:{type:'category',data:spec.x||[]}, yAxis:{type:'value',name:spec.y_unit||''},
+      series:(spec.series||[]).map(s=>({name:s.name,data:s.data,type:spec.chart_type==='bar'?'bar':'line',smooth:true,areaStyle:spec.chart_type==='area'?{opacity:0.25}:undefined}))};
+  }
+  c.setOption(option);
+  el._chart = c;
+  window.addEventListener('resize',()=>c.resize());
+}
+
+function resizeCharts(){ document.querySelectorAll('.card .chart').forEach(el=>{ if(el._chart) el._chart.resize(); }); }
+
+function addMessage(role, content, extras={}){
+  const div = document.createElement('div');
+  div.className = 'msg '+role;
+  div.innerHTML = `<div class="avatar">${role==='user'?'Tú':'Z'}</div><div class="body"></div>`;
+  const body = div.querySelector('.body');
+  body.innerHTML = role==='agent' ? marked.parse(content||'_(sin respuesta)_') : '';
+  if (role==='user') body.textContent = content;
+  (extras.charts||[]).forEach(spec=>{
+    const el = document.createElement('div'); el.className='chart-c'; body.appendChild(el);
+    try{ renderChart(el,spec); }catch(e){ el.innerHTML=`<div style="padding:20px;color:#ff5252;font-size:13px">No se pudo graficar: ${e.message}</div>`; }
+  });
+  if (extras.queries && extras.queries.length){
+    const det = document.createElement('details'); det.className='sql';
+    det.innerHTML = `<summary>Ver ${extras.queries.length} consulta(s) SQL</summary>` + extras.queries.map(()=>'<pre><code></code></pre>').join('');
+    det.querySelectorAll('code').forEach((c,i)=>c.textContent=extras.queries[i]);
     body.appendChild(det);
   }
-  if (extras.usage && (extras.usage.prompt_tokens || extras.usage.completion_tokens)) {
-    const meta = document.createElement('div');
-    meta.className = 'meta';
+  if (extras.usage && (extras.usage.prompt_tokens || extras.usage.completion_tokens)){
+    const meta = document.createElement('div'); meta.className='meta';
     meta.textContent = `tokens: ${extras.usage.prompt_tokens} in / ${extras.usage.completion_tokens} out`;
     body.appendChild(meta);
   }
-  if (extras.error && extras.error !== 'max_iterations') {
-    const err = document.createElement('div');
-    err.className = 'error-box';
-    err.textContent = extras.error;
-    body.appendChild(err);
+  if (extras.error && extras.error!=='max_iterations'){
+    const err = document.createElement('div'); err.className='error-box'; err.textContent = extras.error; body.appendChild(err);
   }
-  chat.appendChild(div);
-  chat.scrollTop = chat.scrollHeight;
+  chat.appendChild(div); chat.scrollTop = chat.scrollHeight;
   return body;
 }
 
-function addTyping() {
-  const div = document.createElement('div');
-  div.className = 'msg agent'; div.id = 'typing';
+function addTyping(){
+  const div = document.createElement('div'); div.className='msg agent'; div.id='typing';
   div.innerHTML = `<div class="avatar">Z</div><div class="body"><span class="typing"><i></i><i></i><i></i></span></div>`;
-  chat.appendChild(div);
-  chat.scrollTop = chat.scrollHeight;
+  chat.appendChild(div); chat.scrollTop = chat.scrollHeight;
 }
 
-async function send(text, viaVoice = false) {
-  const message = (text ?? q.value).trim();
-  if (!message) return;
-  q.value = '';
-  sendBtn.disabled = true;
-  document.getElementById('suggestions').style.display = 'none';
-  addMessage('user', message);
-  addTyping();
-  try {
+async function send(text, viaVoice=false){
+  const message = (text ?? q.value).trim(); if(!message) return;
+  q.value=''; sendBtn.disabled = true;
+  $('suggestions').style.display='none';
+  addMessage('user', message); addTyping();
+  try{
     const res = await fetch('/api/chat', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ message, session_id: sessionId, model: modelSel.value }),
+      method:'POST', headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({ message, session_id: chatSessionId, model: modelSel.value, base: state.base, persona: state.persona }),
     });
     const data = await res.json();
     document.getElementById('typing').remove();
-    if (!res.ok) {
-      addMessage('agent', 'Ocurrió un error procesando tu pregunta.', { error: data.detail });
-    } else {
-      sessionId = data.session_id;
-      localStorage.setItem('zeia_session', sessionId);
-      addMessage('agent', data.answer, data);
-      if (viaVoice) speakAnswer(data.answer);
-    }
-  } catch (e) {
+    if (!res.ok) addMessage('agent','Ocurrió un error procesando tu pregunta.',{error:data.detail});
+    else { chatSessionId = data.session_id; addMessage('agent', data.answer, data); if (viaVoice) speakAnswer(data.answer); }
+  }catch(e){
     document.getElementById('typing').remove();
-    addMessage('agent', 'No pude conectarme con el servidor.', { error: String(e) });
+    addMessage('agent','No pude conectarme con el servidor.',{error:String(e)});
   }
-  sendBtn.disabled = false;
-  q.focus();
+  sendBtn.disabled=false; q.focus();
 }
 
 sendBtn.onclick = () => send();
-q.addEventListener('keydown', e => {
-  if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); send(); }
-});
-document.getElementById('reset').onclick = async () => {
-  await fetch('/api/reset', {
-    method: 'POST', headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ session_id: sessionId }),
-  });
-  chat.innerHTML = '';
-  showSuggestions();
+q.addEventListener('keydown', e=>{ if(e.key==='Enter' && !e.shiftKey){ e.preventDefault(); send(); } });
+$('reset').onclick = async () => {
+  await fetch('/api/reset',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({session_id:chatSessionId})});
+  chatSessionId = null; chat.innerHTML=''; showSuggestions();
+  addMessage('agent', greeting());
 };
 
-function showSuggestions() {
-  const box = document.getElementById('suggestions');
-  box.style.display = 'flex';
-  box.innerHTML = '';
-  SUGGESTIONS.forEach(s => {
-    const chip = document.createElement('button');
-    chip.className = 'chip';
-    chip.textContent = s;
-    chip.onclick = () => send(s);
+function showSuggestions(){
+  const box = $('suggestions'); box.style.display='flex'; box.innerHTML='';
+  (SUGGESTIONS[state.base]||[]).forEach(s=>{
+    const chip = document.createElement('button'); chip.className='chip'; chip.textContent=s; chip.onclick=()=>send(s);
     box.appendChild(chip);
   });
 }
 
-// --- Voz: modo conversación con detección de voz (VAD) ---
-const micBtn = document.getElementById('mic');
-const vstatus = document.getElementById('voicestatus');
-let convoOn = false, convoStream = null, audioCtx = null, analyser = null;
-let speaking = false, silenceStart = 0, vadRecorder = null, vadChunks = [], vadMime = '';
-let currentAudio = null, voiceBusy = false;  // voiceBusy: transcribiendo/pensando
-
-const VAD_THRESHOLD = 0.02;    // energía RMS mínima para considerar habla
-const SILENCE_MS = 1300;       // silencio que cierra el turno del usuario
-const MIN_AUDIO_BYTES = 1500;  // descarta ruidos cortos (< ~1 s de audio)
-
-function setVStatus(t) { vstatus.textContent = t || ''; }
-
-function stopAudio() {
-  if (currentAudio) { currentAudio.pause(); URL.revokeObjectURL(currentAudio.src); currentAudio = null; }
+/* --- Voz (conservado) --- */
+const micBtn = $('mic');
+const vstatus = $('voicestatus');
+let convoOn=false, convoStream=null, audioCtx=null, analyser=null;
+let speaking=false, silenceStart=0, vadRecorder=null, vadChunks=[], vadMime='';
+let currentAudio=null, voiceBusy=false;
+const VAD_THRESHOLD=0.02, SILENCE_MS=1300, MIN_AUDIO_BYTES=1500;
+function setVStatus(t){ vstatus.textContent = t||''; }
+function stopAudio(){ if(currentAudio){ currentAudio.pause(); URL.revokeObjectURL(currentAudio.src); currentAudio=null; } }
+async function speakAnswer(text){
+  try{
+    const res = await fetch('/api/voice/speak',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({text})});
+    if(!res.ok) return;
+    const blob = await res.blob(); stopAudio();
+    currentAudio = new Audio(URL.createObjectURL(blob)); currentAudio.play();
+  }catch{}
 }
-
-async function speakAnswer(text) {
-  try {
-    const res = await fetch('/api/voice/speak', {
-      method: 'POST', headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ text }),
-    });
-    if (!res.ok) return;  // el detalle completo ya está en pantalla
-    const blob = await res.blob();
-    stopAudio();
-    currentAudio = new Audio(URL.createObjectURL(blob));
-    currentAudio.play();
-  } catch { /* la respuesta queda solo en pantalla */ }
+function startUtterance(){
+  vadChunks=[];
+  vadRecorder = new MediaRecorder(convoStream, vadMime?{mimeType:vadMime}:undefined);
+  vadRecorder.ondataavailable = ev=>{ if(ev.data.size) vadChunks.push(ev.data); };
+  vadRecorder.onstop = onUtteranceStop; vadRecorder.start();
 }
-
-function startUtterance() {
-  vadChunks = [];
-  vadRecorder = new MediaRecorder(convoStream, vadMime ? { mimeType: vadMime } : undefined);
-  vadRecorder.ondataavailable = ev => { if (ev.data.size) vadChunks.push(ev.data); };
-  vadRecorder.onstop = onUtteranceStop;
-  vadRecorder.start();
-}
-
-function endUtterance() {
-  if (vadRecorder && vadRecorder.state !== 'inactive') vadRecorder.stop();
-  vadRecorder = null;
-}
-
-async function onUtteranceStop() {
-  if (!convoOn) return;
-  const blob = new Blob(vadChunks, { type: vadMime || 'audio/webm' });
-  vadChunks = [];
-  if (blob.size < MIN_AUDIO_BYTES) { setVStatus('Escuchando…'); return; }
-  voiceBusy = true;
-  setVStatus('Transcribiendo…');
-  try {
-    const res = await fetch('/api/voice/transcribe', {
-      method: 'POST',
-      headers: { 'Content-Type': blob.type || 'audio/webm' },
-      body: blob,
-    });
+function endUtterance(){ if(vadRecorder && vadRecorder.state!=='inactive') vadRecorder.stop(); vadRecorder=null; }
+async function onUtteranceStop(){
+  if(!convoOn) return;
+  const blob = new Blob(vadChunks,{type:vadMime||'audio/webm'}); vadChunks=[];
+  if(blob.size<MIN_AUDIO_BYTES){ setVStatus('Escuchando…'); return; }
+  voiceBusy=true; setVStatus('Transcribiendo…');
+  try{
+    const res = await fetch('/api/voice/transcribe',{method:'POST',headers:{'Content-Type':blob.type||'audio/webm'},body:blob});
     const data = await res.json();
-    if (res.ok && data.text) {
-      setVStatus('ZEIA está pensando…');
-      await send(data.text, true);  // send() llama speakAnswer() al terminar
-    } else if (!res.ok) {
-      addMessage('agent', 'No pude transcribir el audio.', { error: data.detail });
-    } else {
-      setVStatus('No escuché nada, intenta de nuevo');
-      await new Promise(r => setTimeout(r, 1200));
-    }
-  } catch (e) {
-    addMessage('agent', 'No pude conectarme con el servidor.', { error: String(e) });
-  }
-  voiceBusy = false;
-  if (convoOn) setVStatus('Escuchando…');
+    if(res.ok && data.text){ setVStatus('ZEIA está pensando…'); await send(data.text,true); }
+    else if(!res.ok){ addMessage('agent','No pude transcribir el audio.',{error:data.detail}); }
+    else { setVStatus('No escuché nada, intenta de nuevo'); await new Promise(r=>setTimeout(r,1200)); }
+  }catch(e){ addMessage('agent','No pude conectarme con el servidor.',{error:String(e)}); }
+  voiceBusy=false; if(convoOn) setVStatus('Escuchando…');
 }
-
-function vadTick() {
-  if (!convoOn || !analyser) return;
+function vadTick(){
+  if(!convoOn || !analyser) return;
   const buf = new Float32Array(analyser.fftSize);
   analyser.getFloatTimeDomainData(buf);
-  let s = 0;
-  for (let i = 0; i < buf.length; i++) s += buf[i] * buf[i];
-  const loud = Math.sqrt(s / buf.length) > VAD_THRESHOLD;
+  let s=0; for(let i=0;i<buf.length;i++) s+=buf[i]*buf[i];
+  const loud = Math.sqrt(s/buf.length) > VAD_THRESHOLD;
   const now = performance.now();
-  if (voiceBusy) {
-    speaking = false; silenceStart = 0;
-  } else if (!speaking && loud) {
-    speaking = true; silenceStart = 0;
-    stopAudio();  // barge-in: hablar interrumpe la voz de ZEIA
-    setVStatus('Te escucho…');
-    startUtterance();
-  } else if (speaking) {
-    if (loud) {
-      silenceStart = 0;
-    } else {
-      if (!silenceStart) silenceStart = now;
-      if (now - silenceStart > SILENCE_MS) {
-        speaking = false; silenceStart = 0;
-        endUtterance();
-      }
-    }
+  if(voiceBusy){ speaking=false; silenceStart=0; }
+  else if(!speaking && loud){ speaking=true; silenceStart=0; stopAudio(); setVStatus('Te escucho…'); startUtterance(); }
+  else if(speaking){
+    if(loud){ silenceStart=0; }
+    else { if(!silenceStart) silenceStart=now; if(now-silenceStart>SILENCE_MS){ speaking=false; silenceStart=0; endUtterance(); } }
   }
   requestAnimationFrame(vadTick);
 }
-
-async function startConvo() {
-  try {
-    convoStream = await navigator.mediaDevices.getUserMedia({
-      audio: { echoCancellation: true, noiseSuppression: true },
-    });
-  } catch {
-    addMessage('agent', 'No pude acceder al micrófono. Revisa los permisos del navegador.');
-    return;
-  }
-  audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-  analyser = audioCtx.createAnalyser();
-  analyser.fftSize = 2048;
+async function startConvo(){
+  try{ convoStream = await navigator.mediaDevices.getUserMedia({audio:{echoCancellation:true,noiseSuppression:true}}); }
+  catch{ addMessage('agent','No pude acceder al micrófono. Revisa los permisos del navegador.'); return; }
+  audioCtx = new (window.AudioContext||window.webkitAudioContext)();
+  analyser = audioCtx.createAnalyser(); analyser.fftSize=2048;
   audioCtx.createMediaStreamSource(convoStream).connect(analyser);
-  vadMime = MediaRecorder.isTypeSupported('audio/webm;codecs=opus') ? 'audio/webm;codecs=opus'
-          : MediaRecorder.isTypeSupported('audio/webm') ? 'audio/webm' : '';
-  convoOn = true;
-  micBtn.classList.add('recording');
-  micBtn.textContent = '⏹';
-  micBtn.title = 'Terminar la conversación';
-  setVStatus('Escuchando… habla cuando quieras');
-  requestAnimationFrame(vadTick);
+  vadMime = MediaRecorder.isTypeSupported('audio/webm;codecs=opus')?'audio/webm;codecs=opus':MediaRecorder.isTypeSupported('audio/webm')?'audio/webm':'';
+  convoOn=true; micBtn.classList.add('recording'); micBtn.textContent='⏹'; micBtn.title='Terminar la conversación';
+  setVStatus('Escuchando… habla cuando quieras'); requestAnimationFrame(vadTick);
 }
-
-function stopConvo() {
-  convoOn = false; speaking = false;
-  endUtterance();
-  if (convoStream) { convoStream.getTracks().forEach(t => t.stop()); convoStream = null; }
-  if (audioCtx) { audioCtx.close(); audioCtx = null; }
-  stopAudio();
-  micBtn.classList.remove('recording');
-  micBtn.textContent = '🎙';
-  micBtn.title = 'Iniciar conversación por voz';
-  setVStatus('');
+function stopConvo(){
+  convoOn=false; speaking=false; endUtterance();
+  if(convoStream){ convoStream.getTracks().forEach(t=>t.stop()); convoStream=null; }
+  if(audioCtx){ audioCtx.close(); audioCtx=null; }
+  stopAudio(); micBtn.classList.remove('recording'); micBtn.textContent='🎙'; micBtn.title='Iniciar conversación por voz'; setVStatus('');
 }
-
-micBtn.onclick = () => (convoOn ? stopConvo() : startConvo());
-
-async function initVoice() {
-  try {
-    const res = await fetch('/api/voice/status');
-    const data = await res.json();
-    if (!data.enabled) {
-      micBtn.disabled = true;
-      micBtn.title = 'Voz deshabilitada: falta ELEVENLABS_API_KEY en .env';
-    }
-  } catch { micBtn.disabled = true; }
+micBtn.onclick = () => (convoOn?stopConvo():startConvo());
+async function initVoice(){
+  try{
+    const res = await fetch('/api/voice/status'); const data = await res.json();
+    if(!data.enabled){ micBtn.disabled=true; micBtn.title='Voz deshabilitada: falta ELEVENLABS_API_KEY en .env'; }
+  }catch{ micBtn.disabled=true; }
 }
 
 initModels();
 initVoice();
-showSuggestions();
-addMessage('agent', 'Hola, soy **ZEIA**, tu analista de energía. Puedo responder sobre consumo, costos, alertas y oportunidades de ahorro de las sedes monitoreadas. ¿Qué te gustaría saber?');
 </script>
 </body>
 </html>

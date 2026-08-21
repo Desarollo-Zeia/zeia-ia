@@ -3,24 +3,36 @@
 Agente conversacional que responde preguntas en español sobre los datos de
 monitoreo energético almacenados en la base PostgreSQL `energy` (producción).
 
+**Multi-base (desde 20-ago-2026)**: el mismo agente soporta DOS módulos/bases:
+- `energia` → base `energy` (consumo eléctrico) — el original
+- `ambiental` → base `valhalladb` (monitoreo ambiental de interiores: CO2,
+  temperatura, humedad de salas; Sanna San Borja activa)
+
+`EnergyAgent(base=...)` (src/agent.py) elige prompt y base. Web: selector de
+módulo en el header. CLI: `python cli.py --base ambiental`. Config por
+prefijos `ENERGIA_DB_*` / `AMBIENTAL_DB_*` en `.env` (`.env.example` como
+plantilla). En el trabajo ambas bases corren en 127.0.0.1 (5432 energía /
+5433 ambiental); en casa vía túnel SSH por base (ver docs/producto_cliente.md).
+
 ## Arquitectura
 
 ```
-cli.py                  Chat en terminal
+cli.py                  Chat en terminal (--base energia|ambiental)
 webapp.py               App web (FastAPI): chat + gráficos + voz → python webapp.py (:8000)
-web/static/index.html   UI de chat (selector de modelo, chips, 🎙 modo
+web/static/index.html   UI de chat (selector de MÓDULO + modelo, chips, 🎙 modo
                         conversación por voz con VAD: detecta habla/silencio)
 web/static/vendor/      echarts.min.js + marked.min.js locales (sin CDN)
 src/
-  config.py             Carga .env; DEFAULT_MODEL y credenciales
-  tunnel.py             Túnel SSH (reutiliza uno existente si el puerto ya está abierto;
-                        con USE_SSH_TUNNEL=false en .env NUNCA abre el túnel → DB local)
-  db.py                 SQLAlchemy + seguridad: read_only, statement_timeout,
-                        validación SELECT-only (sqlparse), LIMIT y truncado de resultados;
-                        re-verifica el túnel SSH en cada consulta (reconexión automática)
+  config.py             Carga .env; DBConfig por base (ENERGIA_DB/AMBIENTAL_DB),
+                        DEFAULT_MODEL y credenciales; alias DB_* = energía (retrocompat)
+  tunnel.py             Túnel SSH POR BASE (reutiliza uno existente si el puerto ya
+                        está abierto; con USE_SSH_TUNNEL_<BASE>=false NUNCA abre túnel)
+  db.py                 SQLAlchemy + seguridad por base: read_only, statement_timeout,
+                        validación SELECT-only (sqlparse), LIMIT y truncado;
+                        get_engine(base)/run_query(sql, base); re-verifica túnel
   tools.py              Function calling: list_schemas/list_tables/describe_table/
                         run_query/render_chart (gráficos: specs capturadas en agent.py
-                        y renderizadas por la web; en CLI se ignoran)
+                        y renderizadas por la web; en CLI se ignoran) — todas con base
                         + list_documents/extract_pdf_text (leer PDFs de la raíz)
   pdf_tools.py          Lista y extrae PDFs del proyecto (pdf-inspector → Markdown
                         con tablas; fallback pypdf). Facturas Kallpa: enero-2025.pdf…
@@ -52,21 +64,28 @@ eval/
                         guarda JSON en eval/results/
 docs/
   schema.md             Esquema legible de la DB (63 tablas, esquema public)
+  producto_cliente.md   ★ Especificaciones del asistente multi-base para
+                        clientes: config, arranque en el trabajo, sync, agente
 ```
 
 ## Infraestructura de datos
 
-- **Túnel SSH**: `ssh -i energy.pem -N -L 55432:172.31.29.136:5432 ubuntu@54.242.41.196`
-  (el código lo levanta solo si el puerto no está abierto). `energy.pem` y `.env`
-  están gitignored — NUNCA commitear.
-- **DB**: PostgreSQL 16, base `energy`, usuario `postgres` (el manual decía
-  `Postgres`/`Energy`/puerto 5435 — todo eso estaba mal; lo correcto está en `.env`).
-- **⚠️ DB local activa (18-ago-2026)**: backup completo de producción
-  restaurado en PostgreSQL 16.15 local (Homebrew, `127.0.0.1:5432`, base
-  `energy`, 9.2M lecturas). `.env` apunta local con `USE_SSH_TUNNEL=false`.
-  Dump en `backups/energy_prod_20260818_123052.dump` (restaurar con el
-  pg_restore 18 de libpq, no el de PG 16). Para volver a producción:
-  `DB_PORT=55432` + `USE_SSH_TUNNEL=true` en `.env`.
+- **Túnel SSH energía**: `ssh -i energy.pem -N -L 55432:172.31.29.136:5432 ubuntu@54.242.41.196`
+  (el código lo levanta solo si el puerto no está abierto).
+- **Túnel SSH ambiental**: `ssh -i valhallaprod.pem -N -L 5435:172.31.29.136:5432 ubuntu@ec2-44-206-41-101.compute-1.amazonaws.com`
+  (mismo servidor remoto 172.31.29.136; cada base con su clave/bastión porque
+  pg_hba restringe `energy` desde el host ambiental).
+- `*.pem` y `.env` están gitignored — NUNCA commitear.
+- **DB energía**: PostgreSQL 16, base `energy`, usuario `postgres` (el manual
+  decía `Postgres`/`Energy`/puerto 5435 — todo eso estaba mal; lo correcto
+  está en `.env`).
+- **DB ambiental**: base `valhalladb` (Django), usuario `postgres`, contraseña
+  en `.env` como `AMBIENTAL_DB_PASSWORD` (¡incluye el punto final!).
+- **⚠️ DBs locales (plan trabajo, 20-ago-2026)**: en la máquina del trabajo
+  ambas corren en `127.0.0.1` — energía `5432`, ambiental `5433`
+  (`USE_SSH_TUNNEL_*=false`). En casa: energía local 5432 (backup 18-ago) y
+  ambiental vía túnel en 5435 (`AMBIENTAL_DB_PORT=5435` para probar). Sync:
+  `scripts/sync_db.sh <energia|ambiental>` → `backups/<base>/`.
 
 ## Conocimiento clave del dominio (también en src/prompts.py)
 
@@ -165,9 +184,11 @@ gpt-4.1-mini).
 source venv/bin/activate
 python scripts/test_connection.py     # verificar conectividad
 python cli.py --verbose               # chat terminal (muestra herramientas/SQL)
+python cli.py --base ambiental        # chat del módulo ambiental (valhalladb)
 python webapp.py                      # chat web con gráficos → http://localhost:8000
 python scripts/introspect.py          # regenerar docs del esquema
 python eval/compare_models.py --questions q1_empresas_puntos  # eval rápida
+scripts/sync_db.sh ambiental full     # sync de una base (dump+restore+verifica)
 ```
 
 ## Convenciones

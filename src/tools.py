@@ -1,4 +1,8 @@
-"""Herramientas SQL que el agente puede invocar (function calling)."""
+"""Herramientas SQL que el agente puede invocar (function calling).
+
+Las herramientas de base de datos operan sobre la base activa del agente
+('energia' | 'ambiental'), pasado vía `dispatch(..., base=...)`.
+"""
 from __future__ import annotations
 
 import json
@@ -148,7 +152,7 @@ TOOL_SPECS = [
 MAX_TOOL_RESULT_CHARS = 12000
 
 
-def dispatch(name: str, arguments_json: str) -> str:
+def dispatch(name: str, arguments_json: str, base: str | None = None) -> str:
     """Ejecuta la herramienta pedida y devuelve el resultado como string JSON."""
     try:
         args = json.loads(arguments_json or "{}")
@@ -165,13 +169,13 @@ def dispatch(name: str, arguments_json: str) -> str:
                 args.get("page_to"),
             )
         elif name == "list_schemas":
-            result = db.list_schemas()
+            result = db.list_schemas(base=base)
         elif name == "list_tables":
-            result = db.list_tables(args["schema"])
+            result = db.list_tables(args["schema"], base=base)
         elif name == "describe_table":
-            result = db.describe_table(args["schema"], args["table"])
+            result = db.describe_table(args["schema"], args["table"], base=base)
         elif name == "run_query":
-            result = db.run_query(args["sql"])
+            result = db.run_query(args["sql"], base=base)
         elif name == "render_chart":
             # El gráfico no se ejecuta aquí: el caller (agente/web) lo captura
             # de los argumentos de la tool call.
