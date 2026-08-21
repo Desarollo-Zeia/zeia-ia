@@ -526,7 +526,7 @@ plan de producción agente↔Django↔frontend; todo corre en local (:8000).
 
 ---
 
-## Sesión 13 — 2026-08-20: Asistente multi-base (energía + ambiental) para clientes
+## Sesión 13b — 2026-08-20: Asistente multi-base (energía + ambiental) para clientes
 
 ### Objetivo
 Producto: agente IA que lee las bases de los clientes y responde cualquier
@@ -573,3 +573,148 @@ solo proyecto: `energia` (energy, consumo eléctrico) y `ambiental`
   bases (Sanna ayer energía: 1.3 GWh + 💡).
 - Pendiente en el trabajo: escribir credenciales reales en `.env`, restaurar
   backups en 5432/5433 (sync --restore-only), demo.
+## Sesión 14 — 2026-08-21: Reporte de huecos (agosto 2026)
+
+### Contexto
+- `.env` reestructurado con prefijos `ENERGIA_*` / `AMBIENTAL_*` (multi-base
+  en curso según `docs/producto_cliente.md`) pero `config.py` aún leía los
+  nombres viejos (`DB_*`) → todo el proyecto había quedado sin poder correr.
+  Fix mínimo retrocompatible: `config.py` lee `ENERGIA_*` con fallback a
+  `DB_*` (SSH vars con `SSH_*_ENERGIA`). No se implementó el `base=` todavía.
+
+### Análisis ejecutado
+- `scripts/analisis_huecos.py` (pipeline de la sesión del commit e8c574a):
+  agosto 2026, huecos > 2 min, eventos con pausa ≤ 10 min.
+- Resultados: 7,854 huecos → 4,343 eventos; 31 puntos activos;
+  ~713.7k lecturas; **11,384 faltantes (~1.6 %)**. Oechsle Salaverry 186.6 h
+  sin datos (6,545 lect.) / Sanna San Borja 144.2 h (4,839 lect.).
+- **Peor punto**: Chiller 2 (tablero HVAC TG-TR2 de Oechsle, uno de los 2
+  puntos del total de sede): 46.7 h en 33 eventos, con caídas de 10–13 h
+  (15–17-ago). Patrón intermitente (huecos máx 7–9 min, no corte seco).
+- Dato de cobertura: DB local termina en 17-ago 14:33 Lima → días 18–20 sin
+  lecturas (sincronización pendiente).
+- Reporte: `docs/reporte_huecos_agosto_2026.md`; CSVs en `analisis/`; tablas
+  `analisis_huecos`/`analisis_eventos` en DB local; dashboard en `:8000/gaps`.
+
+---
+
+## Sesión 13 — 2026-08-19: Conexión Valhalla mediante SSH
+
+### Conectividad
+- `.env` configurado para `valhallaprod.pem`, usuario `ubuntu` y el host EC2
+  de Valhalla; el túnel local expone `127.0.0.1:5435` hacia
+  `172.31.29.136:5432`.
+- La llave autentica correctamente y el túnel abre el puerto local.
+- La contraseña mostrada en el instructivo estaba rotada. Se usó la
+  credencial vigente ya disponible en el entorno, sin registrar secretos en
+  esta bitácora.
+- Verificado con `scripts/test_connection.py`: PostgreSQL 16.14,
+  `db=valhalladb`, usuario `postgres`, `read_only=on`, esquema `public`.
+
+---
+
+## Sesión 15 — 2026-08-21: Análisis de huecos diario (cobertura por día/punto)
+
+### Contexto
+- Petición del usuario: análisis de huecos sobre la DB local. Complementa el
+  pipeline fino de la sesión 14 (minutos, `reporte_huecos_agosto_2026.md`);
+  este es a nivel de días completos y detecta caídas de días enteros.
+
+### Herramienta
+- `scripts/analisis_huecos.py` (reusable, `--intraday` opcional): inventario
+  jerárquico + conteos diarios por punto (`GROUP BY point, dia Lima`) +
+  episodios de hueco (<10 lect/día) + días parciales (<1300) + staleness.
+- **Bug detectado y corregido**: el `GROUP BY` solo devuelve días CON filas;
+  inicializar `d.get(dia, 0)` sobre el calendario completo [min, max] es
+  obligatorio o los días sin datos nunca cuentan como hueco.
+
+### Hallazgos clave (datos hasta 17-ago-2026, dump 18-ago)
+- 85 puntos; 36 con lecturas (31 activos: 18 Oechsle + 13 Sanna).
+- **49 puntos sin UNA lectura** — TODOS bajo dispositivos "Device
+  falso/false" (circuitos no instrumentados / de prueba): no son huecos.
+  Excl. TestCorp_Email. Oechsle 22 sin lecturas, Pizza Hut 13, Sanna 13.
+- **Burger King**: hueco de 110 días (12-abr → 30-jul); volvió a reportar
+  solo el 31-jul y está caído desde entonces (17 días). Dato sospechoso;
+  hay 108 días sin datos que la sesión 14 (minutos, eventos ≤ ~10 min de
+  pausa) no podía ver.
+- **Pizza Hut**: hueco de 8 días (11→18-abr); murió definitivo 20-abr.
+- **Madam Tusan**: 4 episodios (1×1 día + 3×2 días) en abr-may; vida corta
+  (20-abr→14-may); en 4 de sus días con datos la cobertura fue <50%.
+- **Sanna**: hueco 5 días en cuarto de bombas (26-feb→2-mar); 4 días en
+  pinzas TGA (10→13-dic 2025, arranque); **caída global de ~3.5 días
+  (3-may 04:40 → 6-may 16:08 Lima)** en TODOS los puntos (evento externo,
+  probable corte de planta + problema de gateway). Días completos
+  "perdidos": 4-5 may (+ bordes parciales).
+- **Oechsle**: 0 huecos de día completo en 187-192 días — el más limpio.
+  Huecos intra-día comunes a los 4 puntos principales (67/69/75/76):
+  13-feb 16 h (arranque), 24-jun 2.4 h, 15-jul 4.3 h, 16-jul 2.1 h
+  (cortes de planta, caen a la vez → la falla es de la energía, no del dispositivo).
+- Cobertura: mediana 1,393 lect/día/punto (97% del teórico 1440).
+- **Dashboard web** (petición del usuario: informe siempre en web):
+  `scripts/analisis_huecos.py --export` escribe `analisis/cobertura_diaria.csv` +
+  `analisis/cobertura_resumen.json`; la app los sirve en `/api/cobertura[/resumen]`
+  y `web/static/gaps.html` ahora tiene 3 pestañas: **Cobertura diaria** (KPI,
+  heatmap echarts completo/parcial/hueco por punto×día, tabla por punto con
+  stale badge), Eventos agrupados y Huecos individuales (minutos, sesión 14).
+  Flujo: regenerar datos (`--export`) → `python webapp.py` → `http://localhost:8000/gaps`.
+- **Bug de `display` (reportado por el usuario, página en blanco)**: el JS
+  "mostraba" las secciones con `style.display = ""` pero el CSS las tiene con
+  `display:none` en la hoja de estilos → cadena vacía NO anula la regla y
+  quedaban ocultas aunque todo se renderizaba (DOM completo, canvas dibujados).
+  Fix: `display:"block"/"none"` explícito en `cambiarTab`. Verificado con
+  Playwright (Chromium headless instalado en el venv para QA del dashboard).
+- **Tab "Minuto a minuto"**: misma pestaña `/gaps`. `GET /api/lecturas
+  ?puntos=76,75&desde=../hasta=..` (≤3 puntos, ≤10 días) devuelve los minutos
+  (hora Lima) con lecturas vía índice `reading_mp_created_at_idx` (0.15 s por
+  punto-día). El navegador arma el heatmap x=minuto 0–1439, fila=punto·día:
+  verde=llegó, rojo=no llegó, gris=sin datos del punto, con dataZoom (zoom por
+  horas) + tabla resumen por punto: lecturas, minutos faltantes, % cobertura,
+  racha más larga y ventanas >5 min. Validado con el hueco de Oechsle
+  15-jul-2026: franja roja 11:33–15:49 (257 min) exacta + otra de 09:41–10:41.
+  Cuidado echarts: `axisLabel.interval` es por índice (Number("00:00") = NaN).
+- **Horizonte de datos (17-ago 14:33)**: verificado — TODOS los puntos (Oechsle
+  67/69/75/76 y Sanna 1/2/4) terminan entre 14:32:57 y 14:33:50 el 17-ago: es el
+  corte de la copia local (dump 18-ago 12:30), NO una caída de medidores. El
+  dashboard "Minuto a minuto" ahora recibe `meta` por punto (ultimo_dia,
+  ultimo_min_idx) y pinta gris claro los minutos posteriores a la última lectura
+  ("Fin de la copia local"), dejando rojo solo las faltas reales dentro del
+  horizonte. /api/lecturas devuelve meta con el horizonte de cada punto.
+
+---
+
+## Sesión 16 — 2026-08-21: Dashboard de huecos AMBIENTAL (valhalladb, :8002)
+
+### Contexto
+- Cliente ambiental corre en `:8002` (`webapp_ambiental.py`, PORT=8002). Ya había
+  pipeline (`scripts/analisis_huecos_ambiental.py`, sesión previa) con resumen por
+  combo (sensor×sala / sensor×punto) pero solo reporte HTML básico.
+- Se replicó el dashboard completo de energía para ambiental.
+
+### Datos clave (valhalladb)
+- 50 tablas; `readings_reading` 15.7M filas **vivas hasta HOY** (2023-01→2026-08-21);
+  `readings_readingambiental` solo 885 filas (nov-dic 2024, pruebas) → el track real
+  es SALAS. Índice `(indicator_device_id, created_at)` permite consultas en vivo (~0.2s).
+- Cadencia real: **12 lecturas/hora = 1 cada 5 min → ~288/día** (bucket adaptativo).
+- Inventario: **269 combos** (254 con datos, 15 sin); 19,142 días-hueco; mayor hueco
+  377 días; sedes con nombre literal "true"/"false" (data de prueba en
+  `enterprise_headquarters`). Combos Pisco-ICA/Aceros Arequipa con activado=False
+  pero con histórico.
+
+### Entregado
+- Pipeline extendido: `--export` también escribe `analisis/cobertura_diaria_ambiental_{
+  salas,puntos}.json` (estado día×combo contra el RITMO del sensor: completo ≥90%
+  de su mediana, parcial ≥10%, hueco <).
+- `webapp_ambiental.py` reescrito: `/gaps` (dashboard nuevo), `/reporte` (viejo),
+  `/api/ambiental/cobertura/{resumen,diaria}?track=`, `/api/ambiental/lecturas?
+  track=&combos=&desde=&hasta=` (en vivo, ≤40 combos, ≤10 días, meta horizonte),
+  compat `/api/ambiental/huecos/{salas,puntos}`, estáticos montados.
+- `web/static/ambiental_gaps.html`: 3 pestañas (Cobertura diaria KPI+heatmap+tabla,
+  Lectura a lectura con bucket adaptativo + horizonte + tabla ventanas >15 min,
+  Episodios) + selector Fuente Salas/Puntos + auto-carga + actualizando-feedback +
+  comparar-todos.
+- Verificado con Playwright: cobertura 269 filas OK; minuto-a-minuto CO2 Sala técnica
+  20-ago = 288/288 (100%, todo verde, último dato 23:57, 0.19s); episodios 1079/19142.
+- Ajuste visual (reportado por usuario): paleta oscura invisible sobre fondo
+  oscuro + celdas sub-pixel en rango de 3.5 años → colores brillantes
+  (#10b981/#f59e0b/#ef4444), borderWidth 0.2 y dataZoom (inside+slider) en el
+  heatmap de cobertura ambiental; misma paleta aplicada a lectura-a-lectura.

@@ -7,9 +7,12 @@ Uso:
 """
 from __future__ import annotations
 
+import csv
+import json as jsonlib
 import os
 import sys
 import uuid
+from datetime import date, timedelta
 
 # En Windows la consola usa cp1252; forzar UTF-8 para imprimir "→" y demás.
 if sys.stdout.encoding and sys.stdout.encoding.lower() != "utf-8":
@@ -31,6 +34,7 @@ from src.agent import EnergyAgent
 
 ROOT = Path(__file__).resolve().parent
 STATIC = ROOT / "web" / "static"
+ANALISIS = ROOT / "analisis"
 
 # Modelos ofrecidos en el selector (resultado de la evaluación comparativa)
 MODEL_OPTIONS = [
@@ -376,6 +380,135 @@ def eventos_data(empresa: Optional[str] = None,
             cols = [c.name for c in cur.description]
             rows = [dict(zip(cols, r)) for r in cur.fetchall()]
             return {"rows": rows, "total": len(rows)}
+    finally:
+        conn.close()
+
+
+# --- Cobertura diaria (informe de huecos a nivel de días) ---------------------
+# Datos generados por: python scripts/analisis_huecos.py --export
+# Archivos: analisis/cobertura_diaria.csv + analisis/cobertura_resumen.json
+
+
+@app.get("/api/cobertura")
+def cobertura_data(empresa: Optional[str] = None,
+                   punto: Optional[str] = None,
+                   desde: Optional[str] = None,
+                   hasta: Optional[str] = None):
+    """Cobertura diaria por punto (estado de cada día)."""
+    path = ANALISIS / "cobertura_diaria.csv"
+    if not path.exists():
+        raise HTTPException(404, "Falta cobertura_diaria.csv. Ejecutar: "
+                                 "python scripts/analisis_huecos.py --export")
+    rows = []
+    with open(path, encoding="utf-8-sig") as f:
+        for r in csv.DictReader(f):
+            if empresa and empresa.lower() not in r["empresa"].lower():
+                continue
+            if punto and punto.lower() not in r["punto"].lower():
+                continue
+            if desde and r["dia"] < desde:
+                continue
+            if hasta and r["dia"] > hasta:
+                continue
+            rows.append(r)
+    return {"rows": rows, "total": len(rows)}
+
+
+@app.get("/api/cobertura/resumen")
+def cobertura_resumen():
+    """Resumen por punto + episodios + métricas globales."""
+    path = ANALISIS / "cobertura_resumen.json"
+    if not path.exists():
+        raise HTTPException(404, "Falta cobertura_resumen.json. Ejecutar: "
+                                 "python scripts/analisis_huecos.py --export")
+    return jsonlib.loads(path.read_text(encoding="utf-8"))
+
+
+# --- Lectura a lectura (presencia por minuto) ---------------------------------
+# Vista "minuto a minuto": para 1-3 puntos y un rango de pocos días devuelve
+# los minutos (hora Lima) con lecturas. El resto lo completa el navegador
+# como minutos faltantes (rojo en el heatmap).
+
+MAX_LECTURAS_PUNTOS = 40   # "comparar todos": cubre todos los puntos con datos
+MAX_LECTURAS_DIAS = 10
+
+
+def _parse_puntos(puntos: Optional[str]) -> list[int]:
+    ids = set()
+    for part in (puntos or "").split(","):
+        part = part.strip()
+        if part.isdigit():
+            ids.add(int(part))
+    return sorted(ids)
+
+
+@app.get("/api/lecturas")
+def lecturas_data(puntos: Optional[str] = None,
+                  desde: Optional[str] = None,
+                  hasta: Optional[str] = None):
+    """Minutos (hora Lima) con lecturas por punto, para el heatmap por minuto.
+
+    Límites: MAX_LECTURAS_PUNTOS puntos y MAX_LECTURAS_DIAS días.
+    Solo devuelve minutos CON lectura; el navegador infiere los faltantes.
+    """
+    ids = _parse_puntos(puntos)
+    if not ids:
+        raise HTTPException(400, "Parámetro puntos requerido, ej: ?puntos=76,75")
+    if len(ids) > MAX_LECTURAS_PUNTOS:
+        raise HTTPException(400, f"Máximo {MAX_LECTURAS_PUNTOS} puntos a la vez")
+    if not desde:
+        desde = (date.today() - timedelta(days=1)).isoformat()
+    hasta = hasta or desde
+    try:
+        d0 = date.fromisoformat(desde)
+        d1 = date.fromisoformat(hasta)
+    except ValueError:
+        raise HTTPException(400, "Fechas inválidas (usar YYYY-MM-DD)")
+    if d1 < d0 or (d1 - d0).days >= MAX_LECTURAS_DIAS:
+        raise HTTPException(400, f"Rango máximo {MAX_LECTURAS_DIAS} días")
+
+    placeholders = ",".join(["%s"] * len(ids))
+    sql = f"""
+        SELECT r.measurement_point_id AS point_id,
+               (r.created_at AT TIME ZONE 'America/Lima')::date AS dia,
+               EXTRACT(HOUR   FROM r.created_at AT TIME ZONE 'America/Lima')::int AS hora,
+               EXTRACT(MINUTE FROM r.created_at AT TIME ZONE 'America/Lima')::int AS minuto,
+               count(*) AS n
+        FROM readings_reading r
+        WHERE r.measurement_point_id IN ({placeholders})
+          AND r."EPpos_value" IS NOT NULL
+          AND r.created_at >= (CAST(%s AS date))::timestamp AT TIME ZONE 'America/Lima'
+          AND r.created_at <  (CAST(%s AS date) + 1)::timestamp AT TIME ZONE 'America/Lima'
+        GROUP BY 1, 2, 3, 4
+        ORDER BY 1, 2, 3, 4
+    """
+    params = [*ids, d0.isoformat(), d1.isoformat()]
+    conn = psycopg2.connect(host=config.DB_HOST, port=config.DB_PORT,
+                            user=config.DB_USER, password=config.DB_PASSWORD,
+                            dbname=config.DB_NAME)
+    try:
+        with conn.cursor() as cur:
+            cur.execute(sql, params)
+            cols = [c.name for c in cur.description]
+            rows = [dict(zip(cols, r)) for r in cur.fetchall()]
+            # Horizonte de datos por punto: la copia local puede terminar en
+            # medio de un día (sync pendiente). La última lectura de cada punto
+            # delimita los minutos evaluables; el resto NO es un hueco.
+            meta = {"puntos": []}
+            for pid in ids:
+                regs = [r for r in rows if r["point_id"] == pid]
+                if not regs:
+                    meta["puntos"].append({"point_id": pid, "ultimo_dia": None,
+                                           "ultimo_min_idx": None, "ultima_hhmm": None})
+                    continue
+                ult = regs[-1]  # ORDER BY point, dia, hora, minuto
+                meta["puntos"].append({
+                    "point_id": pid,
+                    "ultimo_dia": ult["dia"],
+                    "ultimo_min_idx": ult["hora"] * 60 + ult["minuto"],
+                    "ultima_hhmm": f"{int(ult['hora']):02d}:{int(ult['minuto']):02d}",
+                })
+            return {"rows": rows, "total": len(rows), "meta": meta}
     finally:
         conn.close()
 

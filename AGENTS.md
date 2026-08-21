@@ -187,6 +187,7 @@ python cli.py --verbose               # chat terminal (muestra herramientas/SQL)
 python cli.py --base ambiental        # chat del módulo ambiental (valhalladb)
 python webapp.py                      # chat web con gráficos → http://localhost:8000
 python scripts/introspect.py          # regenerar docs del esquema
+python scripts/analisis_huecos.py --export   # informe de huecos → dashboard :8000/gaps
 python eval/compare_models.py --questions q1_empresas_puntos  # eval rápida
 scripts/sync_db.sh ambiental full     # sync de una base (dump+restore+verifica)
 ```

@@ -3,21 +3,36 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+<meta http-equiv="Pragma" content="no-cache">
+<meta http-equiv="Expires" content="0">
 <title>ZEIA · Huecos de lectura</title>
+<script src="/static/vendor/echarts.min.js"></script>
 <style>
   :root { --bg:#0b1410; --panel:#12201b; --text:#e6edf3; --muted:#8b98a5;
           --accent:#2dd4a7; --danger:#f87171; --warn:#f59e0b; --border:#1e332b; }
   * { box-sizing:border-box; margin:0; padding:0; }
   body { font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;
          background:var(--bg); color:var(--text); padding:24px; }
-  header { display:flex; align-items:baseline; gap:12px; margin-bottom:18px; flex-wrap:wrap; }
+  header { display:flex; align-items:baseline; gap:12px; margin-bottom:14px; flex-wrap:wrap; }
   h1 { font-size:20px; color:var(--accent); }
   .sub { color:var(--muted); font-size:13px; }
+  .tabs { display:flex; gap:8px; margin-bottom:18px; flex-wrap:wrap; }
+  .tab { background:var(--panel); border:1px solid var(--border); color:var(--muted);
+         padding:8px 16px; border-radius:8px; font-size:13px; cursor:pointer; }
+  .tab.active { color:var(--accent); border-color:var(--accent); font-weight:600; }
   .filtros { display:flex; gap:10px; margin-bottom:16px; flex-wrap:wrap; align-items:center; }
   input, select { background:var(--panel); border:1px solid var(--border); color:var(--text);
                   padding:7px 10px; border-radius:8px; font-size:13px; }
   input:focus, select:focus { outline:none; border-color:var(--accent); }
   label { font-size:12px; color:var(--muted); }
+  .kpis { display:flex; gap:12px; flex-wrap:wrap; margin-bottom:16px; }
+  .kpi { background:var(--panel); border:1px solid var(--border); border-radius:10px;
+         padding:12px 18px; min-width:150px; }
+  .kpi .k { font-size:11px; color:var(--muted); text-transform:uppercase; letter-spacing:.04em; }
+  .kpi .v { font-size:22px; font-weight:700; color:var(--accent); }
+  .kpi .v.warn { color:var(--warn); }
+  .kpi .v.danger { color:var(--danger); }
   .resumen { color:var(--muted); font-size:13px; margin-bottom:10px; }
   .resumen b { color:var(--accent); }
   table { width:100%; border-collapse:collapse; font-size:13px; background:var(--panel);
@@ -31,55 +46,305 @@
   .gravedad-media { color:var(--warn); }
   .gravedad-baja { color:var(--muted); }
   .emp { color:var(--accent); }
+  .badge { padding:2px 8px; border-radius:10px; font-size:11px; font-weight:600; }
+  .badge.ok { background:rgba(45,212,167,.15); color:var(--accent); }
+  .badge.caid { background:rgba(248,113,113,.15); color:var(--danger); }
   .empty { text-align:center; color:var(--muted); padding:30px 0; font-size:13px; }
+  #err { display:none; background:rgba(248,113,113,.12); border:1px solid var(--danger);
+         color:var(--danger); padding:10px 14px; border-radius:8px; font-size:13px;
+         margin-bottom:14px; white-space:pre-wrap; }
+  #status { color:var(--muted); font-size:13px; padding:20px 0; }
+  @keyframes pulso { 0%,100% { opacity:1; } 50% { opacity:.45; } }
+  .cargando { color:var(--warn) !important; animation:pulso 1s infinite; }
+  #chart-sub, #cobertura, #web, #minuto { display:none; }
+  .grafico { width:100%; height:52vh; background:var(--panel); border-radius:10px;
+             border:1px solid var(--border); padding:6px; }
+  #cobertura #chart-sub, #minuto #chart-min { display:block; }
+  #chart-min { width:100%; height:56vh; }
+  button { background:var(--panel); border:1px solid var(--border); color:var(--text);
+           padding:8px 14px; border-radius:8px; font-size:13px; cursor:pointer; }
+  button:hover { border-color:var(--accent); color:var(--accent); }
+  .seccion { display:none; }
+  .chmuted { color:var(--muted); font-size:11px; margin:4px 0 14px 4px; }
 </style>
 </head>
 <body>
   <header>
     <h1>ZEIA · Huecos de lectura</h1>
-    <span class="sub">Cada fila = un rango sin lecturas (pérdida de datos). Generado por scripts/analisis_huecos.py</span>
+    <span class="sub">Pérdidas de datos en el monitoreo. Datos generados por scripts/analisis_huecos.py</span>
   </header>
 
-  <div class="filtros">
-    <span><label>Modo</label><br>
-      <select id="f-modo">
-        <option value="eventos">Eventos agrupados</option>
-        <option value="huecos">Huecos individuales</option>
-      </select></span>
-    <span><label>Empresa</label><br><input id="f-empresa" placeholder="Oechsle, Sanna..."></span>
-    <span><label>Punto</label><br><input id="f-punto" placeholder="Tomógrafo, TG-TR2..."></span>
-    <span><label>Fecha</label><br><input id="f-fecha" type="date"></span>
-    <span><label>Duración mínima (min)</label><br><input id="f-min" type="number" min="0" value="0"></span>
-    <span><label>Ordenar por</label><br>
-      <select id="f-orden">
-        <option value="duracion">Duración desc</option>
-        <option value="fecha">Fecha desc</option>
-        <option value="punto">Punto</option>
-      </select></span>
+  <div id="err"></div>
+
+  <div class="tabs">
+    <div class="tab active" data-tab="cobertura">Cobertura diaria</div>
+    <div class="tab" data-tab="minuto">Minuto a minuto</div>
+    <div class="tab" data-tab="eventos">Eventos agrupados</div>
+    <div class="tab" data-tab="huecos">Huecos individuales</div>
   </div>
 
-  <div class="resumen"><b id="total">0</b> registros · <b id="horas">0.0</b> h sin datos totales · <b id="puntos">0</b> puntos afectados ·
-    <span id="lbl-ayuda">Un evento = huecos del mismo punto agrupados si la pausa entre ellos fue &le; 10 min</span></div>
+  <!-- ============ Vista 1: cobertura diaria por punto ============ -->
+  <div id="cobertura">
+    <div id="status">Cargando datos de cobertura diaria…</div>
+    <div class="kpis" id="kpis"></div>
+    <div id="chart-sub" class="grafico"></div>
+    <div class="chmuted">
+      Cada celda = un día de un punto. Verde = llegaron las lecturas de esa jornada
+      (EPpos/P/I del punto, ≥90% de los ~1,440 min) · Ámbar = parcial · Rojo = hueco:
+      no llegó el contador EPpos ese día (todos los indicadores del punto, no solo uno).
+    </div>
+    <div class="filtros">
+      <span><label>Empresa</label><br><input id="d-empresa" placeholder="Oechsle, Sanna..."></span>
+      <span><label>Punto</label><br><input id="d-punto" placeholder="Tomógrafo, TG-TR2..."></span>
+      <span><label>Desde</label><br><input id="d-desde" type="date"></span>
+      <span><label>Hasta</label><br><input id="d-hasta" type="date"></span>
+      <span><label>Ordenar</label><br>
+        <select id="d-orden">
+          <option value="hueco">Peor cobertura</option>
+          <option value="empresa">Empresa / sede</option>
+          <option value="dia">Inicio de datos</option>
+        </select></span>
+    </div>
+    <div class="resumen"><b id="d-resumen">0</b></div>
+    <table>
+      <thead><tr>
+        <th>Empresa</th><th>Sede</th><th>Tablero</th><th>Punto</th><th>ID</th>
+        <th>Rango</th><th>Días datos</th><th>Completos</th><th>Parciales</th>
+        <th>Hueco</th><th>Episodios</th><th>Mayor hueco</th><th>Estado</th>
+      </tr></thead>
+      <tbody id="d-tbody"></tbody>
+    </table>
+  </div>
 
-  <table>
-    <thead><tr id="thead">
-      <th>Fecha</th><th>Empresa</th><th>Sede</th><th>Tablero</th><th>Punto</th><th>ID</th>
-      <th>Inicio</th><th>Fin</th><th>Sin datos</th><th>Huecos</th><th>Mayor hueco</th><th>Lect. falt.</th>
-    </tr></thead>
-    <tbody id="tbody"></tbody>
-  </table>
+  <!-- ============ Vista 2: minuto a minuto (lecturas presentes) ============ -->
+  <div id="minuto" class="seccion">
+    <div class="filtros">
+      <span><label>Punto 1</label><br><select id="m-p1"></select></span>
+      <span><label>Punto 2 (opcional)</label><br><select id="m-p2"></select></span>
+      <span><label>Punto 3 (opcional)</label><br><select id="m-p3"></select></span>
+      <span><label>Fecha</label><br><input id="m-fecha" type="date"></span>
+      <span><label><input type="checkbox" id="m-todos"> Comparar todos los puntos</label><br></span>
+      <span><button id="m-cargar">Ver lectura a lectura</button></span>
+    </div>
+    <div id="m-status" class="resumen"></div>
+    <div id="chart-min"></div>
+    <div class="chmuted">
+      Cada celda = 1 minuto del día (Hora Lima). Verde: llegó la lectura del punto (contiene
+      <b>EPpos</b> kWh, <b>P</b> W e <b>I</b> A del punto — siempre viajan juntos) ·
+      Rojo: no llegó → faltan <b>todos los indicadores</b> de ese minuto (EPpos, P, Q, I, THD…).
+      Gris oscuro: ese punto no tuvo datos ese día. Gris claro: después de la última lectura
+      disponible en la copia local (el sincronizado termina a mitad de un día del 17-ago —
+      <b>no es un hueco del medidor</b>).
+      Usa el zoom del eje X (rueda del mouse) para ver la hora exacta de cada pérdida.
+    </div>
+    <div class="resumen" id="m-resumen"></div>
+    <table>
+      <thead><tr>
+        <th>Punto</th><th>Fecha</th><th>Lecturas</th><th>Minutos faltantes</th>
+        <th>Cobertura</th><th>Último dato</th><th>Racha más larga</th><th>Ventanas &gt;5 min</th>
+      </tr></thead>
+      <tbody id="m-tbody"></tbody>
+    </table>
+  </div>
+
+  <!-- ============ Vista 3: eventos agrupados (minutos) ============ -->
+  <div id="web" class="seccion">
+    <div class="filtros">
+      <span><label>Empresa</label><br><input id="f-empresa" placeholder="Oechsle, Sanna..."></span>
+      <span><label>Punto</label><br><input id="f-punto" placeholder="Tomógrafo, TG-TR2..."></span>
+      <span><label>Fecha</label><br><input id="f-fecha" type="date"></span>
+      <span><label>Duración mínima (min)</label><br><input id="f-min" type="number" min="0" value="0"></span>
+      <span><label>Ordenar por</label><br>
+        <select id="f-orden">
+          <option value="duracion">Duración desc</option>
+          <option value="fecha">Fecha desc</option>
+          <option value="punto">Punto</option>
+        </select></span>
+    </div>
+    <div class="resumen"><b id="total">0</b> registros · <b id="horas">0.0</b> h sin datos totales · <b id="puntos">0</b> puntos afectados ·
+      <span>Un evento = huecos del mismo punto agrupados si la pausa entre ellos fue &le; 10 min</span></div>
+    <table>
+      <thead><tr>
+        <th>Fecha</th><th>Empresa</th><th>Sede</th><th>Tablero</th><th>Punto</th><th>ID</th>
+        <th>Inicio</th><th>Fin</th><th>Sin datos</th><th>Huecos</th><th>Mayor hueco</th><th>Lect. falt.</th>
+      </tr></thead>
+      <tbody id="tbody"></tbody>
+    </table>
+  </div>
 
 <script>
-const tbody = document.getElementById("tbody");
-const estado = { modo:"eventos", empresa:"", punto:"", fecha:"", min:0, orden:"duracion" };
+const $ = (id) => document.getElementById(id);
+const estado = { modo:"cobertura", empresa:"", punto:"", fecha:"", min:0, orden:"duracion" };
+let RESUMEN = null, CHART = null;
+
+window.addEventListener("error", (e) => {
+  const box = $("err");
+  box.style.display = "block";
+  box.textContent = "Error en el dashboard: " + (e.message || e.type);
+});
 
 function gravedad(min) {
   if (min >= 30)  return "gravedad-alta";
   if (min >= 10)  return "gravedad-media";
   return "gravedad-baja";
 }
-
 function durH(m) { return (Number(m) / 60).toFixed(1) + " h"; }
+
+/* ---------- Vista cobertura diaria ---------- */
+
+function kpi(label, value, cls="") {
+  return `<div class="kpi"><div class="k">${label}</div><div class="v ${cls}">${value}</div></div>`;
+}
+
+function pintarKpis() {
+  const m = RESUMEN.meta;
+  const hueco = m.dias_hueco_total;
+  const peor = Math.max(...RESUMEN.episodios.map(e => e.dias), 0);
+  $("kpis").innerHTML = [
+    kpi("Puntos inventario", m.puntos_inventario),
+    kpi("Con datos", m.puntos_con_datos),
+    kpi("Sin lecturas", m.puntos_sin_datos),
+    kpi("Días-hueco totales", hueco, hueco ? "danger" : ""),
+    kpi("Episodios", m.episodios_total),
+    kpi("Mayor hueco (días)", peor, peor >= 3 ? "danger" : (peor ? "warn" : "")),
+    kpi("Lecturas analizadas", Number(m.lecturas_totales).toLocaleString("es")),
+    kpi("Datos hasta", m.global_max_day || "—"),
+  ].join("");
+}
+
+async function cargarCobertura() {
+  const status = $("status");
+  status.style.display = "";
+  status.textContent = "Cargando datos de cobertura diaria…";
+  const q = new URLSearchParams();
+  if (estado.empresa) q.set("empresa", estado.empresa);
+  if (estado.punto)   q.set("punto", estado.punto);
+  if (estado.desde)   q.set("desde", estado.desde);
+  if (estado.hasta)   q.set("hasta", estado.hasta);
+  try {
+    const [r, res] = await Promise.all([
+      fetch("/api/cobertura?" + q).then(x => x.json()),
+      fetch("/api/cobertura/resumen").then(x => x.json()),
+    ]);
+    if (!res || !res.meta) throw new Error("respuesta de cobertura/resumen inválida: " + JSON.stringify(res).slice(0, 200));
+    status.style.display = "none";
+    RESUMEN = res;
+  pintarKpis();
+  const rows = res.puntos;
+  const filtros = (p) => (!estado.empresa || p.empresa.toLowerCase().includes(estado.empresa.toLowerCase()))
+                    && (!estado.punto || p.punto.toLowerCase().includes(estado.punto.toLowerCase()));
+  let lista = rows.filter(filtros);
+  const orden = {
+    hueco:   (a,b) => (b.dias_hueco||0) - (a.dias_hueco||0) || (b.staleness_dias||0) - (a.staleness_dias||0),
+    empresa: (a,b) => (a.empresa + a.sede + a.punto).localeCompare(b.empresa + b.sede + b.punto),
+    dia:     (a,b) => (a.inicio||"9999").localeCompare(b.inicio||"9999"),
+  }[estado.dorden || "empresa"] || ((a,b) => 0);
+  lista = lista.slice().sort(orden);
+
+  const dConDatos = lista.filter(p => p.con_datos);
+  const dHueco = dConDatos.reduce((s,p) => s + (p.dias_hueco||0), 0);
+  const dEp = dConDatos.reduce((s,p) => s + (p.episodios||[]).length, 0);
+  $("d-resumen").innerHTML = `${lista.length} puntos <b>con datos: ${dConDatos.length}</b> · ` +
+    `<b>${dHueco}</b> días-hueco · <b>${dEp}</b> episodios · datos hasta <b>${RESUMEN.meta.global_max_day}</b> (Lima)`;
+
+  $("d-tbody").innerHTML = lista.length === 0
+    ? '<tr><td colspan="13" class="empty">Sin puntos con esos filtros</td></tr>'
+    : lista.map(p => {
+        const mayor = Math.max(...(p.episodios||[]).map(e => e[2]), 0);
+        const ep = p.con_datos ? `${(p.episodios||[]).length}/${(p.episodios||[]).reduce((s,e)=>s+e[2],0)}` : "—";
+        const badge = !p.con_datos ? `<span class="badge caid">sin lecturas</span>`
+                    : p.staleness_dias > 2 ? `<span class="badge caid">sin datos ${p.staleness_dias}+ días</span>`
+                    : `<span class="badge ok">al día</span>`;
+        return `<tr>
+          <td class="emp">${p.empresa}</td><td>${p.sede}</td><td>${p.tablero}</td>
+          <td>${p.is_main ? "*" : ""}${p.punto}</td><td>${p.point_id}</td>
+          <td>${p.con_datos ? p.inicio + " → " + p.fin : "—"}</td>
+          <td>${p.con_datos ? p.dias_datos : "0"}</td>
+          <td>${p.con_datos ? p.dias_completos : "0"}</td>
+          <td class="${p.dias_parciales ? "gravedad-media" : ""}">${p.con_datos ? p.dias_parciales : "0"}</td>
+          <td class="dur ${p.dias_hueco ? "gravedad-alta" : ""}">${p.con_datos ? p.dias_hueco : "0"}</td>
+          <td>${ep}</td>
+          <td class="dur ${mayor >= 3 ? "gravedad-alta" : mayor ? "gravedad-media" : ""}">${mayor || "0"} días</td>
+          <td>${badge}</td>
+        </tr>`;
+      }).join("");
+
+  pintarHeatmap(r.rows);
+  } catch (err) {
+    status.style.display = "";
+    status.textContent = "Error al cargar datos: " + (err && err.message ? err.message : err);
+    const box = $("err");
+    box.style.display = "block";
+    box.textContent = "Error al cargar datos: " + (err && err.stack ? err.stack : err);
+    console.error(err);
+  }
+}
+
+function pintarHeatmap(dias) {
+  if (!dias) return;
+  if (!CHART) CHART = echarts.init($("chart-sub"));
+  const puntoPor = {};
+  dias.forEach(d => {
+    const key = `${d.empresa}/${d.sede}/${d.tablero} · ${d.punto}`;
+    if (!puntoPor[key]) puntoPor[key] = 0;
+  });
+  // Datos una fila por día-punto real con lecturas y huecos ya implícitos:
+  const mapa = new Map();
+  dias.forEach(d => {
+    const key = `${d.empresa}/${d.sede}/${d.tablero} · ${d.punto}`;
+    const val = d.estado === "completo" ? 0 : (d.estado === "parcial" ? 1 : 2);
+    mapa.set(key + "|" + d.dia, val);
+  });
+  // Rellenar celdas faltantes (días sin lecturas entre rango) como hueco (2)
+  let todas = Array.from(mapa.keys());
+  const fechas = [...new Set(dias.map(d => d.dia))].sort();
+  const labels = [...new Set(dias.map(d => `${d.empresa}/${d.sede}/${d.tablero} · ${d.punto}`))];
+  labels.forEach(l => fechas.forEach(f => {
+    if (!mapa.has(l + "|" + f)) mapa.set(l + "|" + f, 2);
+  }));
+  // Rango de fecha por punto para no pintar días fuera de su ventana
+  const ventana = {};
+  dias.forEach(d => {
+    const l = `${d.empresa}/${d.sede}/${d.tablero} · ${d.punto}`;
+    ventana[l] = ventana[l] || {min:d.dia, max:d.dia};
+    ventana[l].min = Math.min(ventana[l].min, d.dia);
+    ventana[l].max = Math.max(ventana[l].max, d.dia);
+  });
+  const data = [];
+  labels.forEach((l, y) => {
+    const w = ventana[l];
+    fechas.forEach((f, x) => {
+      if (f < w.min || f > w.max) return;         // fuera de la ventana: celda oculta
+      data.push([x, y, mapa.get(l + "|" + f) ?? 2]);
+    });
+  });
+  CHART.setOption({
+    grid: { left: 300, right: 40, top: 10, bottom: 60 },
+    xAxis: { type:"category", data:fechas, axisLine:{lineStyle:{color:"#2dd4a7"}},
+             axisLabel:{ color:"#8b98a5", formatter:v => v.slice(5) } },
+    yAxis: { type:"category", data:labels, axisLabel:{ color:"#e6edf3", fontSize:10.5,
+             width:280, overflow:"truncate" }, splitLine:{ show:false } },
+    visualMap: { show:true, orient:"horizontal", left:"center", bottom:0,
+                 type:"piecewise",
+                 pieces:[{value:0,label:"Completo (≥90%)",color:"#1d7a5f"},
+                         {value:1,label:"Parcial (<90%)",color:"#c98b1f"},
+                         {value:2,label:"Hueco (<10 lect.)",color:"#7a1f1f"}],
+                 textStyle:{color:"#8b98a5", fontSize:11} },
+    series: [{ type:"heatmap", data,
+               itemStyle:{ borderColor:"#0b1410", borderWidth:1 },
+               emphasis:{ itemStyle:{ shadowBlur:6, shadowColor:"rgba(0,0,0,.5)" } } }],
+    tooltip: {
+      formatter(a) {
+        const es = ["Completo (≥90%)","Parcial (<90%)","Hueco (<10 lect.)"][a.value[2]];
+        return `${fechas[a.value[0]]}<br>${labels[a.value[1]]}<br><b>${es}</b>`;
+      }
+    },
+  }, true);
+}
+
+window.addEventListener("resize", () => CHART && CHART.resize());
+
+/* ---------- Vista huecos / eventos (minutos) ---------- */
 
 async function cargar() {
   const q = new URLSearchParams();
@@ -96,11 +361,10 @@ async function cargar() {
   const key = esEventos ? "minutos_sin_datos" : "duracion_min";
   const horas = rows.reduce((s,r) => s + Number(r[key]), 0) / 60;
   const pts = new Set(rows.map(r => r.point_id)).size;
-  document.getElementById("total").textContent = rows.length;
-  document.getElementById("horas").textContent = horas.toFixed(1);
-  document.getElementById("puntos").textContent = pts;
-  document.getElementById("lbl-ayuda").style.display = esEventos ? "" : "none";
-  tbody.innerHTML = rows.length === 0
+  $("total").textContent = rows.length;
+  $("horas").textContent = horas.toFixed(1);
+  $("puntos").textContent = pts;
+  $("tbody").innerHTML = rows.length === 0
     ? '<tr><td colspan="12" class="empty">Sin resultados con esos filtros</td></tr>'
     : rows.map(r => `<tr>
         <td>${r.fecha}</td>
@@ -118,15 +382,284 @@ async function cargar() {
       </tr>`).join("");
 }
 
-["f-modo","f-empresa","f-punto","f-fecha","f-min","f-orden"].forEach(id => {
-  document.getElementById(id).addEventListener("input", e => {
-    const key = { "f-modo":"modo", "f-empresa":"empresa", "f-punto":"punto",
-                  "f-fecha":"fecha", "f-min":"min", "f-orden":"orden" }[id];
+/* ---------- Minuto a minuto ---------- */
+
+const MINUTOS_DIA = 1440;
+let CHART_MIN = null, PUNTOS_DISPONIBLES = null, M_ABORT = null, M_DEBOUNCE = null;
+
+function pad(n) { return String(n).padStart(2, "0"); }
+function hhmm(min) { return pad(Math.floor(min / 60)) + ":" + pad(min % 60); }
+function minIdx(h, m) { return h * 60 + m; }
+
+async function asegurarPuntos() {
+  if (!PUNTOS_DISPONIBLES) {
+    if (!RESUMEN) RESUMEN = await fetch("/api/cobertura/resumen").then(x => x.json());
+    PUNTOS_DISPONIBLES = RESUMEN.puntos.filter(p => p.con_datos)
+      .sort((a, b) => (a.empresa + a.punto).localeCompare(b.empresa + b.punto));
+    poblarPuntos();
+  }
+  return PUNTOS_DISPONIBLES;
+}
+
+function poblarPuntos() {
+  const es = ["m-p1", "m-p2", "m-p3"];
+  es.forEach(id => {
+    const sel = $(id);
+    sel.innerHTML = `<option value="">— elegir —</option>` + PUNTOS_DISPONIBLES.map(p =>
+      `<option value="${p.point_id}">${p.empresa} · ${p.sede} · ${p.punto} (${p.tablero})</option>`).join("");
+  });
+  const pred = PUNTOS_DISPONIBLES.find(p => ["TG-TR2 (TF-AA)", "Llave general", "Tomógrafo"].includes(p.punto))
+               || PUNTOS_DISPONIBLES[0];
+  if (pred) $(es[0]).value = String(pred.point_id);
+  if (!PUNTOS_DISPONIBLES.some(p => String(p.point_id) === $(es[1]).value)) $(es[1]).value = "";
+  if (!PUNTOS_DISPONIBLES.some(p => String(p.point_id) === $(es[2]).value)) $(es[2]).value = "";
+}
+
+async function cargarMinuto() {
+  const status = $("m-status");
+  const btn = $("m-cargar");
+  if (M_ABORT) M_ABORT.abort();              // descarta solicitudes anteriores
+  M_ABORT = new AbortController();
+  const t0 = performance.now();
+  status.classList.add("cargando");
+  status.textContent = "Actualizando data de la fecha seleccionada…";
+  btn.disabled = true;
+  btn.textContent = "Actualizando…";
+  try {
+    await asegurarPuntos();
+    if (!PUNTOS_DISPONIBLES) return;
+    if (M_ABORT.signal.aborted) return;
+
+    const ids = ["m-p1", "m-p2", "m-p3"].map(id => Number($(id).value)).filter(v => v);
+    let todosLosPuntos = $("m-todos").checked;
+    if (todosLosPuntos) {
+      ids.length = 0;
+      ids.push(...PUNTOS_DISPONIBLES.map(p => p.point_id));
+    }
+    const fecha = $("m-fecha").value || RESUMEN.meta.global_max_day;
+    if (!ids.length) {
+      status.textContent = "Selecciona al menos 1 punto";
+      return;
+    }
+    $("m-fecha").value = fecha;
+
+    // Altura del gráfico: con muchos puntos la fila debe crecer para ver bien cada uno
+    const celda = $("chart-min");
+    celda.style.height = Math.max(430, ids.length * 26 + 240) + "px";
+    if (CHART_MIN) CHART_MIN.resize();
+
+    const url = `/api/lecturas?puntos=${ids.join(",")}&desde=${fecha}&hasta=${fecha}`;
+    const data = await fetch(url, { signal: M_ABORT.signal }).then(x => x.json());
+    if (M_ABORT.signal.aborted) return;
+    if (!data || data.detail) throw new Error(data && data.detail || "respuesta inválida");
+
+    const metaPuntos = {};
+    (data.meta && data.meta.puntos || []).forEach(p => metaPuntos[p.point_id] = p);
+    const porPuntoDia = {};
+    data.rows.forEach(r => {
+      const key = r.point_id + "|" + r.dia;
+      (porPuntoDia[key] = porPuntoDia[key] || []).push(minIdx(Number(r.hora), Number(r.minuto)));
+    });
+    const etiquetas = {};
+    PUNTOS_DISPONIBLES.forEach(p => etiquetas[p.point_id] = p);
+
+    // Heatmap: fila = punto|día, columna = minuto 0..1439
+    const yLabels = [];
+    const matrix = {};
+    ids.forEach(pid => {
+      const key0 = pid + "|" + fecha;
+      const presentes = new Set(porPuntoDia[key0] || []);
+      const ult = metaPuntos[pid] || {};
+      yLabels.push(`${etiquetas[pid] ? etiquetas[pid].empresa + " · " + etiquetas[pid].punto : pid} — ${fecha}`);
+      const fila = new Array(MINUTOS_DIA);
+      for (let i = 0; i < MINUTOS_DIA; i++) {
+        if (ult.ultimo_dia && String(ult.ultimo_dia) > fecha) fila[i] = 2;          // sin datos ese día
+        else if (ult.ultimo_dia && String(ult.ultimo_dia) === fecha && i > ult.ultimo_min_idx)
+          fila[i] = 3;                                                              // más allá del horizonte
+        else if (presentes.size === 0) fila[i] = 2;
+        else fila[i] = presentes.has(i) ? 0 : 1;
+      }
+      matrix[fecha] = matrix[fecha] || {};
+      matrix[fecha][pid] = { fila, n: presentes.size };
+    });
+
+    pintarHeatmapMinuto(ids, fecha, yLabels, matrix[fecha], metaPuntos);
+    pintarResumenMinuto(ids, fecha, yLabels, matrix[fecha], etiquetas, porPuntoDia, metaPuntos);
+
+    const totalMin = ids.reduce((s, pid) => {
+      const ult = metaPuntos[pid] || {};
+      const limite = ult.ultimo_dia && String(ult.ultimo_dia) === fecha ? ult.ultimo_min_idx + 1 : MINUTOS_DIA;
+      return s + (ult.ultimo_dia ? limite : 0);              // solo minutos evaluables
+    }, 0);
+    const totalFaltan = ids.reduce((s, pid) => {
+      const ult = metaPuntos[pid] || {};
+      if (!ult.ultimo_dia || String(ult.ultimo_dia) > fecha) return s + 0;
+      const limite = String(ult.ultimo_dia) === fecha ? ult.ultimo_min_idx + 1 : MINUTOS_DIA;
+      let f = 0;
+      for (let i = 0; i < limite; i++) if (matrix[fecha][pid].fila[i] === 1) f++;
+      return s + f;
+    }, 0);
+    status.innerHTML = `<b>${data.total.toLocaleString("es")}</b> minutos con lectura · ` +
+      `<b class="${totalFaltan ? "gravedad-alta" : ""}">${totalFaltan.toLocaleString("es")}</b> ` +
+      `minutos faltantes dentro del horizonte (${(100 * (totalMin - totalFaltan) / Math.max(1, totalMin)).toFixed(1)}% cobertura)` +
+      ` · hora Lima · <span class="muted">actualizado ${new Date().toLocaleTimeString("es-PE")} (${((performance.now() - t0) / 1000).toFixed(2)} s)</span>`;
+  } catch (err) {
+    if (err && err.name === "AbortError") return;
+    status.innerHTML = `<span class="gravedad-alta">Error: ${err.message}</span>`;
+    const box = $("err");
+    box.style.display = "block";
+    box.textContent = "Error en Minuto a minuto: " + err.message;
+  } finally {
+    status.classList.remove("cargando");
+    btn.disabled = false;
+    btn.textContent = "Ver lectura a lectura";
+  }
+}
+
+function ventanasFaltantes(setPresente, limite = MINUTOS_DIA) {
+  const faltantes = [];
+  for (let i = 0; i < limite; i++) if (!setPresente.has(i)) faltantes.push(i);
+  const ventanas = [];
+  faltantes.forEach(i => {
+    if (!ventanas.length || i !== ventanas[ventanas.length - 1][1] + 1) ventanas.push([i, i]);
+    else ventanas[ventanas.length - 1][1] = i;
+  });
+  return { faltantes, ventanas };
+}
+
+function pintarHeatmapMinuto(ids, fecha, yLabels, filas, metaPuntos) {
+  const el = $("chart-min");
+  if (!CHART_MIN) CHART_MIN = echarts.init(el);
+  const data = [];
+  yLabels.forEach((_, y) => {
+    const fila = filas[ids[y]].fila;
+    for (let i = 0; i < MINUTOS_DIA; i++) data.push([i, y, fila[i]]);
+  });
+  const etiquetasX = Array.from({ length: MINUTOS_DIA }, (_, i) => hhmm(i));
+  CHART_MIN.setOption({
+    grid: { left: 250, right: 30, top: 10, bottom: 95 },
+    xAxis: { type: "category", data: etiquetasX,
+             axisLine: { lineStyle: { color: "#2dd4a7" } },
+             axisLabel: { color: "#8b98a5", interval: 59,
+                          formatter: (_v, i) => etiquetasX[i] },
+             axisTick: { show: false } },
+    yAxis: { type: "category", data: yLabels,
+             axisLabel: { color: "#e6edf3", fontSize: 10.5, width: 230, overflow: "truncate" },
+             splitLine: { show: false } },
+    visualMap: { show: true, orient: "horizontal", left: "center", bottom: 0,
+                 type: "piecewise",
+                 pieces: [{ value: 0, label: "Llegó el minuto", color: "#1d7a5f" },
+                          { value: 1, label: "No llegó", color: "#7a1f1f" },
+                          { value: 2, label: "Sin datos del punto", color: "#3a4a44" },
+                          { value: 3, label: "Fin de la copia local", color: "#66756e" }],
+                 textStyle: { color: "#8b98a5", fontSize: 10.5 } },
+    dataZoom: [{ type: "inside", xAxisIndex: 0, startValue: 0, endValue: 1439 },
+               { type: "slider", xAxisIndex: 0, height: 16, bottom: 28,
+                 startValue: 0, endValue: 1439, textStyle: { color: "#8b98a5" } }],
+    series: [{ type: "heatmap", data,
+               itemStyle: { borderColor: "#0b1410", borderWidth: 0.3 },
+               emphasis: { itemStyle: { shadowBlur: 6, shadowColor: "rgba(0,0,0,.5)" } } }],
+    tooltip: {
+      formatter(a) {
+        const pie = ["Llegó la lectura", "No llegó lectura",
+                     "Sin datos del punto ese día",
+                     "Después del fin de la copia local (no es hueco)"][a.value[2]];
+        return `${yLabels[a.value[1]]}<br><b>${hhmm(a.value[0])}</b> — ${pie}`;
+      }
+    },
+  }, true);
+}
+
+function pintarResumenMinuto(ids, fecha, yLabels, filas, etiquetas, porPuntoDia, metaPuntos) {
+  $("m-tbody").innerHTML = ids.map((pid, y) => {
+    const { fila } = filas[pid];
+    const ult = metaPuntos[pid] || {};
+    const enHorizonte = ult.ultimo_dia && String(ult.ultimo_dia) <= fecha;
+    const limite = ult.ultimo_dia && String(ult.ultimo_dia) === fecha ? ult.ultimo_min_idx + 1 : MINUTOS_DIA;
+    const presentes = new Set();
+    for (let i = 0; i < MINUTOS_DIA; i++) if (fila[i] === 0) presentes.add(i);
+    const { faltantes, ventanas } = ventanasFaltantes(
+      new Set([...presentes].filter(i => i < limite)), limite);
+    const sinDatos = !enHorizonte;
+    const cobertura = limite ? (100 * (limite - faltantes.length) / limite) : 0;
+    const racha = ventanas.slice().sort((a, b) => (b[1] - b[0]) - (a[1] - a[0]))[0];
+    const ventanasGrandes = ventanas.filter(v => v[1] - v[0] + 1 > 5)
+      .sort((a, b) => (b[1] - b[0]) - (a[1] - a[0])).slice(0, 6)
+      .map(v => `${hhmm(v[0])}–${hhmm(v[1])} (${v[1] - v[0] + 1} min)`).join(" · ") || "—";
+    const ultimoDato = ult.ultima_hhmm
+      ? (String(ult.ultimo_dia) === fecha ? ult.ultima_hhmm : String(ult.ultimo_dia) + " " + ult.ultima_hhmm)
+      : "—";
+    return `<tr>
+      <td class="emp">${etiquetas[pid].empresa} · ${etiquetas[pid].punto}</td>
+      <td>${fecha}</td>
+      <td>${limite - faltantes.length} / ${limite}</td>
+      <td class="dur ${faltantes.length ? "gravedad-alta" : ""}">${faltantes.length}</td>
+      <td class="${cobertura < 90 ? "gravedad-media" : ""}">${cobertura.toFixed(1)}%</td>
+      <td>${ultimoDato}</td>
+      <td class="dur ${racha && racha[1] - racha[0] + 1 > 15 ? "gravedad-alta" : ""}">
+        ${racha ? `${hhmm(racha[0])}–${hhmm(racha[1])} (${racha[1] - racha[0] + 1} min)` : "—"}</td>
+      <td>${sinDatos ? "sin datos ese día" : ventanasGrandes}</td>
+    </tr>`;
+  }).join("");
+}
+
+/* ---------- Tabs y filtros ---------- */
+
+function cambiarTab(tab) {
+  estado.modo = tab;
+  document.querySelectorAll(".tab").forEach(t => t.classList.toggle("active", t.dataset.tab === tab));
+  const esMinuto = tab === "minuto";
+  $("cobertura").style.display = tab === "cobertura" ? "block" : "none";
+  $("minuto").style.display = esMinuto ? "block" : "none";
+  $("web").style.display = (tab === "eventos" || tab === "huecos") ? "block" : "none";
+  if (tab === "cobertura") cargarCobertura();
+  else if (esMinuto) cargarMinuto();
+  else if (tab === "eventos" || tab === "huecos") cargar();
+  if (CHART_MIN) setTimeout(() => CHART_MIN.resize(), 100);
+}
+
+document.querySelectorAll(".tab").forEach(t =>
+  t.addEventListener("click", () => cambiarTab(t.dataset.tab)));
+
+[["d-empresa","empresa"],["d-punto","punto"],["d-desde","desde"],["d-hasta","hasta"],["d-orden","dorden"]].forEach(([id,key]) =>
+  $(id).addEventListener("input", e => { estado[key] = e.target.value; cargarCobertura(); }));
+
+["f-empresa","f-punto","f-fecha","f-min","f-orden"].forEach(id => {
+  $(id).addEventListener("input", e => {
+    const key = { "f-empresa":"empresa", "f-punto":"punto", "f-fecha":"fecha",
+                  "f-min":"min", "f-orden":"orden" }[id];
     estado[key] = e.target.value;
     cargar();
   });
 });
-cargar();
+
+$("m-cargar").addEventListener("click", cargarMinuto);
+["m-p1", "m-p2", "m-p3", "m-fecha"].forEach(id => {
+  $(id).addEventListener("change", () => {
+    clearTimeout(M_DEBOUNCE);
+    M_DEBOUNCE = setTimeout(cargarMinuto, 150);
+  });
+});
+$("m-todos").addEventListener("change", async () => {
+  const on = $("m-todos").checked;
+  ["m-p1", "m-p2", "m-p3"].forEach(id => $(id).disabled = on);
+  if (on && RESUMEN) {
+    // al comparar todo, saltar al último día COMPLETO (el último dato es medio día)
+    const maxDia = RESUMEN.meta.global_max_day;
+    if ($("m-fecha").value >= maxDia) {
+      const d = new Date(maxDia);
+      d.setDate(d.getDate() - 1);
+      $("m-fecha").value = d.toISOString().slice(0, 10);
+    }
+  } else {
+    ["m-p1", "m-p2", "m-p3"].forEach(id => $(id).disabled = false);
+  }
+  clearTimeout(M_DEBOUNCE);
+  M_DEBOUNCE = setTimeout(cargarMinuto, 150);
+});
+window.addEventListener("resize", () => CHART_MIN && CHART_MIN.resize());
+
+cambiarTab("cobertura");
 </script>
 </body>
 </html>
