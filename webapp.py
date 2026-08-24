@@ -515,5 +515,6 @@ def lecturas_data(puntos: Optional[str] = None,
 
 if __name__ == "__main__":
     port = int(os.getenv("PORT", "8000"))
-    print(f"\n  ZEIA web → http://localhost:{port}\n")
-    uvicorn.run(app, host="127.0.0.1", port=port, log_level="warning")
+    host = os.getenv("HOST", "0.0.0.0")
+    print(f"\n  ZEIA web → http://localhost:{port} (también http://<tu-ip-local>:{port})\n")
+    uvicorn.run(app, host=host, port=port, log_level="warning")

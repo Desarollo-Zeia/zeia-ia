@@ -273,5 +273,7 @@ def lecturas_data(track: str = Query("salas"),
 
 if __name__ == "__main__":
     port = int(os.getenv("PORT", "8001"))
-    print(f"\n  ZEIA ambiental (huecos) → http://localhost:{port}/gaps\n")
-    uvicorn.run(app, host="127.0.0.1", port=port, log_level="warning")
+    host = os.getenv("HOST", "0.0.0.0")
+    print(f"\n  ZEIA ambiental (huecos) → http://localhost:{port}"
+          f" (también http://<tu-ip-local>:{port})\n")
+    uvicorn.run(app, host=host, port=port, log_level="warning")
