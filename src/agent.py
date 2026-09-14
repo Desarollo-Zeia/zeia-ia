@@ -148,7 +148,7 @@ class EnergyAgent:
                 elif tc.function.name == "render_chart":
                     try:
                         chart = json.loads(tc.function.arguments)
-                        if len(self.charts) < 3:  # tope de gráficos por respuesta
+                        if len(self.charts) < 6:  # tope de gráficos por respuesta
                             self.charts.append(chart)
                     except json.JSONDecodeError:
                         pass

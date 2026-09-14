@@ -32,15 +32,27 @@ set +a
 
 PREFIX=$(echo "$BASE" | tr 'a-z' 'A-Z')
 
-PG16_BIN="/opt/homebrew/opt/postgresql@16/bin"
+# Override con PG16_BIN=<ruta> o, en Windows, con binarios en PATH.
+PG16_BIN="${PG16_BIN:-/opt/homebrew/opt/postgresql@16/bin}"
 PG_DUMP="${PG16_BIN}/pg_dump"
 PG_RESTORE="${PG16_BIN}/pg_restore"
 PSQL="${PG16_BIN}/psql"
+if [ ! -x "${PSQL}" ] && command -v psql >/dev/null 2>&1; then
+    PG_DUMP="$(command -v pg_dump)"; PG_RESTORE="$(command -v pg_restore)"; PSQL="$(command -v psql)"
+fi
 
-TUNNEL_LOCAL_PORT="${TUNNEL_LOCAL_PORT:-${PREFIX}_DB_PORT}"
-# Los nombres de las variables llevan prefijo: leer el valor real del .env
-TUNNEL_LOCAL_PORT=$(eval echo "\${${PREFIX}_DB_PORT}")
-LOCAL_PORT="${LOCAL_PORT:-5432}"
+# Puerto local del TÚNEL SSH (separado del puerto de la DB local; por defecto
+# 55432 energía / 5435 ambiental para no chocar con 5432/5433 del trabajo).
+TUNNEL_LOCAL_PORT="${SSH_TUNNEL_LOCAL_PORT:-}"
+[ -z "${TUNNEL_LOCAL_PORT}" ] && TUNNEL_LOCAL_PORT="$(eval echo "\${SSH_TUNNEL_PORT_${PREFIX}:-}")"
+[ -z "${TUNNEL_LOCAL_PORT}" ] && {
+    case "$BASE" in
+        energia)   TUNNEL_LOCAL_PORT="${SSH_TUNNEL_PORT_ENERGIA:-55432}" ;;
+        ambiental) TUNNEL_LOCAL_PORT="${SSH_TUNNEL_PORT_AMBIENTAL:-5435}" ;;
+    esac
+}
+# Puerto de la DB local: el del .env (5432 energía / 5433 ambiental en el trabajo).
+LOCAL_PORT="${LOCAL_PORT:-$(eval echo "\${${PREFIX}_DB_PORT}")}"
 LOCAL_HOST="${LOCAL_HOST:-127.0.0.1}"
 BK_DIR="${ROOT}/backups/${BASE}"
 KEEP_DUMPS="${KEEP_DUMPS:-3}"
@@ -61,7 +73,19 @@ TUNNEL_PID=""
 
 log() { echo "[sync:$BASE] $*"; }
 
-tunnel_up() { nc -z 127.0.0.1 "$TUNNEL_LOCAL_PORT" >/dev/null 2>&1; }
+# Chequeo de puerto portable (Windows/git-bash no trae nc por defecto).
+port_open() {
+    local host="$1" port="$2"
+    if command -v nc >/dev/null 2>&1; then
+        nc -z "$host" "$port" >/dev/null 2>&1
+    elif command -v powershell >/dev/null 2>&1; then
+        powershell -NoProfile -Command "Test-NetConnection -ComputerName '$host' -Port $port" 2>/dev/null | grep -q "TcpTestSucceeded.*True"
+    else
+        (exec 3<>"/dev/tcp/${host}/${port}") 2>/dev/null
+    fi
+}
+
+tunnel_up() { port_open 127.0.0.1 "$TUNNEL_LOCAL_PORT"; }
 
 open_tunnel() {
     mkdir -p "${BK_DIR}"
@@ -100,7 +124,7 @@ dump_from_prod() {
 restore_local() {
     local SRC="$1"
     log "verificando servidor local en ${LOCAL_HOST}:${LOCAL_PORT}..."
-    if ! nc -z "${LOCAL_HOST}" "${LOCAL_PORT}" >/dev/null 2>&1; then
+    if ! port_open "${LOCAL_HOST}" "${LOCAL_PORT}"; then
         log "ERROR: servidor local caído. Inicia con: brew services start postgresql@16" >&2
         exit 1
     fi

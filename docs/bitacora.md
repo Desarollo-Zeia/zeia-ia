@@ -718,3 +718,193 @@ solo proyecto: `energia` (energy, consumo eléctrico) y `ambiental`
   oscuro + celdas sub-pixel en rango de 3.5 años → colores brillantes
   (#10b981/#f59e0b/#ef4444), borderWidth 0.2 y dataZoom (inside+slider) en el
   heatmap de cobertura ambiental; misma paleta aplicada a lectura-a-lectura.
+
+## Sesión  — Formato CARD en el chat (respuestas breves + más gráficos)
+
+### Pedido del cliente
+- No: respuestas con demasiada información (tabla completa + sección 💡 larga +
+  menú "¿Qué quieres hacer?"). Sí: descripción breve de la card + más gráficas.
+
+### Cambios
+- src/prompts.py: formato CARD (título → resumen 2-4 líneas → gráficos); el
+  detalle vive en render_chart; top 1-2 ítems mencionados en texto; 💡 = máx 1
+  línea; PERSONA_GERENTE sin menú "¿Qué quieres hacer?"; recordatorios finales
+  (energía y ambiental) alineados al nuevo formato.
+- src/tools.py: descripción de render_chart "máx 6" y mensaje de vuelta del
+  tool en formato CARD (sin enlaces ni mención de la herramienta).
+- src/agent.py: tope de gráficos por respuesta 3 → 6.
+- web/static/index.html: stripChartLinks() elimina links `chart://` y
+  "(render_chart)" del texto (chat y cards).
+
+### Verificado
+- Pregunta "¿Qué salas tuvieron CO2 > 1000 ppm este mes?" (ambiente, gerente):
+  respuesta = título + 2 frases con top-2 + 1 bar chart (antes: tabla 7 filas +
+  párrafos + 💡 3 bullets + menú). Sin links rotos.
+
+### Ajuste visual + concision v2 (dashboard)
+- Grilla: #grid sin max-width, cards ocupan 100% del ancho; .wide → span 12
+  (gráficos a fila completa; antes span 8 dejaba hueco a la derecha).
+- prompts.py: energía y ambiental → CARD título + 1-2 frases + gráficos;
+  prohibido preguntas de seguimiento ("¿Te gustaría...?"), tablas, listas,
+  y filtrar argumentos de herramientas (chart_type=...) en el texto.
+- index.html: stripChartLinks también limpia líneas con chart_type=.
+- Verificado (energía, gerente): "demanda máxima y P95" → 2 frases + 2 bar charts.
+
+### Regla inventario vs métrica (prompt)
+- Listados (qué tableros/salas/puntos tiene X) → 1-2 frases + TABLA COMPACTA;
+  cifras/rankings/series → gráfico. Nunca enumerar en texto corrido ni bullets.
+- Aplicado a energía y ambiental (recordatorios finales + sección CARD).
+- Verificado: "¿Cuáles son los tableros de Oechsle?" → frase + tabla 4 filas.
+
+## Sesión 07-sep-2026 — Sync ambiental full (5433)
+
+### Pedido
+- Usuario con Postgres local ya escuchando en 5433 (valhalladb): actualizar
+  toda la data hasta hoy (dump + sync, con túnel SSH).
+
+### Ejecutado
+- `bash scripts/sync_db.sh ambiental full`: túnel SSH propio en 5435 hacia
+  `ubuntu@ec2-44-206-41-101...` → dump `backups/ambiental/
+  ambiental_prod_20260907_095631.dump` → DROP SCHEMA public + restore en
+  127.0.0.1:5433 → túnel cerrado.
+- Local estaba en 31-ago-2026 11:42 Lima; quedó en 07-sep-2026 09:56 Lima
+  (15,888,976 lecturas). Prod al momento del verify: 15,889,026 (+50 filas
+  que ingresaron en vivo durante la ventana dump/restore; última prod
+  10:04 Lima vs local 09:56 Lima, ~8 min de diferencia — normal en DB viva).
+- Dumps viejos: se conservan los últimos 3 (31-ago, 04-sep, 07-sep).
+
+## Sesión 07-sep-2026 — Sync energía full (5432)
+
+### Pedido
+- Usuario con Postgres local ya escuchando en 5432 (energy): actualizar toda
+  la data hasta hoy (dump + sync, con túnel SSH).
+
+### Ejecutado
+- 1er intento de `scripts/sync_db.sh energia full` FALLÓ a mitad del dump de
+  las tablas grandes (readings_reading/historical_readinghistory): el túnel
+  SSH se cayó con "SSL SYSCALL error: EOF detected" (~829 MB descartados).
+  Causa: SSH sin keepalives sobre red casera → NAT corta la conexión idle/larga.
+- 2do intento OK: túnel manual reforzado ANTES del script
+  (`ssh -o ServerAliveInterval=30 -o ServerAliveCountMax=6 -o TCPKeepAlive=yes`
+  en 55432; el script lo detecta abierto y lo reusa) → dump
+  `backups/energia/energia_prod_20260907_101221.dump` (1.4 GB, -Fd -j 4) →
+  DROP SCHEMA public + restore en 127.0.0.1:5432.
+- Local estaba en backup del 02-sep (start.log); quedó en 07-sep-2026 10:12
+  Lima (10,089,434 lecturas). Prod al momento del verify: 10,090,283 (+849
+  filas en vivo durante la ventana dump/restore; última prod 10:39 Lima vs
+  local 10:12 Lima — normal en DB viva, NO es error de sync).
+- Túnel manual cerrado a mano tras el sync (el script no cierra túneles que
+  reusó). Dump del 31-ago eliminado (conserva 3 últimos).
+- LECCIÓN para próximos syncs: si el dump muere con EOF/SSL SYSCALL, abrir
+  túnel con keepalives y reintentar; no bajar -j.
+
+## Sesión 14-sep-2026 — Sync ambiental full (5433)
+
+### Pedido
+- Levantar los Postgres locales (energía 5432 / ambiental 5433) y correr
+  dump + restore SOLO de la base ambiental.
+
+### Ejecutado
+- `pg_ctl -D C:/pgsql16/data` (energía, 5432) y `-D C:/pgsql16/data-valhalla`
+  (ambiental, 5433) → ambos servidores arriba.
+- Túnel manual con keepalives en 5435 (lección del sync energía 07-sep) →
+  `bash scripts/sync_db.sh ambiental full` (reusó el túnel) → dump
+  `backups/ambiental/ambiental_prod_20260914_094112.dump` (232 MB, -Fd -j 4)
+  → DROP SCHEMA public + restore en 127.0.0.1:5433.
+- Verify: prod=15,957,607 vs local=15,957,564 (43 filas de diferencia, normal
+  en DB viva); última lectura local 09:41:08 -05 vs prod 09:46:36 -05 (~5 min).
+- Dump viejo 31-ago eliminado (quedan 04-sep, 07-sep, 14-sep). Túnel cerrado
+  a mano: `netstat` mostraba PID stale 1540 (inexistente); el ssh real era
+  PID 12412 (visible en `Get-CimInstance Win32_Process`) → `taskkill //PID`. 
+   OJO para próximos cierres de túnel en Windows: verificar el PID real, no
+   confiar en el de netstat.
+
+## Sesión 14-sep-2026 — Reinicio de apps + /gaps regenerados
+
+### Pedido
+- Reiniciar ambas apps web (energía :8000, ambiental :8002) para que tomen
+  la data de hoy, y que los /gaps muestren hasta la última fecha (se veían
+  solo hasta 31-ago porque los exports eran del 02-sep, con DBs viejas).
+
+### Ejecutado
+- Matados los árboles viejos (webapp.py 20208→18640; webapp_ambiental.py
+  14588→8108 en :8001 y 10268→21180 en :8002 — había DOS instancias
+  ambiental). Levantadas limpias: `webapp.py` (:8000) y
+  `PORT=8002 webapp_ambiental.py` (:8002). Logs en `logs/`.
+- Regenerados: `scripts/analisis_huecos.py --export` → cobertura_diaria.csv
+  (7,617 filas) + cobertura_resumen.json (86 puntos); y
+  `scripts/analisis_huecos_ambiental.py --export` → huecos/cobertura
+  ambiental salas+puntos (72,092 días-combo).
+- Verificado por API: ambos /gaps con global_max_day 2026-09-14. Las apps
+  leen los JSON por request → no hizo falta reiniciar tras el export.
+  (Si el navegador muestra datos viejos: hard refresh Ctrl+F5.)
+
+## Sesión 14-sep-2026 — Tooltip cobertura diaria con cifras
+
+### Pedido
+- En el heatmap de Cobertura diaria (energía) el tooltip solo decía
+  "Completo/Parcial/Hueco": mostrar lecturas esperadas vs recibidas y %.
+
+### Ejecutado
+- `web/static/gaps.html` (`pintarHeatmap`): nuevo mapa `detalle`
+  (key|día → {n: lecturas, p: pct} del CSV) y tooltip ampliado a
+  `"<fecha> <punto> <estado> · N de 1440 lecturas (P%)"` (días sin fila =
+  "0 de 1440 (0%)"). Los campos ya venían en `/api/cobertura`, solo se
+  mostraban. Sintaxis verificada con `node --check`; sin reinicio
+  (StaticFiles sirve de disco; el navegador necesita Ctrl+F5).
+
+## Sesión 14-sep-2026 — Reporte semanal de cobertura (para jefes)
+
+### Pedido
+- Reporte de cobertura 07–13 sep (energía + ambiental) como los heatmaps de
+  /gaps pero limpio, con fechas "Lunes xx de septiembre" y solo puntos
+  relevantes. Formato elegido: página web en la app.
+
+### Ejecutado
+- `GET /api/reporte-semanal?desde=&hasta=` (default = última semana completa
+  lun–dom) + `GET /reporte-semanal` en `webapp.py` (:8000, lee los CSV/JSON
+  de `analisis/` de ambos módulos; helpers de fechas en español).
+- `web/static/reporte_semanal.html`: tema claro imprimible, KPIs, mini-
+  heatmaps solo con puntos/salas con incidencias (energía 6×7, ambiental
+  2×7 agregando por sala con peor indicador del día), tooltips con cifras,
+  incidencias en español ("sin datos lunes 07 a viernes 11 de septiembre")
+  y <details> con puntos sin datos en la semana. Enlace desde /gaps.
+- Semana 07–13 sep: energía 95.0% (26/32 al 100%, 0 días-hueco), ambiental
+  89.0% días-sala (11/13 limpias; Sala de Operaciones 2 y Zona Azul con
+  huecos). Verificado por API + `node --check`; app reiniciada 2 veces
+  (los endpoints nuevos requieren restart; el HTML estático no).
+- Bug: heatmap en blanco porque `echarts.init` corría antes de fijar la
+  altura del contenedor (medía 0px). Fix: fijar `el.style.height` ANTES del
+  init. Lección: en páginas nuevas con ECharts, altura primero, init después.
+- Pedido: ver TODAS las filas (no solo incidencias). API ahora devuelve
+  todas con flag `con_incidencia` (energía 32, ambiental 13 salas agregadas);
+  frontend con casilla "Mostrar solo … con incidencias" (default: todo) +
+  helper `pintar()` (vacío/dispose/re-render) y `chart.resize()` tras
+  setOption para re-renderes con distinta altura.
+- Aclaración importante: el /gaps ambiental pinta una fila POR COMBO
+  (sala×indicador): las 6 filas rojas/ámbar son los 3 indicadores de Sala de
+  Operaciones 2 + los 3 de Zona Azul (2 salas). El reporte agrupaba por sala
+  y parecía ocultar info → heatmap ambiental cambiado a filas por combo
+  (38 total, 6 con incidencia), igual que el /gaps pero con etiquetas
+  limpias. KPIs e incidencias siguen a nivel sala.
+
+## Sesión 14-sep-2026 — Sync energía full (5432) + apps web
+
+### Pedido
+- Iniciar las apps web (energía :8000 y ambiental :8002) y luego actualizar la
+  base local `energy` con dump + restore de producción (solo energía).
+
+### Ejecutado
+- Apps arriba: `webapp.py` en :8000 (200 OK) y `webapp_ambiental.py` con
+  PORT=8002 en :8002 (307, redirect normal).
+- Túnel manual reforzado con keepalives ANTES del script (misma lección del
+  07-sep) en 55432 → `bash scripts/sync_db.sh energia full` lo reusó.
+- Dump `backups/energia/energia_prod_20260914_095540.dump` (1.4 GB, -Fd -j 4
+  -Z 5) → DROP SCHEMA public + restore en 127.0.0.1:5432.
+- Verify: prod=10,396,295 vs local=10,395,523 (+772 filas en vivo durante la
+  ventana dump/restore, normal); última lectura local 14-sep 09:55 Lima
+  (= inicio del dump) vs prod 10:20 Lima.
+- Túnel manual cerrado a mano (PID 26856, confirmado con taskkill). Dump del
+  31-ago eliminado (quedan 04-sep, 07-sep, 14-sep).
+- Ambas apps siguen respondiendo tras el restore (conexiones psycopg2 son
+  por request, no quedan sesiones idle-in-transaction que bloqueen el DROP).

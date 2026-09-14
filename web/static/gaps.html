@@ -72,6 +72,7 @@
   <header>
     <h1>ZEIA · Huecos de lectura</h1>
     <span class="sub">Pérdidas de datos en el monitoreo. Datos generados por scripts/analisis_huecos.py</span>
+    <span style="margin-left:auto"><a href="/reporte-semanal" style="color:var(--accent);font-size:13px">Reporte semanal →</a></span>
   </header>
 
   <div id="err"></div>
@@ -290,10 +291,12 @@ function pintarHeatmap(dias) {
   });
   // Datos una fila por día-punto real con lecturas y huecos ya implícitos:
   const mapa = new Map();
+  const detalle = new Map();   // key|dia -> {n: lecturas recibidas, p: pct}
   dias.forEach(d => {
     const key = `${d.empresa}/${d.sede}/${d.tablero} · ${d.punto}`;
     const val = d.estado === "completo" ? 0 : (d.estado === "parcial" ? 1 : 2);
     mapa.set(key + "|" + d.dia, val);
+    detalle.set(key + "|" + d.dia, {n: Number(d.lecturas) || 0, p: d.pct});
   });
   // Rellenar celdas faltantes (días sin lecturas entre rango) como hueco (2)
   let todas = Array.from(mapa.keys());
@@ -336,7 +339,10 @@ function pintarHeatmap(dias) {
     tooltip: {
       formatter(a) {
         const es = ["Completo (≥90%)","Parcial (<90%)","Hueco (<10 lect.)"][a.value[2]];
-        return `${fechas[a.value[0]]}<br>${labels[a.value[1]]}<br><b>${es}</b>`;
+        const det = detalle.get(labels[a.value[1]] + "|" + fechas[a.value[0]]);
+        const n = det ? det.n : 0;
+        const p = det ? det.p : 0;
+        return `${fechas[a.value[0]]}<br>${labels[a.value[1]]}<br><b>${es}</b><br>${n} de 1440 lecturas (${p}%)`;
       }
     },
   }, true);

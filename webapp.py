@@ -12,7 +12,7 @@ import json as jsonlib
 import os
 import sys
 import uuid
-from datetime import date, timedelta
+from datetime import date, datetime, timedelta
 
 # En Windows la consola usa cp1252; forzar UTF-8 para imprimir "→" y demás.
 if sys.stdout.encoding and sys.stdout.encoding.lower() != "utf-8":
@@ -313,37 +313,16 @@ def gaps_data(empresa: Optional[str] = None,
               punto: Optional[str] = None,
               fecha: Optional[str] = None,
               min_duracion: float = 0):
-    """Lista los huecos registrados en analisis_huecos con filtros."""
-    sql = """SELECT fecha, empresa, sede, tablero, punto, point_id,
-                    to_char(inicio AT TIME ZONE 'America/Lima','YYYY-MM-DD HH24:MI:SS') AS inicio,
-                    to_char(fin AT TIME ZONE 'America/Lima','YYYY-MM-DD HH24:MI:SS') AS fin,
-                    duracion_min, lecturas_faltantes
-             FROM analisis_huecos WHERE true"""
-    params = []
-    if empresa:
-        sql += " AND empresa ILIKE %s"
-        params.append(f"%{empresa}%")
-    if punto:
-        sql += " AND punto ILIKE %s"
-        params.append(f"%{punto}%")
-    if fecha:
-        sql += " AND fecha = %s"
-        params.append(fecha)
+    """Lista los huecos (pérdidas de lecturas) desde el último analisis/*.csv."""
+    path = _latest_csv("huecos_*.csv")
+    if not path:
+        raise HTTPException(404, "Falta huecos_*.csv. Ejecutar la exportación "
+                                 "de analisis_huecos.")
+    rows = _rows_from_csv(path, empresa, punto, fecha)
     if min_duracion > 0:
-        sql += " AND duracion_min >= %s"
-        params.append(min_duracion)
-    sql += " ORDER BY duracion_min DESC, inicio"
-    conn = psycopg2.connect(host=config.DB_HOST, port=config.DB_PORT,
-                            user=config.DB_USER, password=config.DB_PASSWORD,
-                            dbname=config.DB_NAME)
-    try:
-        with conn.cursor() as cur:
-            cur.execute(sql, params)
-            cols = [c.name for c in cur.description]
-            return {"rows": [dict(zip(cols, r)) for r in cur.fetchall()],
-                    "total": cur.rowcount if cur.rowcount > 0 else 0}
-    finally:
-        conn.close()
+        rows = [r for r in rows if float(r.get("duracion_min", 0) or 0) >= min_duracion]
+    rows.sort(key=lambda r: (-float(r.get("duracion_min", 0) or 0), r.get("inicio", "")))
+    return {"rows": rows, "total": len(rows)}
 
 
 @app.get("/api/eventos")
@@ -351,37 +330,48 @@ def eventos_data(empresa: Optional[str] = None,
                  punto: Optional[str] = None,
                  fecha: Optional[str] = None,
                  min_duracion: float = 0):
-    """Eventos agrupados (accidentes) desde analisis_eventos, con filtros."""
-    sql = """SELECT fecha, empresa, sede, tablero, punto, point_id,
-                    to_char(inicio AT TIME ZONE 'America/Lima','YYYY-MM-DD HH24:MI:SS') AS inicio,
-                    to_char(fin AT TIME ZONE 'America/Lima','YYYY-MM-DD HH24:MI:SS') AS fin,
-                    minutos_sin_datos, lecturas_faltantes, n_huecos, gap_mayor_min
-             FROM analisis_eventos WHERE true"""
-    params = []
-    if empresa:
-        sql += " AND empresa ILIKE %s"
-        params.append(f"%{empresa}%")
-    if punto:
-        sql += " AND punto ILIKE %s"
-        params.append(f"%{punto}%")
-    if fecha:
-        sql += " AND fecha = %s"
-        params.append(fecha)
+    """Eventos agrupados (accidentes) desde el último analisis/eventos_*.csv."""
+    path = _latest_csv("eventos_*.csv")
+    if not path:
+        raise HTTPException(404, "Falta eventos_*.csv. Ejecutar la exportación "
+                                 "de analisis_huecos.")
+    rows = _rows_from_csv(path, empresa, punto, fecha)
     if min_duracion > 0:
-        sql += " AND minutos_sin_datos >= %s"
-        params.append(min_duracion)
-    sql += " ORDER BY minutos_sin_datos DESC, inicio"
-    conn = psycopg2.connect(host=config.DB_HOST, port=config.DB_PORT,
-                            user=config.DB_USER, password=config.DB_PASSWORD,
-                            dbname=config.DB_NAME)
-    try:
-        with conn.cursor() as cur:
-            cur.execute(sql, params)
-            cols = [c.name for c in cur.description]
-            rows = [dict(zip(cols, r)) for r in cur.fetchall()]
-            return {"rows": rows, "total": len(rows)}
-    finally:
-        conn.close()
+        rows = [r for r in rows if float(r.get("minutos_sin_datos", 0) or 0) >= min_duracion]
+    rows.sort(key=lambda r: (-float(r.get("minutos_sin_datos", 0) or 0), r.get("inicio", "")))
+    return {"rows": rows, "total": len(rows)}
+
+
+def _latest_csv(pattern: str) -> Optional[Path]:
+    """Devuelve el CSV más nuevo de analisis/ que cumpla el patrón (no ambiental)."""
+    if not ANALISIS.exists():
+        return None
+    files = [p for p in ANALISIS.glob(pattern)
+             if "ambiental" not in p.name]
+    return max(files, key=lambda p: p.stat().st_mtime) if files else None
+
+
+def _rows_from_csv(path: Path, empresa: Optional[str], punto: Optional[str],
+                   fecha: Optional[str]) -> list[dict]:
+    """Lee un CSV de huecos/eventos y aplica los filtros de la query."""
+    rows = []
+    clean = lambda v: (v or "").strip()
+    with open(path, encoding="utf-8-sig") as f:
+        for r in csv.DictReader(f):
+            if empresa and empresa.lower() not in r["empresa"].lower():
+                continue
+            if punto and punto.lower() not in r["punto"].lower():
+                continue
+            if fecha and r["fecha"] != fecha:
+                continue
+            row = dict(r)
+            if "inicio (Lima)" in row:
+                row["inicio"] = row.pop("inicio (Lima)")
+            if "fin (Lima)" in row:
+                row["fin"] = row.pop("fin (Lima)")
+            row["punto"] = clean(row.get("punto"))
+            rows.append(row)
+    return rows
 
 
 # --- Cobertura diaria (informe de huecos a nivel de días) ---------------------
@@ -420,8 +410,299 @@ def cobertura_resumen():
     path = ANALISIS / "cobertura_resumen.json"
     if not path.exists():
         raise HTTPException(404, "Falta cobertura_resumen.json. Ejecutar: "
-                                 "python scripts/analisis_huecos.py --export")
+                                 "python scripts/analisis_huecos_ambiental.py --export")
     return jsonlib.loads(path.read_text(encoding="utf-8"))
+
+
+# --- Reporte semanal de cobertura (energía + ambiental, para jefes) -----------
+# Página limpia: /reporte-semanal (rango default = última semana completa
+# lunes-domingo; acepta ?desde=AAAA-MM-DD&hasta=AAAA-MM-DD).
+
+DIAS_ES = ["Lunes", "Martes", "Miércoles", "Jueves",
+           "Viernes", "Sábado", "Domingo"]
+MESES_ES = ["enero", "febrero", "marzo", "abril", "mayo", "junio", "julio",
+            "agosto", "septiembre", "octubre", "noviembre", "diciembre"]
+ESPERADAS_DIA = 1440  # 1 lectura/minuto
+_RANK_ESTADO = {"completo": 0, "parcial": 1, "hueco": 2}
+
+
+def _etiqueta_dia(d: date) -> str:
+    return f"{DIAS_ES[d.weekday()]} {d.day:02d} de {MESES_ES[d.month - 1]}"
+
+
+def _rango_semanal(desde: Optional[str],
+                   hasta: Optional[str]) -> tuple[date, date]:
+    if desde and hasta:
+        return date.fromisoformat(desde), date.fromisoformat(hasta)
+    hoy = date.today()
+    lunes = hoy - timedelta(days=hoy.weekday() + 7)  # lunes semana pasada
+    return lunes, lunes + timedelta(days=6)
+
+
+def _titulo_rango(d1: date, d2: date) -> str:
+    if d1.month == d2.month:
+        return (f"{DIAS_ES[d1.weekday()]} {d1.day:02d} al "
+                f"{DIAS_ES[d2.weekday()].lower()} {d2.day:02d} de "
+                f"{MESES_ES[d2.month - 1]} de {d2.year}")
+    return f"{_etiqueta_dia(d1)} al {_etiqueta_dia(d2)} de {d2.year}"
+
+
+def _compactar_dias(dias: list[date]) -> str:
+    """'lun 07 a vie 11' / 'lunes 07 de septiembre' en español."""
+    if not dias:
+        return ""
+    dias = sorted(dias)
+    if len(dias) == 1:
+        return _etiqueta_dia(dias[0]).lower()
+    grupos, ini, prev = [], dias[0], dias[0]
+    for d in dias[1:] + [None]:
+        if d is None or d != prev + timedelta(days=1):
+            grupos.append((ini, prev))
+            ini = d
+        prev = d if d else prev
+    partes = []
+    for a, b in grupos:
+        if a == b:
+            partes.append(_etiqueta_dia(a).lower())
+        else:
+            partes.append(f"{DIAS_ES[a.weekday()].lower()} {a.day:02d} a "
+                          f"{_etiqueta_dia(b).lower()}")
+    return ", ".join(partes)
+
+
+def _reporte_energia(d1: date, d2: date) -> dict:
+    s1, s2 = d1.isoformat(), d2.isoformat()
+    path = ANALISIS / "cobertura_diaria.csv"
+    if not path.exists():
+        raise HTTPException(404, "Falta cobertura_diaria.csv. Ejecutar: "
+                                 "python scripts/analisis_huecos.py --export")
+    dias = []
+    d = d1
+    while d <= d2:
+        dias.append(d.isoformat())
+        d += timedelta(days=1)
+    por_punto: dict = {}
+    tot_lect = 0
+    with open(path, encoding="utf-8-sig") as f:
+        for r in csv.DictReader(f):
+            if not (s1 <= r["dia"] <= s2):
+                continue
+            key = (r["empresa"], r["sede"], r["tablero"], r["punto"])
+            p = por_punto.setdefault(key, {
+                "empresa": r["empresa"], "sede": r["sede"],
+                "tablero": r["tablero"], "punto": r["punto"],
+                "point_id": r["point_id"], "dias": {}})
+            p["dias"][r["dia"]] = {"estado": r["estado"],
+                                   "lecturas": int(r["lecturas"] or 0),
+                                   "pct": float(r["pct"] or 0)}
+            tot_lect += int(r["lecturas"] or 0)
+    filas, incidencias = [], []
+    n_ok = 0
+    for key in sorted(por_punto):
+        p = por_punto[key]
+        celdas = {}
+        for dia in dias:
+            c = p["dias"].get(dia)
+            if c is None:  # sin fila ese día = hueco total
+                c = {"estado": "hueco", "lecturas": 0, "pct": 0.0}
+            celdas[dia] = c
+        mal = {dia: c for dia, c in celdas.items() if c["estado"] != "completo"}
+        con_inc = bool(mal)
+        n_hueco = sum(1 for c in mal.values() if c["estado"] == "hueco")
+        n_parc = len(mal) - n_hueco
+        filas.append({**{k: p[k] for k in ("empresa", "sede", "tablero",
+                                          "punto", "point_id")},
+                      "dias": celdas, "n_hueco": n_hueco, "n_parcial": n_parc,
+                      "con_incidencia": con_inc})
+        if not con_inc:
+            n_ok += 1
+            continue
+        det = f"{n_hueco} día(s) sin datos" if n_hueco else ""
+        if n_parc:
+            det += ("; " if det else "") + f"{n_parc} día(s) parcial(es)"
+        incidencias.append({"punto": f"{p['empresa']} {p['sede']} · {p['punto']}",
+                            "detalle": det,
+                            "orden": (n_hueco, n_parc)})
+    filas.sort(key=lambda f: (not f["con_incidencia"], -f["n_hueco"],
+                              -f["n_parcial"], f["punto"]))
+    # Etiquetas cortas únicas: empresa/sede · punto (+ tablero si colisiona)
+    vistas = [f"{f['empresa']}/{f['sede']} · {f['punto']}" for f in filas]
+    if len(set(vistas)) < len(vistas):
+        vistas = [f"{f['empresa']}/{f['sede']} · {f['punto']} ({f['tablero']})"
+                  for f in filas]
+    for f, v in zip(filas, vistas):
+        f["etiqueta"] = v
+    n_puntos = len(por_punto)
+    cobertura = (round(100 * tot_lect / (n_puntos * len(dias) * ESPERADAS_DIA), 1)
+                 if n_puntos else 0.0)
+    # Puntos sin ningún dato en la semana (inventario del resumen)
+    sin_datos = []
+    try:
+        res = jsonlib.loads((ANALISIS / "cobertura_resumen.json")
+                            .read_text(encoding="utf-8"))
+        for p in res.get("puntos", []):
+            if not p.get("con_datos") or (p.get("fin") or "") < s1:
+                sin_datos.append(f"{p['empresa']}/{p['sede']} · {p['punto']}")
+    except (OSError, ValueError):
+        pass
+    incidencias.sort(key=lambda i: (-i["orden"][0], -i["orden"][1]))
+    return {"cobertura_pct": cobertura, "puntos_total": n_puntos,
+            "puntos_ok": n_ok,
+            "puntos_incidencias": sum(1 for f in filas if f["con_incidencia"]),
+            "dias_hueco": sum(f["n_hueco"] for f in filas),
+            "puntos_sin_datos": sorted(set(sin_datos)),
+            "filas": [{k: f[k] for k in ("etiqueta", "empresa", "sede",
+                                        "tablero", "punto", "dias",
+                                        "con_incidencia")}
+                      for f in filas],
+            "incidencias": [{"punto": i["punto"], "detalle": i["detalle"]}
+                            for i in incidencias[:8]]}
+
+
+def _reporte_ambiental(d1: date, d2: date) -> dict:
+    s1, s2 = d1.isoformat(), d2.isoformat()
+    p_res = ANALISIS / "huecos_ambiental_salas.json"
+    p_cob = ANALISIS / "cobertura_diaria_ambiental_salas.json"
+    for p in (p_res, p_cob):
+        if not p.exists():
+            raise HTTPException(404, f"Falta {p.name}. Ejecutar: "
+                                     "python scripts/analisis_huecos_ambiental.py "
+                                     "--export")
+    resumen = jsonlib.loads(p_res.read_text(encoding="utf-8"))
+    cob = jsonlib.loads(p_cob.read_text(encoding="utf-8"))
+    meta = {p["combo_id"]: p for p in resumen.get("puntos", [])}
+    dias = []
+    d = d1
+    while d <= d2:
+        dias.append(d.isoformat())
+        d += timedelta(days=1)
+    salas: dict = {}
+    for r in cob:
+        if not (s1 <= r["dia"] <= s2):
+            continue
+        m = meta.get(r["combo_id"])
+        if not m or not m.get("con_datos"):
+            continue
+        key = (m["empresa"], m["sede"], m["lugar"])
+        s = salas.setdefault(key, {"empresa": m["empresa"], "sede": m["sede"],
+                                   "sala": m["lugar"], "dias": {}})
+        dd = s["dias"].setdefault(r["dia"], {"peor": "completo", "inds": []})
+        dd["inds"].append({"indicador": m["indicador"], "estado": r["estado"],
+                           "lecturas": r["lecturas"], "pct": r.get("pct")})
+        if _RANK_ESTADO.get(r["estado"], 0) > _RANK_ESTADO[dd["peor"]]:
+            dd["peor"] = r["estado"]
+    # Resumen por sala (KPIs + incidencias)
+    incidencias = []
+    n_ok = 0
+    for key in sorted(salas):
+        s = salas[key]
+        celdas = {}
+        for dia in dias:
+            c = s["dias"].get(dia)
+            if c is None:
+                c = {"peor": "hueco", "inds": []}
+            celdas[dia] = c
+        mal = {dia: c for dia, c in celdas.items() if c["peor"] != "completo"}
+        if not mal:
+            n_ok += 1
+            continue
+        dias_hueco = sorted(date.fromisoformat(x) for x, c in mal.items()
+                            if c["peor"] == "hueco")
+        dias_parc = sorted(date.fromisoformat(x) for x, c in mal.items()
+                           if c["peor"] == "parcial")
+        det = ""
+        if dias_hueco:
+            det += f"sin datos {_compactar_dias(dias_hueco)}"
+        if dias_parc:
+            det += ("; " if det else "") + f"parcial {_compactar_dias(dias_parc)}"
+        incidencias.append({"punto": s["sala"], "detalle": det,
+                            "orden": (len(dias_hueco), len(dias_parc))})
+    # Filas del heatmap: una por combo (sala × indicador), como el /gaps
+    combos: dict = {}
+    for r in cob:
+        if not (s1 <= r["dia"] <= s2):
+            continue
+        m = meta.get(r["combo_id"])
+        if not m or not m.get("con_datos"):
+            continue
+        c = combos.setdefault(r["combo_id"], {
+            "empresa": m["empresa"], "sede": m["sede"], "sala": m["lugar"],
+            "indicador": m["indicador"], "dias": {}})
+        c["dias"][r["dia"]] = {"estado": r["estado"],
+                               "lecturas": r["lecturas"], "pct": r.get("pct")}
+    filas = []
+    for cid in sorted(combos):
+        c = combos[cid]
+        celdas = {}
+        for dia in dias:
+            cc = c["dias"].get(dia)
+            if cc is None:
+                cc = {"estado": "hueco", "lecturas": 0, "pct": 0}
+            celdas[dia] = cc
+        con_inc = any(cc["estado"] != "completo" for cc in celdas.values())
+        filas.append({"empresa": c["empresa"], "sede": c["sede"],
+                      "sala": c["sala"], "indicador": c["indicador"],
+                      "dias": celdas,
+                      "n_hueco": sum(1 for cc in celdas.values()
+                                     if cc["estado"] == "hueco"),
+                      "con_incidencia": con_inc})
+    filas.sort(key=lambda f: (not f["con_incidencia"], -f["n_hueco"],
+                              f["sala"], f["indicador"]))
+    misma_sede = len({(f["empresa"], f["sede"]) for f in filas}) <= 1
+    for f in filas:
+        base = f["sala"] if misma_sede else f"{f['sede']} · {f['sala']}"
+        f["etiqueta"] = f"{base} · {f['indicador']}"
+    n_salas = len(salas)
+    tot_sd = n_salas * len(dias)
+    ok_sd = 0
+    for s in salas.values():
+        for dia in dias:
+            c = s["dias"].get(dia)
+            if c and c["inds"] and all(i["estado"] == "completo"
+                                      for i in c["inds"]):
+                ok_sd += 1
+    cobertura = round(100 * ok_sd / tot_sd, 1) if tot_sd else 100.0
+    incidencias.sort(key=lambda i: (-i["orden"][0], -i["orden"][1]))
+    n_comb_ok = sum(1 for f in filas if not f["con_incidencia"])
+    return {"cobertura_pct": cobertura, "salas_total": n_salas,
+            "salas_ok": n_ok,
+            "salas_incidencias": n_salas - n_ok,
+            "combos_total": len(filas), "combos_ok": n_comb_ok,
+            "filas": [{k: f[k] for k in ("etiqueta", "empresa", "sede",
+                                        "sala", "indicador", "dias",
+                                        "con_incidencia")}
+                      for f in filas],
+            "incidencias": [{"punto": i["punto"], "detalle": i["detalle"]}
+                            for i in incidencias[:8]]}
+
+
+@app.get("/api/reporte-semanal")
+def reporte_semanal_data(desde: Optional[str] = None,
+                         hasta: Optional[str] = None):
+    """Cobertura energía + ambiental de una semana, resumida para jefes."""
+    d1, d2 = _rango_semanal(desde, hasta)
+    dias = []
+    d = d1
+    while d <= d2:
+        dias.append({"iso": d.isoformat(), "etiqueta": _etiqueta_dia(d),
+                     "corta": f"{DIAS_ES[d.weekday()][:3]} {d.day:02d}"})
+        d += timedelta(days=1)
+    ahora = datetime.now()
+    generado = (f"{DIAS_ES[ahora.weekday()]} {ahora.day:02d} de "
+                f"{MESES_ES[ahora.month - 1]} de {ahora.year}, "
+                f"{ahora.hour:02d}:{ahora.minute:02d}")
+    return {"desde": d1.isoformat(), "hasta": d2.isoformat(),
+            "titulo_rango": _titulo_rango(d1, d2),
+            "generado": generado,
+            "dias": dias,
+            "energia": _reporte_energia(d1, d2),
+            "ambiental": _reporte_ambiental(d1, d2)}
+
+
+@app.get("/reporte-semanal")
+def reporte_semanal_page():
+    """Reporte semanal de cobertura (vista limpia para jefes)."""
+    return FileResponse(STATIC / "reporte_semanal.html")
 
 
 # --- Lectura a lectura (presencia por minuto) ---------------------------------

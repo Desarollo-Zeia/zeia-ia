@@ -107,7 +107,7 @@
 
   /* ============ DASHBOARD ============ */
   #tab-dashboard{flex:1;padding:20px clamp(16px,4vw,44px) 60px;overflow-y:auto}
-  .dash-top{max-width:1400px;margin:0 auto 18px;display:flex;flex-direction:column;gap:14px}
+  .dash-top{width:100%;margin:0 0 18px;display:flex;flex-direction:column;gap:14px}
   .dash-title h2{font-family:var(--disp);font-size:24px;font-weight:700;letter-spacing:-.01em}
   .dash-title p{font-size:12px;color:var(--mut);margin-top:4px}
   .prompt-global{
@@ -126,7 +126,7 @@
   .prompt-global button:disabled{opacity:.5;cursor:wait}
 
   #grid{
-    max-width:1400px;margin:0 auto;display:grid;gap:16px;
+    width:100%;display:grid;gap:16px;
     grid-template-columns:repeat(12,1fr);align-items:start;
   }
   .card{
@@ -139,7 +139,7 @@
   .card.dragging{opacity:.4}
   .card.kpi{grid-column:span 3}
   .card.half{grid-column:span 6}
-  .card.wide{grid-column:span 8}
+  .card.wide{grid-column:span 12}
   .card.full{grid-column:span 12}
   .card .card-head{
     display:flex;align-items:center;gap:8px;padding:13px 16px;border-bottom:1px solid var(--line);
@@ -187,7 +187,7 @@
     border:1px dashed var(--line);border-radius:16px;font-size:13px;
   }
   #add-card{
-    display:block;margin:20px auto 0;max-width:1400px;width:100%;
+    display:block;margin:20px auto 0;width:100%;
     background:none;border:1px dashed var(--accent-line);color:var(--accent);
     border-radius:14px;padding:16px;font-family:var(--mono);font-size:13px;cursor:pointer;
   }
@@ -511,7 +511,7 @@ function renderCardBody(el, card){
   const isKpi = !card.charts || !card.charts.length;
   if (isKpi) body.classList.add('card-kpi');
   const div = document.createElement('div');
-  div.innerHTML = marked.parse(card.answer);
+  div.innerHTML = marked.parse(stripChartLinks(card.answer));
   body.appendChild(div);
   (card.charts||[]).forEach(spec=>{
     const ch = document.createElement('div');
@@ -658,12 +658,16 @@ function renderChart(el, spec){
 
 function resizeCharts(){ document.querySelectorAll('.card .chart').forEach(el=>{ if(el._chart) el._chart.resize(); }); }
 
+function stripChartLinks(text){
+  return (text||'').replace(/!\[[^\]]*\]\(chart:\/\/[^)]*\)/g,'').replace(/chart:\/\/[^\s)]+/g,'').replace(/\(?render_chart\)?/g,'').replace(/[^\n]*chart_type\s*=\s*"[^"]*"[^\n]*/g,'');
+}
+
 function addMessage(role, content, extras={}){
   const div = document.createElement('div');
   div.className = 'msg '+role;
   div.innerHTML = `<div class="avatar">${role==='user'?'Tú':'Z'}</div><div class="body"></div>`;
   const body = div.querySelector('.body');
-  body.innerHTML = role==='agent' ? marked.parse(content||'_(sin respuesta)_') : '';
+  body.innerHTML = role==='agent' ? marked.parse(stripChartLinks(content)||'_(sin respuesta)_') : '';
   if (role==='user') body.textContent = content;
   (extras.charts||[]).forEach(spec=>{
     const el = document.createElement('div'); el.className='chart-c'; body.appendChild(el);

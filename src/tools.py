@@ -114,7 +114,7 @@ TOOL_SPECS = [
             "description": (
                 "Genera un gráfico para el usuario a partir de datos ya consultados con run_query. "
                 "Usa 'line'/'area' para series temporales, 'bar' para rankings/comparaciones y "
-                "'pie' para composiciones porcentuales. Máximo 2-3 gráficos por respuesta."
+                "'pie' para composiciones porcentuales. Máximo 6 gráficos por respuesta."
             ),
             "parameters": {
                 "type": "object",
@@ -182,10 +182,12 @@ def dispatch(name: str, arguments_json: str, base: str | None = None) -> str:
             # El mensaje de vuelta guía al modelo a no olvidar el texto.
             result = {
                 "ok": (
-                    "gráfico registrado. El gráfico COMPLEMENTA tu respuesta, "
-                    "no la reemplaza: redacta ahora tu respuesta final COMPLETA "
-                    "con las cifras en texto (tabla/lista) y cierra con la "
-                    "sección '💡 Para tener en cuenta'."
+                    "gráfico registrado. La respuesta final va en formato CARD: "
+                    "título, 1-3 frases con las cifras clave y el gráfico como "
+                    "detalle. No repitas los datos del gráfico en listas ni "
+                    "incluyas enlaces ni menciones la herramienta en el "
+                    "texto: el gráfico se muestra automáticamente. "
+                    "Máximo 1 línea '💡 ...' al final."
                 )
             }
         else:
