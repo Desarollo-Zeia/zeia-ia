@@ -235,6 +235,51 @@ async function cargarCobertura() {
   const filtros = (p) => (!estado.empresa || p.empresa.toLowerCase().includes(estado.empresa.toLowerCase()))
                     && (!estado.punto || p.punto.toLowerCase().includes(estado.punto.toLowerCase()));
   let lista = rows.filter(filtros);
+  // Con rango de fechas: recalcular cada punto SOLO dentro del rango
+  // (intersección rango × ventana del punto; bordes excluidos de huecos,
+  // igual que el cálculo global). Días sin fila = sin lecturas = hueco.
+  if (estado.desde || estado.hasta) {
+    const porPunto = new Map();
+    (r.rows || []).forEach(d => {
+      const k = String(d.point_id);
+      if (!porPunto.has(k)) porPunto.set(k, new Map());
+      porPunto.get(k).set(d.dia, d.estado);
+    });
+    const masDias = (s, n) => { const d = new Date(s + "T12:00:00"); d.setDate(d.getDate() + n);
+      return d.getFullYear() + "-" + String(d.getMonth()+1).padStart(2,"0") + "-" + String(d.getDate()).padStart(2,"0"); };
+    lista.forEach(p => {
+      if (!p.con_datos) return;
+      const ini = estado.desde && estado.desde > p.inicio ? estado.desde : p.inicio;
+      const fin = estado.hasta && estado.hasta < p.fin ? estado.hasta : p.fin;
+      if (ini > fin) {
+        p.inicio = null; p.fin = null;
+        p.dias_datos = 0; p.dias_completos = 0; p.dias_parciales = 0;
+        p.dias_hueco = 0; p.episodios = [];
+        return;
+      }
+      const mapa = porPunto.get(String(p.point_id)) || new Map();
+      let comp = 0, parc = 0, datos = 0; const malos = [];
+      let primero = null, ultimo = null;
+      for (let d = ini; ; d = masDias(d, 1)) {
+        const est = mapa.get(d);
+        const borde = (d === ini || d === fin);
+        if (est === "completo") { comp++; datos++; }
+        else if (est === "parcial") { parc++; datos++; }
+        else if (est) { datos++; if (!borde) malos.push(d); }
+        else if (!borde) malos.push(d);
+        if (est) { if (!primero) primero = d; ultimo = d; }
+        if (d === fin) break;
+      }
+      const eps = [];
+      malos.forEach(d => {
+        const u = eps[eps.length - 1];
+        if (u && masDias(u[1], 1) === d) { u[1] = d; u[2]++; } else eps.push([d, d, 1]);
+      });
+      p.inicio = primero; p.fin = ultimo;
+      p.dias_datos = datos; p.dias_completos = comp; p.dias_parciales = parc;
+      p.dias_hueco = malos.length; p.episodios = eps;
+    });
+  }
   const orden = {
     hueco:   (a,b) => (b.dias_hueco||0) - (a.dias_hueco||0) || (b.staleness_dias||0) - (a.staleness_dias||0),
     empresa: (a,b) => (a.empresa + a.sede + a.punto).localeCompare(b.empresa + b.sede + b.punto),
@@ -259,7 +304,7 @@ async function cargarCobertura() {
         return `<tr>
           <td class="emp">${p.empresa}</td><td>${p.sede}</td><td>${p.tablero}</td>
           <td>${p.is_main ? "*" : ""}${p.punto}</td><td>${p.point_id}</td>
-          <td>${p.con_datos ? p.inicio + " → " + p.fin : "—"}</td>
+          <td>${(p.con_datos && p.inicio) ? p.inicio + " → " + p.fin : "—"}</td>
           <td>${p.con_datos ? p.dias_datos : "0"}</td>
           <td>${p.con_datos ? p.dias_completos : "0"}</td>
           <td class="${p.dias_parciales ? "gravedad-media" : ""}">${p.con_datos ? p.dias_parciales : "0"}</td>
@@ -291,12 +336,12 @@ function pintarHeatmap(dias) {
   });
   // Datos una fila por día-punto real con lecturas y huecos ya implícitos:
   const mapa = new Map();
-  const detalle = new Map();   // key|dia -> {n: lecturas recibidas, p: pct}
+  const det = new Map();
   dias.forEach(d => {
     const key = `${d.empresa}/${d.sede}/${d.tablero} · ${d.punto}`;
     const val = d.estado === "completo" ? 0 : (d.estado === "parcial" ? 1 : 2);
     mapa.set(key + "|" + d.dia, val);
-    detalle.set(key + "|" + d.dia, {n: Number(d.lecturas) || 0, p: d.pct});
+    det.set(key + "|" + d.dia, { n: d.lecturas, pct: d.pct });
   });
   // Rellenar celdas faltantes (días sin lecturas entre rango) como hueco (2)
   let todas = Array.from(mapa.keys());
@@ -339,10 +384,11 @@ function pintarHeatmap(dias) {
     tooltip: {
       formatter(a) {
         const es = ["Completo (≥90%)","Parcial (<90%)","Hueco (<10 lect.)"][a.value[2]];
-        const det = detalle.get(labels[a.value[1]] + "|" + fechas[a.value[0]]);
-        const n = det ? det.n : 0;
-        const p = det ? det.p : 0;
-        return `${fechas[a.value[0]]}<br>${labels[a.value[1]]}<br><b>${es}</b><br>${n} de 1440 lecturas (${p}%)`;
+        const k = labels[a.value[1]] + "|" + fechas[a.value[0]];
+        const d = det.get(k);
+        const cob = d ? `${Number(d.n).toLocaleString("es")} de 1.440 lecturas · ${d.pct}% de cobertura`
+                      : `0 de 1.440 lecturas · 0% de cobertura`;
+        return `${fechas[a.value[0]]}<br>${labels[a.value[1]]}<br><b>${es}</b><br>${cob}`;
       }
     },
   }, true);
