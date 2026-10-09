@@ -25,6 +25,7 @@ import json as jsonlib
 import os
 import sys
 from datetime import date, timedelta
+from typing import Optional
 
 # En Windows la consola usa cp1252; forzar UTF-8.
 if sys.stdout.encoding and sys.stdout.encoding.lower() != "utf-8":
@@ -171,10 +172,10 @@ def huecos_puntos_compat():
 
 @app.get("/api/ambiental/cobertura/diaria")
 def cobertura_diaria(track: str = Query("salas"),
-                     empresa: str | None = None,
-                     lugar: str | None = None,
-                     desde: str | None = None,
-                     hasta: str | None = None):
+                     empresa: Optional[str] = None,
+                     lugar: Optional[str] = None,
+                     desde: Optional[str] = None,
+                     hasta: Optional[str] = None):
     """Estado de cada día por combo (completo/parcial/hueco)."""
     if track not in ("salas", "puntos"):
         raise HTTPException(400, "track inválido (salas|puntos)")
@@ -203,9 +204,9 @@ def cobertura_diaria(track: str = Query("salas"),
 
 @app.get("/api/ambiental/lecturas")
 def lecturas_data(track: str = Query("salas"),
-                  combos: str | None = None,
-                  desde: str | None = None,
-                  hasta: str | None = None):
+                  combos: Optional[str] = None,
+                  desde: Optional[str] = None,
+                  hasta: Optional[str] = None):
     """Minutos (hora Lima) con lecturas por combo, para el heatmap por minuto.
 
     track=salas  → readings_reading (indicator_device_id)

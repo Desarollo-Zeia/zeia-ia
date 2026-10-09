@@ -156,7 +156,7 @@ cleanup_dumps() {
     for f in "${BK_DIR}"/${BASE}_prod_*.dump; do
         [ -e "$f" ] || continue
         KEEP=$(ls -d "${BK_DIR}"/${BASE}_prod_*.dump | sort -r | head -n "${KEEP_DUMPS}" | grep -cF "$f" || true)
-        [ "$KEEP" -eq 0 ] && { rm -rf "$f" "$f.sha256"; log "dump viejo eliminado: $(basename "$f")"; }
+        if [ "$KEEP" -eq 0 ]; then rm -rf "$f" "$f.sha256"; log "dump viejo eliminado: $(basename "$f")"; fi
     done
 }
 

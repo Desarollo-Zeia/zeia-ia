@@ -909,6 +909,52 @@ solo proyecto: `energia` (energy, consumo eléctrico) y `ambiental`
 - Ambas apps siguen respondiendo tras el restore (conexiones psycopg2 son
   por request, no quedan sesiones idle-in-transaction que bloqueen el DROP).
 
+## Sesión 15-sep-2026 (casa) — Últimas lecturas + sync energía full
+
+### Pedido
+- Últimas lecturas de ambas bases; luego actualizar energía.
+
+### Ejecutado
+- Energía local estaba en 09-sep 16:20 Lima (10,188,758 filas) vs prod con
+  datos hasta hoy 15-sep 08:37 (10,437,168). Ambiental en vivo hoy 15-sep
+  ~08:36 (15.97M filas, 13 salas Sanna San Borja); su túnel (5433,
+  valhallaprod.pem) se levantó a mano y quedó abierto.
+- `bash scripts/sync_db.sh energia full` (reusó túnel manual en 55432):
+  dump `backups/energia/energia_prod_20260915_083723.dump` (1.4 GB) → DROP +
+  restore en 5432. Verify: prod=10,438,053 vs local=10,437,170 (dif ~883
+  filas = ingesta en vivo durante la ventana, normal); última local 15-sep
+  08:37 Lima (Oechsle; Sanna 08:37:08, Scotiabank Jockey Plaza 08:36:30).
+  +248,412 filas nuevas vs el estado previo.
+- Novedad: `Scotiabank / Jockey Plaza` reporta en vivo (no está en prompts.py);
+  KFC Salaverry reaparece (hasta 11-abr-2026). BK hasta 31-jul, Madam Tusan
+  14-may, Pizza Hut 20-abr.
+- Bug en `sync_db.sh/cleanup_dumps`: `[ ... ] && { ...; }` como última
+  sentencia del loop + `set -e` aborta el script antes de imprimir "listo"
+  cuando no hay nada que borrar. Fix: cambiado a `if...fi` (verificado con
+  `bash -n`). Dump/restore/verify no se vieron afectados.
+
+## Sesión 15-sep-2026 (casa) — Reporte semanal HTML 07–13 sep
+
+### Pedido
+- Reporte en HTML de la semana pasada (lun–dom) para mostrar huecos al jefe:
+  solo puntos con huecos (omitir los OK), cobertura por punto y día, ambiental
+  organizado por sala×indicador, fechas como "Lunes 07 de septiembre".
+
+### Ejecutado
+- El API `GET /api/reporte-semanal` ya existía pero el frontend
+  `web/static/reporte_semanal.html` no (nunca se commiteó). Creado desde cero:
+  auto-contenido sin dependencias, tema claro imprimible, KPIs, heatmaps solo
+  con incidencias (`con_incidencia`), ambiental agrupado por sala con subfilas
+  por indicador, `puntos_sin_datos` agrupados por empresa/sede, fechas largas
+  en español + tooltip con n° de lecturas. JS validado con `node --check`.
+- Re-exports (los del 09-sep no cubrían 10–13): `analisis_huecos.py --export`
+  (7,649 filas) + `analisis_huecos_ambiental.py --export`; webapp reiniciada.
+- Semana 07–13 sep: energía 95.0% (26/32 OK; 6 puntos con días parciales, 0
+  días-hueco; TF-UMAS 1 de Oechsle el peor con 5 parciales). Ambiental 89.0%
+  días-sala (11/13 OK; Sala de Operaciones 2 sin datos lun 07–vie 11 + parcial
+  fin de semana; Zona Azul sin datos mié 09–jue 10 + parcial vie 11).
+- URL: http://localhost:8000/reporte-semanal (default = última semana completa).
+
 ## Sesión 28-sep-2026 — Sync full de AMBAS bases (energía + ambiental)
 
 ### Pedido
