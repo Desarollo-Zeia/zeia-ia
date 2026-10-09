@@ -144,13 +144,17 @@ def export(pts: dict, dias_pts: dict, res: dict, sin_datos: list[int],
         if r is None:
             puntos.append({"point_id": mp_id, "empresa": p["empresa"], "sede": p["sede"],
                            "tablero": p["tablero"], "punto": p["punto"],
+                           "dispositivo": p["dispositivo"],
+                           "punto_activo": p["activo"],
                            "modelo": p["modelo"], "is_main": p["is_main"],
                            "con_datos": False})
             continue
         f, u = r["rango"]
         puntos.append({
             "point_id": mp_id, "empresa": p["empresa"], "sede": p["sede"],
-            "tablero": p["tablero"], "punto": p["punto"], "modelo": p["modelo"],
+            "tablero": p["tablero"], "punto": p["punto"],
+            "dispositivo": p["dispositivo"], "punto_activo": p["activo"],
+            "modelo": p["modelo"],
             "is_main": p["is_main"], "con_datos": True,
             "inicio": f.isoformat(), "fin": u.isoformat(),
             "dias_datos": r["n_datos"], "dias_completos": r["n_completos"],
