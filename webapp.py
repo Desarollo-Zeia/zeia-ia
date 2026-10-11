@@ -10,7 +10,10 @@ from __future__ import annotations
 import csv
 import json as jsonlib
 import os
+import shutil
+import subprocess
 import sys
+import tempfile
 import uuid
 from datetime import date, datetime, timedelta
 
@@ -425,6 +428,12 @@ MESES_ES = ["enero", "febrero", "marzo", "abril", "mayo", "junio", "julio",
 ESPERADAS_DIA = 1440  # 1 lectura/minuto
 _RANK_ESTADO = {"completo": 0, "parcial": 1, "hueco": 2}
 
+# Empresas fuera del alcance del reporte semanal (sin medición activa).
+# Pedido del jefe (oct-2026): solo ensucian los números. El /gaps interno
+# las sigue mostrando; esto solo afecta al reporte para jefes.
+EMPRESAS_FUERA_DE_ALCANCE = {"Burger King", "KFC", "Madam Tusan",
+                             "Pizza Hut", "TestCorp_Email"}
+
 
 def _etiqueta_dia(d: date) -> str:
     return f"{DIAS_ES[d.weekday()]} {d.day:02d} de {MESES_ES[d.month - 1]}"
@@ -487,6 +496,8 @@ def _reporte_energia(d1: date, d2: date) -> dict:
         for r in csv.DictReader(f):
             if not (s1 <= r["dia"] <= s2):
                 continue
+            if r["empresa"] in EMPRESAS_FUERA_DE_ALCANCE:
+                continue
             key = (r["empresa"], r["sede"], r["tablero"], r["punto"])
             p = por_punto.setdefault(key, {
                 "empresa": r["empresa"], "sede": r["sede"],
@@ -535,22 +546,55 @@ def _reporte_energia(d1: date, d2: date) -> dict:
     n_puntos = len(por_punto)
     cobertura = (round(100 * tot_lect / (n_puntos * len(dias) * ESPERADAS_DIA), 1)
                  if n_puntos else 0.0)
-    # Puntos sin ningún dato en la semana (inventario del resumen)
+    # Puntos sin ningún dato en la semana (inventario del resumen).
+    # Claveados por point_id (ANTES se colapsaba por nombre y los conteos no
+    # cuadraban: "Reserva" x2 en Oechsle, "Otros"/"Espacio" x2 en Sanna).
+    # Cada punto trae su estado: sin_sensor (solo creado, circuito no
+    # instrumentado), sensor_mudo (con sensor real que nunca reportó) o
+    # caido (reportaba y dejó de enviar: se indica la última fecha).
     sin_datos = []
+    alcance = set()
     try:
         res = jsonlib.loads((ANALISIS / "cobertura_resumen.json")
                             .read_text(encoding="utf-8"))
         for p in res.get("puntos", []):
-            if not p.get("con_datos") or (p.get("fin") or "") < s1:
-                sin_datos.append(f"{p['empresa']}/{p['sede']} · {p['punto']}")
+            emp, sede = p["empresa"], p["sede"]
+            if emp in EMPRESAS_FUERA_DE_ALCANCE:
+                continue
+            alcance.add(f"{emp} {sede}")
+            if not p.get("con_datos"):
+                dev = (p.get("dispositivo") or "").strip()
+                sin_sensor = (not dev or dev == "?"
+                              or "falso" in dev.lower()
+                              or "false" in dev.lower())
+                sin_datos.append({
+                    "point_id": p["point_id"], "empresa": emp, "sede": sede,
+                    "tablero": p.get("tablero"), "punto": p["punto"],
+                    "estado": ("sin_sensor" if sin_sensor else "sensor_mudo"),
+                    "detalle": ("solo creado en plataforma" if sin_sensor
+                                else "con sensor, nunca reportó"),
+                })
+            elif (p.get("fin") or "") < s1:
+                sin_datos.append({
+                    "point_id": p["point_id"], "empresa": emp, "sede": sede,
+                    "tablero": p.get("tablero"), "punto": p["punto"],
+                    "estado": "caido",
+                    "detalle": f"última lectura {p['fin']}",
+                })
     except (OSError, ValueError):
         pass
+    sin_datos.sort(key=lambda x: (x["empresa"], x["sede"],
+                                  x["tablero"] or "", x["punto"]))
     incidencias.sort(key=lambda i: (-i["orden"][0], -i["orden"][1]))
     return {"cobertura_pct": cobertura, "puntos_total": n_puntos,
             "puntos_ok": n_ok,
+            "puntos_ok_lista": [f["etiqueta"] for f in filas
+                                if not f["con_incidencia"]],
             "puntos_incidencias": sum(1 for f in filas if f["con_incidencia"]),
             "dias_hueco": sum(f["n_hueco"] for f in filas),
-            "puntos_sin_datos": sorted(set(sin_datos)),
+            "dias_parciales": sum(f["n_parcial"] for f in filas),
+            "alcance": sorted(alcance),
+            "puntos_sin_datos": sin_datos,
             "filas": [{k: f[k] for k in ("etiqueta", "empresa", "sede",
                                         "tablero", "punto", "dias",
                                         "con_incidencia")}
@@ -614,10 +658,11 @@ def _reporte_ambiental(d1: date, d2: date) -> dict:
         if dias_hueco:
             det += f"sin datos {_compactar_dias(dias_hueco)}"
         if dias_parc:
-            det += ("; " if det else "") + f"parcial {_compactar_dias(dias_parc)}"
+            det += ("; " if det else "") + \
+                f"datos incompletos {_compactar_dias(dias_parc)}"
         incidencias.append({"punto": s["sala"], "detalle": det,
                             "orden": (len(dias_hueco), len(dias_parc))})
-    # Filas del heatmap: una por combo (sala × indicador), como el /gaps
+    # Filas por combo (sala × indicador): detalle bajo la fila de su sala
     combos: dict = {}
     for r in cob:
         if not (s1 <= r["dia"] <= s2):
@@ -652,6 +697,34 @@ def _reporte_ambiental(d1: date, d2: date) -> dict:
     for f in filas:
         base = f["sala"] if misma_sede else f"{f['sede']} · {f['sala']}"
         f["etiqueta"] = f"{base} · {f['indicador']}"
+    # Filas resumen por sala: promedio de sus sensores por día (el estado es
+    # el peor del día) y días en que la sala entera quedó sin datos.
+    salas_filas = []
+    n_dias_hueco = 0
+    for key in sorted(salas):
+        s = salas[key]
+        celdas = {}
+        for dia in dias:
+            c = s["dias"].get(dia)
+            if c is None or not c["inds"]:
+                celdas[dia] = {"estado": "hueco", "pct": 0.0, "lecturas": 0}
+                n_dias_hueco += 1
+                continue
+            pcts = [i["pct"] for i in c["inds"] if i.get("pct") is not None]
+            celdas[dia] = {
+                "estado": c["peor"],
+                "pct": round(sum(pcts) / len(pcts), 1) if pcts else 0.0,
+                "lecturas": sum(i["lecturas"] for i in c["inds"]),
+            }
+            if all(i["estado"] == "hueco" for i in c["inds"]):
+                n_dias_hueco += 1
+        etiqueta = (s["sala"] if misma_sede
+                    else f"{s['empresa']}/{s['sede']} · {s['sala']}")
+        salas_filas.append({
+            "etiqueta": etiqueta, "empresa": s["empresa"], "sede": s["sede"],
+            "sala": s["sala"], "dias": celdas,
+            "con_incidencia": any(cc["estado"] != "completo"
+                                  for cc in celdas.values())})
     n_salas = len(salas)
     tot_sd = n_salas * len(dias)
     ok_sd = 0
@@ -666,14 +739,20 @@ def _reporte_ambiental(d1: date, d2: date) -> dict:
     n_comb_ok = sum(1 for f in filas if not f["con_incidencia"])
     return {"cobertura_pct": cobertura, "salas_total": n_salas,
             "salas_ok": n_ok,
+            "salas_ok_lista": [sf["etiqueta"] for sf in salas_filas
+                               if not sf["con_incidencia"]],
             "salas_incidencias": n_salas - n_ok,
+            "dias_hueco": n_dias_hueco,
             "combos_total": len(filas), "combos_ok": n_comb_ok,
+            "salas": [{k: sf[k] for k in ("etiqueta", "empresa", "sede",
+                                          "sala", "dias", "con_incidencia")}
+                      for sf in salas_filas],
             "filas": [{k: f[k] for k in ("etiqueta", "empresa", "sede",
                                         "sala", "indicador", "dias",
                                         "con_incidencia")}
                       for f in filas],
             "incidencias": [{"punto": i["punto"], "detalle": i["detalle"]}
-                            for i in incidencias[:8]]}
+                            for i in incidencias]}
 
 
 @app.get("/api/reporte-semanal")
@@ -703,6 +782,64 @@ def reporte_semanal_data(desde: Optional[str] = None,
 def reporte_semanal_page():
     """Reporte semanal de cobertura (vista limpia para jefes)."""
     return FileResponse(STATIC / "reporte_semanal.html")
+
+
+def _navegador_chrome() -> Optional[str]:
+    """Ruta a Chrome/Edge/Chromium para imprimir el reporte a PDF.
+
+    Override con CHROME_BIN=<ruta>. En el servidor Linux buscará los nombres
+    habituales del PATH.
+    """
+    candidatos = [
+        os.getenv("CHROME_BIN"),
+        shutil.which("chrome"), shutil.which("chrome.exe"),
+        shutil.which("msedge"), shutil.which("msedge.exe"),
+        shutil.which("chromium"), shutil.which("chromium-browser"),
+        shutil.which("google-chrome"), shutil.which("google-chrome-stable"),
+        r"C:\Program Files\Google\Chrome\Application\chrome.exe",
+        r"C:\Program Files (x86)\Google\Chrome\Application\chrome.exe",
+        r"C:\Program Files\Microsoft\Edge\Application\msedge.exe",
+        r"C:\Program Files (x86)\Microsoft\Edge\Application\msedge.exe",
+        "/usr/bin/chromium", "/usr/bin/chromium-browser",
+        "/usr/bin/google-chrome", "/usr/bin/google-chrome-stable",
+    ]
+    for c in candidatos:
+        if c and Path(c).exists():
+            return str(c)
+    return None
+
+
+@app.get("/reporte-semanal/pdf")
+def reporte_semanal_pdf(request: Request, desde: Optional[str] = None,
+                        hasta: Optional[str] = None):
+    """PDF del reporte semanal (Chrome headless imprime la página)."""
+    d1, d2 = _rango_semanal(desde, hasta)
+    navegador = _navegador_chrome()
+    if not navegador:
+        raise HTTPException(500, "No se encontró Chrome/Edge/Chromium para "
+                                 "generar el PDF (define CHROME_BIN)")
+    url = (f"{str(request.base_url).rstrip('/')}/reporte-semanal"
+           f"?desde={d1.isoformat()}&hasta={d2.isoformat()}")
+    with tempfile.TemporaryDirectory() as td:
+        salida = Path(td) / "reporte.pdf"
+        cmd = [navegador, "--headless=new", "--disable-gpu", "--no-sandbox",
+               f"--user-data-dir={Path(td) / 'perfil'}",
+               "--no-pdf-header-footer", "--print-to-pdf-no-header",
+               "--virtual-time-budget=20000",
+               f"--print-to-pdf={salida}", url]
+        try:
+            proc = subprocess.run(cmd, capture_output=True, timeout=120)
+        except subprocess.TimeoutExpired:
+            raise HTTPException(504, "El navegador tardó demasiado en generar "
+                                     "el PDF")
+        if proc.returncode != 0 or not salida.exists():
+            detalle = (proc.stderr or b"")[-400:].decode("utf-8", "replace")
+            raise HTTPException(500, f"Error al generar el PDF: {detalle}")
+        pdf = salida.read_bytes()
+    nombre = f"reporte_cobertura_{d1.isoformat()}_a_{d2.isoformat()}.pdf"
+    return Response(content=pdf, media_type="application/pdf",
+                    headers={"Content-Disposition":
+                             f'attachment; filename="{nombre}"'})
 
 
 # --- Lectura a lectura (presencia por minuto) ---------------------------------
@@ -792,6 +929,346 @@ def lecturas_data(puntos: Optional[str] = None,
             return {"rows": rows, "total": len(rows), "meta": meta}
     finally:
         conn.close()
+
+
+# --- Reporte por gateway (Sanna ambiental, estilo sketch oct-2026) ---------------
+# Mapeo EUI -> gateway según la lista de despliegue del usuario.
+# OJO: 13 de los 26 EUIs de esa lista son medidores de ENERGÍA (ADW210/ADW300
+# en la base energy) y NO aparecen aquí: este reporte es solo de SALAS
+# (los 13 sensores ambientales de Sanna San Borja).
+GATEWAYS_SANNA = [
+    ("Gateway 1 - PB Interior", [
+        "009569060004F73E", "00956906000506C8", "009569060004F746",
+        "00956906000506F7", "24E124621F210950", "24E124468E392370",
+        "24E124468E392350", "24E124621F211202", "24E124621F211992",
+        "24E124621F210887", "24E124725C522044", "24E124725C522055",
+        "24E124725E038201", "24E124433F330455", "24E124128C069408",
+        "24E124128C146616", "24E124128B467474", "24E124621F211055",
+        "24E124621F212437"]),
+    ("Gateway 2 - PB Exterior", ["24E124621F210952", "24E124725D240633"]),
+    ("Gateway 3 - 4to Piso", ["24E124725E033214", "24E124725E032246",
+                               "24E124725E038784", "24E124725D244246",
+                               "24e124725d243786"]),
+]
+_EUI_A_GATEWAY = {e.upper(): g for g, lst in GATEWAYS_SANNA for e in lst}
+
+
+def _reporte_gateways(d1: date, d2: date) -> dict:
+    """Cobertura ambiental de Sanna agrupada por gateway (Empresa->Gateway->Sala).
+
+    % diario por sala = promedio del % de sus sensores (vs ritmo propio,
+    igual que el reporte semanal). Promedios por gateway/día/semana.
+    """
+    s1, s2 = d1.isoformat(), d2.isoformat()
+    p_res = ANALISIS / "huecos_ambiental_salas.json"
+    p_cob = ANALISIS / "cobertura_diaria_ambiental_salas.json"
+    for p in (p_res, p_cob):
+        if not p.exists():
+            raise HTTPException(404, f"Falta {p.name}. Ejecutar: "
+                                     "python scripts/analisis_huecos_ambiental.py "
+                                     "--export")
+    resumen = jsonlib.loads(p_res.read_text(encoding="utf-8"))
+    cob = jsonlib.loads(p_cob.read_text(encoding="utf-8"))
+    meta = {p["combo_id"]: p for p in resumen.get("puntos", [])
+            if p.get("empresa") == "San Borja"}
+    dias = []
+    d = d1
+    while d <= d2:
+        dias.append(d.isoformat())
+        d += timedelta(days=1)
+
+    # Sala -> EUI (en vivo, valhalladb): robusto ante tildes/caso en nombres.
+    from src.db import get_engine as _get_engine
+    from sqlalchemy import text as _text
+    eui_por_sala: dict = {}
+    try:
+        with _get_engine("ambiental").connect() as conn:
+            for sala, eui in conn.execute(_text("""
+                SELECT r.name, d.dev_eui
+                FROM enterprise_room r
+                JOIN equipments_device d ON d.room_id = r.id
+                JOIN enterprise_headquarters hq ON hq.id = r.headquarter_id
+                JOIN enterprise_enterprise f ON f.id = hq.enterprise_id
+                WHERE f.name = 'Sanna'""")).fetchall():
+                if eui:
+                    eui_por_sala.setdefault(sala, (eui or "").upper())
+    except Exception as exc:
+        raise HTTPException(500, f"No se pudo leer valhalladb: {exc}")
+
+    # % diario por sala = promedio de sus sensores con fila ese día
+    # (las filas incluyen días-hueco con pct 0: son ceros reales).
+    # El pct es relativo al ritmo propio del sensor y puede pasar de 100
+    # (sensor que reporta más rápido que su mediana): para cobertura se
+    # topea en 100 — lecturas extra no dan más cobertura.
+    por_sala: dict = {}
+    for r in cob:
+        if not (s1 <= r["dia"] <= s2):
+            continue
+        m = meta.get(r["combo_id"])
+        if not m or not m.get("con_datos"):
+            continue
+        s = por_sala.setdefault(m["lugar"], {})
+        s.setdefault(r["dia"], []).append(
+            min(100.0, float(r.get("pct") or 0)))
+    salas_pct = {s: {dia: round(sum(v) / len(v), 1) for dia, v in dd.items()}
+                 for s, dd in por_sala.items()}
+
+    def promedio(vals: list) -> Optional[float]:
+        return round(sum(vals) / len(vals), 1) if vals else None
+
+    gateways = []
+    todas: dict = {dia: [] for dia in dias}  # día -> pcts de todas las salas
+    for nombre_gw, euis in GATEWAYS_SANNA:
+        orden = {e.upper(): i for i, e in enumerate(euis)}
+        salas_gw = sorted(
+            (s for s, eui in eui_por_sala.items() if eui in orden),
+            key=lambda s: orden[eui_por_sala[s]])
+        # Salas del gateway sin filas en la semana igual se listan (con "—").
+        filas = [{"sala": s,
+                  "dias": {dia: salas_pct.get(s, {}).get(dia) for dia in dias}}
+                 for s in salas_gw]
+        prom_dia = {}
+        for dia in dias:
+            vals = [f["dias"][dia] for f in filas if f["dias"][dia] is not None]
+            prom_dia[dia] = promedio(vals)
+            todas[dia].extend(vals)
+        gateways.append({
+            "gateway": nombre_gw,
+            "promedio_semanal": promedio([v for f in filas for v in
+                                          f["dias"].values() if v is not None]),
+            "salas": filas,
+            "promedios_dia": prom_dia,
+        })
+    # Salas de Sanna sin EUI matcheado (no debería pasar): grupo al final.
+    sueltas = sorted(s for s in salas_pct if s not in eui_por_sala)
+    if sueltas:
+        filas = [{"sala": s,
+                  "dias": {dia: salas_pct.get(s, {}).get(dia) for dia in dias}}
+                 for s in sueltas]
+        prom_dia = {}
+        for dia in dias:
+            vals = [f["dias"][dia] for f in filas if f["dias"][dia] is not None]
+            prom_dia[dia] = promedio(vals)
+            todas[dia].extend(vals)
+        gateways.append({"gateway": "Sin gateway asignado",
+                         "promedio_semanal": promedio(
+                             [v for f in filas for v in f["dias"].values()
+                              if v is not None]),
+                         "salas": filas, "promedios_dia": prom_dia})
+    prom_dias = {dia: promedio(todas[dia]) for dia in dias}
+    prom_sem = promedio([v for vs in todas.values() for v in vs])
+    return {"empresa": "Sanna", "promedio_empresa": prom_sem,
+            "promedio_semana": prom_sem, "promedios_dia": prom_dias,
+            "n_salas": sum(len(g["salas"]) for g in gateways),
+            "gateways": gateways}
+
+
+@app.get("/api/reporte-gateways")
+def reporte_gateways_data(desde: Optional[str] = None,
+                          hasta: Optional[str] = None):
+    """Cobertura Sanna por gateway/sala/día (estilo sketch del jefe)."""
+    d1, d2 = _rango_semanal(desde, hasta)
+    dias = []
+    d = d1
+    while d <= d2:
+        dias.append({"iso": d.isoformat(), "etiqueta": _etiqueta_dia(d),
+                     "corta": f"{DIAS_ES[d.weekday()][:3]} {d.day:02d}"})
+        d += timedelta(days=1)
+    ahora = datetime.now()
+    generado = (f"{DIAS_ES[ahora.weekday()]} {ahora.day:02d} de "
+                f"{MESES_ES[ahora.month - 1]} de {ahora.year}, "
+                f"{ahora.hour:02d}:{ahora.minute:02d}")
+    return {"desde": d1.isoformat(), "hasta": d2.isoformat(),
+            "titulo_rango": _titulo_rango(d1, d2),
+            "generado": generado,
+            "dias": dias,
+            **_reporte_gateways(d1, d2)}
+
+
+@app.get("/reporte-gateways")
+def reporte_gateways_page():
+    """Reporte Sanna por gateway/sala/día (vista estilo sketch)."""
+    return FileResponse(STATIC / "reporte_gateways.html")
+
+
+def _reporte_gateways_energia(d1: date, d2: date) -> dict:
+    """Cobertura de ENERGÍA Sanna agrupada por gateway (Empresa->Gateway->Equipo).
+
+    % diario por equipo = lecturas/1440 (igual que el reporte semanal).
+    Solo gateways con equipos (G1: TG-P1/TG-RT/TGA, G2: TFC-BAF).
+    """
+    from src.db import get_engine as _get_engine
+    from sqlalchemy import text as _text
+    s1, s2 = d1.isoformat(), d2.isoformat()
+    path = ANALISIS / "cobertura_diaria.csv"
+    if not path.exists():
+        raise HTTPException(404, "Falta cobertura_diaria.csv. Ejecutar: "
+                                 "python scripts/analisis_huecos.py --export")
+    dias = []
+    d = d1
+    while d <= d2:
+        dias.append(d.isoformat())
+        d += timedelta(days=1)
+    por_punto: dict = {}
+    with open(path, encoding="utf-8-sig") as f:
+        for r in csv.DictReader(f):
+            if not (s1 <= r["dia"] <= s2):
+                continue
+            if r["empresa"] != "Sanna":
+                continue
+            key = (r["tablero"], r["punto"])
+            p = por_punto.setdefault(key, {"tablero": r["tablero"],
+                                           "punto": r["punto"], "dias": {}})
+            p["dias"][r["dia"]] = float(r["pct"] or 0)
+
+    # Equipo -> EUI (en vivo, energy): para agrupar por gateway.
+    eui_por_punto: dict = {}
+    try:
+        with _get_engine("energia").connect() as conn:
+            for tab, pto, eui in conn.execute(_text("""
+                SELECT ep.name, mp.name, d.dev_eui
+                FROM enterprises_measurementpoint mp
+                JOIN devices_device d ON d.id = mp.device_id
+                JOIN enterprises_electricalpanel ep
+                  ON ep.id = d.electrical_panel_id
+                JOIN enterprises_energyheadquarter eh
+                  ON eh.id = ep.energy_headquarter_id
+                JOIN enterprises_enterprise emp
+                  ON emp.id = eh.enterprise_id
+                WHERE emp.name = 'Sanna'""")).fetchall():
+                if eui:
+                    eui_por_punto[(tab, pto)] = (eui or "").upper()
+    except Exception as exc:
+        raise HTTPException(500, f"No se pudo leer energy: {exc}")
+
+    def promedio(vals: list) -> Optional[float]:
+        return round(sum(vals) / len(vals), 1) if vals else None
+
+    gateways = []
+    todas: dict = {dia: [] for dia in dias}
+    for nombre_gw, euis in GATEWAYS_SANNA:
+        claves = sorted(
+            (k for k, eui in eui_por_punto.items()
+             if eui in {e.upper() for e in euis} and k in por_punto),
+            key=lambda k: (k[0], k[1]))
+        if not claves:
+            continue
+        vistos = [f"{c[1]}" for c in claves]
+        if len(set(vistos)) < len(vistos):  # colisión: calificar con tablero
+            etiquetas = {c: f"{c[0]} · {c[1]}" for c in claves}
+        else:
+            etiquetas = {c: c[1] for c in claves}
+        filas = [{"sala": etiquetas[c],
+                  "dias": {dia: por_punto[c]["dias"].get(dia) for dia in dias}}
+                 for c in claves]
+        prom_dia = {}
+        for dia in dias:
+            vals = [f["dias"][dia] for f in filas if f["dias"][dia] is not None]
+            prom_dia[dia] = promedio(vals)
+            todas[dia].extend(vals)
+        gateways.append({
+            "gateway": nombre_gw,
+            "promedio_semanal": promedio([v for f in filas for v in
+                                          f["dias"].values() if v is not None]),
+            "salas": filas,
+            "promedios_dia": prom_dia,
+        })
+    prom_dias = {dia: promedio(todas[dia]) for dia in dias}
+    prom_sem = promedio([v for vs in todas.values() for v in vs])
+    return {"empresa": "Sanna", "promedio_empresa": prom_sem,
+            "promedio_semana": prom_sem, "promedios_dia": prom_dias,
+            "n_salas": sum(len(g["salas"]) for g in gateways),
+            "gateways": gateways}
+
+
+@app.get("/api/reporte-gateways-energia")
+def reporte_gateways_energia_data(desde: Optional[str] = None,
+                                  hasta: Optional[str] = None):
+    """Cobertura Sanna-energía por gateway/equipo/día (estilo sketch)."""
+    d1, d2 = _rango_semanal(desde, hasta)
+    dias = []
+    d = d1
+    while d <= d2:
+        dias.append({"iso": d.isoformat(), "etiqueta": _etiqueta_dia(d),
+                     "corta": f"{DIAS_ES[d.weekday()][:3]} {d.day:02d}"})
+        d += timedelta(days=1)
+    ahora = datetime.now()
+    generado = (f"{DIAS_ES[ahora.weekday()]} {ahora.day:02d} de "
+                f"{MESES_ES[ahora.month - 1]} de {ahora.year}, "
+                f"{ahora.hour:02d}:{ahora.minute:02d}")
+    return {"desde": d1.isoformat(), "hasta": d2.isoformat(),
+            "titulo_rango": _titulo_rango(d1, d2),
+            "generado": generado,
+            "dias": dias,
+            **_reporte_gateways_energia(d1, d2)}
+
+
+@app.get("/reporte-gateways-energia/pdf")
+def reporte_gateways_energia_pdf(request: Request,
+                                 desde: Optional[str] = None,
+                                 hasta: Optional[str] = None):
+    """PDF del reporte por gateways de energía (Chrome headless)."""
+    d1, d2 = _rango_semanal(desde, hasta)
+    navegador = _navegador_chrome()
+    if not navegador:
+        raise HTTPException(500, "No se encontró Chrome/Edge/Chromium para "
+                                 "generar el PDF (define CHROME_BIN)")
+    url = (f"{str(request.base_url).rstrip('/')}/reporte-gateways"
+           f"?alcance=energia&desde={d1.isoformat()}&hasta={d2.isoformat()}")
+    with tempfile.TemporaryDirectory() as td:
+        salida = Path(td) / "reporte.pdf"
+        cmd = [navegador, "--headless=new", "--disable-gpu", "--no-sandbox",
+               f"--user-data-dir={Path(td) / 'perfil'}",
+               "--no-pdf-header-footer", "--print-to-pdf-no-header",
+               "--virtual-time-budget=20000",
+               f"--print-to-pdf={salida}", url]
+        try:
+            proc = subprocess.run(cmd, capture_output=True, timeout=120)
+        except subprocess.TimeoutExpired:
+            raise HTTPException(504, "El navegador tardó demasiado en generar "
+                                     "el PDF")
+        if proc.returncode != 0 or not salida.exists():
+            detalle = (proc.stderr or b"")[-400:].decode("utf-8", "replace")
+            raise HTTPException(500, f"Error al generar el PDF: {detalle}")
+        pdf = salida.read_bytes()
+    nombre = (f"reporte_gateways_sanna_energia_"
+              f"{d1.isoformat()}_a_{d2.isoformat()}.pdf")
+    return Response(content=pdf, media_type="application/pdf",
+                    headers={"Content-Disposition":
+                             f'attachment; filename="{nombre}"'})
+
+
+@app.get("/reporte-gateways/pdf")
+def reporte_gateways_pdf(request: Request, desde: Optional[str] = None,
+                         hasta: Optional[str] = None):
+    """PDF del reporte por gateways (Chrome headless imprime la página)."""
+    d1, d2 = _rango_semanal(desde, hasta)
+    navegador = _navegador_chrome()
+    if not navegador:
+        raise HTTPException(500, "No se encontró Chrome/Edge/Chromium para "
+                                 "generar el PDF (define CHROME_BIN)")
+    url = (f"{str(request.base_url).rstrip('/')}/reporte-gateways"
+           f"?desde={d1.isoformat()}&hasta={d2.isoformat()}")
+    with tempfile.TemporaryDirectory() as td:
+        salida = Path(td) / "reporte.pdf"
+        cmd = [navegador, "--headless=new", "--disable-gpu", "--no-sandbox",
+               f"--user-data-dir={Path(td) / 'perfil'}",
+               "--no-pdf-header-footer", "--print-to-pdf-no-header",
+               "--virtual-time-budget=20000",
+               f"--print-to-pdf={salida}", url]
+        try:
+            proc = subprocess.run(cmd, capture_output=True, timeout=120)
+        except subprocess.TimeoutExpired:
+            raise HTTPException(504, "El navegador tardó demasiado en generar "
+                                     "el PDF")
+        if proc.returncode != 0 or not salida.exists():
+            detalle = (proc.stderr or b"")[-400:].decode("utf-8", "replace")
+            raise HTTPException(500, f"Error al generar el PDF: {detalle}")
+        pdf = salida.read_bytes()
+    nombre = f"reporte_gateways_sanna_{d1.isoformat()}_a_{d2.isoformat()}.pdf"
+    return Response(content=pdf, media_type="application/pdf",
+                    headers={"Content-Disposition":
+                             f'attachment; filename="{nombre}"'})
 
 
 if __name__ == "__main__":

@@ -1,0 +1,160 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Reporte Sanna por gateway</title>
+<style>
+  :root { --tinta:#222; --gris:#6b7280; --linea:#9aa0a6; --fondo:#f7f8fa;
+          --azul:#1a56db; --azul-bg:#e8effd; --rojo:#c93a3a; --rojo-bg:#fdeeee;
+          --naranja:#c77e0a; --naranja-bg:#fdf3e0; }
+  * { box-sizing:border-box; }
+  body { font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Arial,sans-serif;
+         color:var(--tinta); background:var(--fondo); margin:0; padding:24px; }
+  .hoja { max-width:1400px; margin:0 auto; background:#fff; border:1px solid #e5e7eb;
+          border-radius:10px; padding:28px 32px; }
+  .toolbar { display:flex; gap:10px; align-items:end; margin-bottom:18px; flex-wrap:wrap; }
+  .toolbar label { display:block; font-size:11px; color:var(--gris);
+                   text-transform:uppercase; letter-spacing:.04em; }
+  .toolbar input { border:1px solid #e5e7eb; border-radius:8px; padding:7px 10px; font-size:13px; }
+  .toolbar button, .toolbar a { border:1px solid #e5e7eb; background:#fff; color:var(--tinta);
+      border-radius:8px; padding:8px 16px; font-size:13px; cursor:pointer; text-decoration:none; }
+  .toolbar a.pdf { background:var(--rojo); border-color:var(--rojo); color:#fff; }
+  .toolbar a.volver { margin-left:auto; }
+  h1 { font-size:19px; margin:0 0 2px; }
+  .nota { font-size:13px; color:var(--gris); margin:2px 0 14px; }
+  table.sketch { border-collapse:collapse; width:100%; font-size:12.5px; }
+  table.sketch th, table.sketch td { border:1.5px solid var(--linea); padding:6px 8px;
+      text-align:center; vertical-align:middle; }
+  table.sketch th.dia { font-size:13px; }
+  td.empresa { font-size:22px; font-weight:700; width:150px; }
+  td.gateway { font-size:15px; font-weight:700; width:170px; }
+  td.sala { text-align:left; font-size:12px; width:220px; }
+  td.pct { width:64px; }
+  td.prom { font-size:11.5px; font-weight:700; background:#f4f5f7; white-space:nowrap; }
+  .box { display:inline-block; border-radius:8px; padding:3px 14px; font-size:13px;
+         font-weight:700; margin-top:6px; white-space:nowrap; }
+  .box.azul { color:var(--azul); border:1.5px solid var(--azul); background:var(--azul-bg); }
+  .box.rojo { color:var(--rojo); border:1.5px solid var(--rojo); background:var(--rojo-bg); }
+  .box.naranja { color:var(--naranja); border:1.5px solid var(--naranja);
+                 background:var(--naranja-bg); }
+  .cap { font-size:10.5px; color:var(--gris); text-transform:uppercase;
+         letter-spacing:.05em; margin-bottom:2px; }
+  .pie { display:flex; gap:10px; align-items:center; margin-top:16px; flex-wrap:wrap; }
+  .pie .flecha { color:var(--naranja); font-weight:700; font-size:13px; }
+  #error { display:none; background:#fdecec; border:1px solid var(--rojo); color:var(--rojo);
+           padding:10px 14px; border-radius:8px; font-size:13px; margin-bottom:14px; }
+  @media print {
+    body { background:#fff; padding:0; }
+    .hoja { border:none; border-radius:0; max-width:none; padding:0; }
+    .toolbar { display:none; }
+    tr { page-break-inside:avoid; }
+    * { -webkit-print-color-adjust:exact; print-color-adjust:exact; }
+  }
+</style>
+</head>
+<body>
+<div class="hoja">
+  <div class="toolbar">
+    <span><label>Desde</label><input id="f-desde" type="date"></span>
+    <span><label>Hasta</label><input id="f-hasta" type="date"></span>
+    <span><button id="btn">Generar</button></span>
+    <span><a id="btn-pdf" class="pdf" href="#">Descargar PDF</a></span>
+    <span class="volver"><a href="/reporte-semanal">← Reporte semanal</a></span>
+  </div>
+  <div id="error"></div>
+
+  <h1 id="titulo">Reporte Sanna por gateway</h1>
+  <div class="nota" id="subtitulo"></div>
+
+  <table class="sketch" id="tabla"></table>
+
+  <div class="pie" id="pie"></div>
+</div>
+
+<script>
+const $ = id => document.getElementById(id);
+const fmt = v => v == null ? "—" : (Number(Number(v).toFixed(1)) + "%");
+// ?alcance=energia -> reporte de energía (misma plantilla estilo sketch).
+const _qa = new URLSearchParams(location.search);
+const ALC = _qa.get("alcance") === "energia" ? "energia" : "ambiental";
+const API_URL = ALC === "energia" ? "/api/reporte-gateways-energia" : "/api/reporte-gateways";
+const PDF_URL = ALC === "energia" ? "/reporte-gateways-energia/pdf" : "/reporte-gateways/pdf";
+
+function render(d) {
+  const dias = d.dias, G = d.gateways;
+  const celdasDia = (vals) => dias.map(x =>
+    `<td class="pct">${fmt(vals[x.iso])}</td>`).join("");
+  const totalFilas = G.reduce((a, g) => a + Math.max(g.salas.length, 1) + 1, 0);
+  let h = `<tr><th></th><th></th><th></th>`;
+  for (const x of dias) h += `<th class="dia" title="${x.etiqueta}">${x.corta}</th>`;
+  h += "</tr>";
+  let primera = true;
+  for (const g of G) {
+    const filas = g.salas.length ? g.salas : [{ sala: "(sin salas)", dias: {} }];
+    filas.forEach((s, i) => {
+      h += "<tr>";
+      if (primera) {
+        h += `<td class="empresa" rowspan="${totalFilas}">EMPRESA<br>` +
+             `<span style="font-size:14px;font-weight:400">Sanna</span><br>` +
+             `<span class="cap">Promedio marca/empresa</span><br>` +
+             `<span class="box azul">${fmt(d.promedio_empresa)}</span></td>`;
+        primera = false;
+      }
+      if (i === 0) {
+        h += `<td class="gateway" rowspan="${filas.length + 1}">${g.gateway}<br>` +
+          `<span class="cap">Promedio semanal de gateway</span><br>` +
+          `<span class="box rojo">${fmt(g.promedio_semanal)}</span></td>`;
+      }
+      h += `<td class="sala">${s.sala}</td>` + celdasDia(s.dias) + "</tr>";
+    });
+    h += `<tr><td></td>${dias.map(x =>
+      `<td class="prom">PROMEDIO: ${fmt(g.promedios_dia[x.iso])}</td>`).join("")}</tr>`;
+  }
+  $("tabla").innerHTML = h;
+  $("pie").innerHTML = dias.map(x =>
+    `<span class="box naranja">PROMEDIO DE DÍA ${x.corta}: ${fmt(d.promedios_dia[x.iso])}</span>`
+  ).join("") +
+    `<span class="flecha">×${dias.length} DÍAS →</span>` +
+    `<span class="box naranja">PROMEDIO DE LA SEMANA: ${fmt(d.promedio_semana)}</span>`;
+}
+
+async function cargar() {
+  const q = new URLSearchParams();
+  if ($("f-desde").value) q.set("desde", $("f-desde").value);
+  if ($("f-hasta").value) q.set("hasta", $("f-hasta").value);
+  $("error").style.display = "none";
+  try {
+    const r = await fetch(API_URL + (q.toString() ? "?" + q : ""));
+    if (!r.ok) throw new Error("HTTP " + r.status);
+    const d = await r.json();
+    document.title = ALC === "energia"
+      ? `Gateways Sanna energía ${d.desde} al ${d.hasta}`
+      : `Gateways Sanna ${d.desde} al ${d.hasta}`;
+    $("titulo").textContent = ALC === "energia"
+      ? `Sanna — energía por gateway — ${d.titulo_rango}`
+      : `Sanna — cobertura por gateway — ${d.titulo_rango}`;
+    $("subtitulo").textContent =
+      `Generado ${d.generado} · ${d.n_salas} ` +
+      (ALC === "energia" ? "equipos" : "salas") +
+      ` · promedio empresa: ${fmt(d.promedio_empresa)}.`;
+    $("f-desde").value = d.desde;
+    $("f-hasta").value = d.hasta;
+    $("btn-pdf").href = `${PDF_URL}?desde=${d.desde}&hasta=${d.hasta}`;
+    render(d);
+  } catch (err) {
+    const box = $("error");
+    box.style.display = "block";
+    box.textContent = "Error al cargar el reporte: " +
+                      (err && err.message ? err.message : err);
+  }
+}
+
+$("btn").addEventListener("click", cargar);
+const _qs = new URLSearchParams(location.search);
+if (_qs.get("desde")) $("f-desde").value = _qs.get("desde");
+if (_qs.get("hasta")) $("f-hasta").value = _qs.get("hasta");
+cargar();
+</script>
+</body>
+</html>

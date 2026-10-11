@@ -954,3 +954,331 @@ solo proyecto: `energia` (energy, consumo eléctrico) y `ambiental`
   días-sala (11/13 OK; Sala de Operaciones 2 sin datos lun 07–vie 11 + parcial
   fin de semana; Zona Azul sin datos mié 09–jue 10 + parcial vie 11).
 - URL: http://localhost:8000/reporte-semanal (default = última semana completa).
+
+## Sesión 28-sep-2026 — Sync full de AMBAS bases (energía + ambiental)
+
+### Pedido
+- Generar dump + restore de las dos bases (energía y ambiental).
+
+### Ejecutado
+- Postgres locales caídos al inicio: `pg_ctl -D C:/pgsql16/data` (energía,
+  5432) y `-D C:/pgsql16/data-valhalla` (ambiental, 5433) → ambos arriba.
+- Túneles manuales con keepalives ANTES del script (lección 07-sep) en 55432
+  y 5435 → `sync_db.sh {energia,ambiental} full` los reusó.
+- Energía: dump `backups/energia/energia_prod_20260928_093307.dump` (1.5 GB,
+  -Fd -j 4 -Z 5) → restore en 127.0.0.1:5432. Verify: prod=11,011,485 vs
+  local=11,010,859 (+626 filas en vivo, normal); última local 09:33 Lima
+  (= inicio del dump) vs prod 09:53 Lima.
+- Ambiental: dump `backups/ambiental/ambiental_prod_20260928_095403.dump`
+  (235 MB) → restore en 127.0.0.1:5433. Verify: prod=16,110,060 vs
+  local=16,110,028 (+32 filas en vivo, normal); última local 09:54:14 -05
+  (= inicio del dump) vs prod 09:57:38 -05.
+- Túneles cerrados a mano (PIDs reales 9812/10032 vía Get-CimInstance;
+  puertos 55432/5435 confirmados cerrados). Dumps viejos del 04-sep
+  eliminados (quedan 07-sep, 14-sep, 28-sep por base).
+
+## Sesión 28-sep-2026 — Reporte semanal 21–27 sep (post-sync)
+
+### Pedido
+- Crear el reporte de cobertura de la semana del 21 al 27 de septiembre.
+
+### Ejecutado
+- Exports regenerados con la data fresca: `analisis_huecos.py --export`
+  (8,065 filas, 86 puntos) y `analisis_huecos_ambiental.py --export`
+  (72,624 días-combo salas).
+- `venv/Scripts/python.exe webapp.py` (:8000) y `GET /api/reporte-semanal
+  ?desde=2026-09-21&hasta=2026-09-27`:
+  energía 96.2% (28/32 puntos al 100%, 0 días-hueco; 4 con días parciales:
+  Oechsle TF-UMAS 2, TG-TR2, Chiller 1 y Sanna Llave general);
+  ambiental 100.0% (13/13 salas y 38/38 combos OK, sin incidencias).
+- Reporte disponible en http://localhost:8000/reporte-semanal?desde=
+  2026-09-21&hasta=2026-09-27 (default de la página = última semana
+  completa, que es exactamente 21–27 sep).
+
+### Pedido posterior (misma sesión): PDF + solo incidencias
+- `web/static/reporte_semanal.html`: el heatmap ahora muestra SOLO
+  puntos/sensores con incidencia por defecto (casilla "Mostrar también los
+  puntos al 100%", unchecked); si todo está OK se muestra el mensaje verde
+  sin heatmap. Botón "Descargar PDF".
+- `webapp.py`: `GET /reporte-semanal/pdf?desde=&hasta=` genera el PDF con
+  Chrome/Edge headless (`--headless=new --print-to-pdf`,
+  `--virtual-time-budget=20000`, perfil temporal; autodetecta binario,
+  override `CHROME_BIN`) y lo devuelve con Content-Disposition attachment.
+  En print CSS se ocultan controles y casillas de filtro.
+- Verificado con la semana 21–27: PDF 1 página, headers OK, solo los 4
+  puntos con incidencia (TF-UMAS 2, TG-TR2, Chiller 1, Sanna Llave
+  general), 100% de Scotiabank/Sanna fuera.
+
+### Bug encontrado: el PDF no salía para el rango pedido
+- Pedido del usuario: "tendría que salir ambiental y energía". Causa raíz:
+  `reporte_semanal.html` IGNORABA `?desde=&hasta=` de la URL (los inputs
+  arrancaban vacíos y `cargar()` fetcheaba sin params = última semana
+  completa). El endpoint /reporte-semanal/pdf pasaba el rango en la URL,
+  pero la página siempre renderizaba la semana por defecto: para 21–27
+  "coincidía" y parecía funcionar; para cualquier otro rango (p.ej. 07–13
+  con incidencias ambientales de Sala de Operaciones 2 y Zona Azul) el PDF
+  mostraba la semana equivocada, sin el heatmap ambiental.
+- Fix: leer `location.search` y prefijar `f-desde`/`f-hasta` antes de
+  `cargar()`.
+- Verificado: 07–13 ahora da 2 páginas, 2 imágenes (heatmaps energía +
+  ambiental), 89% y las salas con incidencia; 21–27 sigue OK (1 imagen,
+  96.2%, ambiental al 100%).
+
+## Sesión 02-oct-2026 — Reporte semanal estilo "por equipo/sala y día"
+
+### Pedido
+- Replicar el reporte que el usuario usa en el trabajo (capturas de un PDF
+  impreso): tablas por equipo y día (energía) y por sala/sensor y día
+  (ambiental), en vez del heatmap de la sesión 28-sep.
+
+### Ejecutado
+- `web/static/reporte_semanal.html` reescrito: tablas con celdas
+  verde/ámbar/rojo (día normal ≥90% / incompleto / sin datos), leyenda,
+  nota verde con la lista de equipos/salas perfectos (no se listan en la
+  tabla), lista de "Equipos sin ninguna lectura en la semana" agrupada por
+  empresa/sede con conteo, "Detalle de las salas afectadas" y nota final
+  "Ningún equipo ni sala se quedó un día entero sin enviar datos" (solo si
+  no hubo días-hueco). Formato de celdas: 1 decimal sin ".0" (94.0 → 94%).
+- `webapp.py`:
+  - `_reporte_energia`: + `puntos_ok_lista` (etiquetas de los perfectos,
+    en el orden de la tabla, para la nota verde).
+  - `_reporte_ambiental`: + `salas` (fila resumen por sala: promedio de sus
+    sensores por día, estado = peor del día), + `salas_ok_lista`,
+    + `dias_hueco` (días en que la sala entera quedó sin datos); las
+    incidencias ya no se truncan a 8 y el detalle dice "datos incompletos"
+    (antes "parcial").
+- Verificado con datos locales (exports del 28-sep):
+  - Semana 14–20 sep reproduce las capturas: 32 puntos (19 con incidencia,
+    13 perfectos) y 13 salas (1 afectada: Sala de Operaciones 2; 12
+    perfectas). PDF de 2 páginas con el mismo flujo (pág. 1 energía,
+    pág. 2 resto + ambiental + detalle).
+  - Semana 07–13 sep (con huecos): celdas rojas, 2 salas afectadas (Sala
+    de Operaciones 2 y Zona Azul), nota final oculta (7 días-hueco de
+    sala).
+- Contexto git: origin/main ya tenía una versión de tabla (9898bc4,
+  15-sep, "solo huecos"); esta es la iteración con fila agregada por sala,
+  listas de perfectos y detalle, según las capturas. El local sigue
+  divergido (5 commits detrás de origin/main) y este trabajo queda sin
+  commitear.
+- Nota: el PDF del endpoint sale sin cabecera/pie de Chrome
+  (`--no-pdf-header-footer`); las capturas del trabajo eran impresiones
+  del navegador (fecha, título, URL localhost y "1/2" son de Chrome).
+
+## Sesión 05-oct-2026 — Sync full de AMBAS bases (energía + ambiental)
+
+### Pedido
+- Generar dump + restore de las dos bases (energía y ambiental) para traer
+  los últimos datos a local.
+
+### Ejecutado
+- Postgres locales caídos al inicio: `pg_ctl -D C:/pgsql16/data` (energía,
+  5432) y `-D C:/pgsql16/data-valhalla` (ambiental, 5433) → ambos arriba.
+- Túneles manuales con keepalives ANTES del script (lección 07-sep) en 55432
+  y 5435 → `sync_db.sh {energia,ambiental} full` los reusó.
+- Energía: dump `backups/energia/energia_prod_20261005_115418.dump` (1.6 GB,
+  -Fd -j 4 -Z 5) → restore en 127.0.0.1:5432. Verify: prod=11,325,953 vs
+  local=11,325,104 (+849 filas en vivo, normal); última local 11:54:36 Lima
+  (= inicio del dump) vs prod 12:22:18 Lima.
+- Ambiental: dump `backups/ambiental/ambiental_prod_20261005_122231.dump`
+  (236 MB) → restore en 127.0.0.1:5433. Verify: prod=16,187,493 vs
+  local=16,187,455 (+38 filas en vivo, normal); última local 12:21:45 -05
+  (= inicio del dump) vs prod 12:26:41 -05.
+- Túneles cerrados a mano (PIDs reales 28848/3680 vía Get-CimInstance;
+  puertos 55432/5435 confirmados cerrados). Dumps viejos del 07-sep
+  eliminados (quedan 14-sep, 28-sep, 05-oct por base).
+
+## Sesión 05-oct-2026 — Análisis de huecos semana 28-sep → 04-oct
+
+### Pedido
+- Análisis de huecos de la última semana completa (28-sep al 04-oct), con la
+  data recién sincronizada.
+
+### Ejecutado
+- Exports regenerados con data fresca:
+  - `analisis_huecos.py --export` → `analisis/cobertura_diaria.csv` (8,289
+    filas, 86 puntos; meta: 11,325,104 lecturas, 37 puntos con datos, 177
+    días-hueco y 27 episodios históricos, global_max_day 2026-10-05).
+  - `analisis_huecos_ambiental.py --export` → 72,890 días-combo salas
+    (+266 vs 28-sep) y 12 días-combo puntos (track de prueba 2024).
+- Webapp `webapp.py` levantada en :8000; `GET /api/reporte-semanal
+  ?desde=2026-09-28&hasta=2026-10-04`:
+  - **Energía 96.2%** (32 puntos, 28 al 100%, **0 días-hueco**; 4 con días
+    parciales: Sanna Llave general cuarto de bombas 03–04-oct (81%/69%),
+    Oechsle Chiller 1 04-oct (67%), Chiller 2 29-sep (88%), TF-UMAS 2
+    02-oct (70%)).
+  - **Ambiental 100.0%** (13/13 salas y 38/38 combos OK, sin incidencias).
+- PDF generado: `analisis/reporte_cobertura_2026-09-28_a_2026-10-04.pdf`
+  (138 KB). Página:
+  http://localhost:8000/reporte-semanal?desde=2026-09-28&hasta=2026-10-04
+
+## Sesión 05-oct-2026 — Reporte de excedencias semana 21–27 sep
+
+### Pedido
+- Mismo análisis de datos que sobresalen de lo normal (excedencias vs
+  umbrales) para la semana 21–27 sep, tras el de 28-sep → 04-oct.
+
+### Ejecutado
+- Cobertura 21–27 (exports del 05-oct): energía 96.2% (32 puntos, 28 al
+  100%, 0 días-hueco; incidencias: TF-UMAS 2 ×2, TG-TR2 ×2, Chiller 1 ×1,
+  Sanna Llave general ×1) y ambiental 100% (13/13 salas). PDF:
+  `analisis/reporte_cobertura_2026-09-21_a_2026-09-27.pdf` (138 KB).
+- Excedencias energía (928 alertas): 863 voltaje moderado + 5 crítico,
+  45 corriente moderado + 12 crítico, 3 energía moderado.
+  - Chiller 1 (Oechsle): reactiva inductiva 92.3% / 89.6% / 87.9% del
+    activo los días 21, 23 y 25-sep (límite 30%). Sin excesos de consumo
+    ni demanda esa semana.
+  - Corriente crítica "equipo apagado" el 21-sep: RX-PB (00:44),
+    Aire acondicionado cocina (08:15–10:48, 8 eventos), Sala de
+    operaciones Piso 4 (22:30–23:48, 3 eventos).
+  - Tensión: moderadas 21–24 sep (212–216 V en 12 puntos Sanna);
+    "críticas" del Data center UPS (~10,460–10,530 V con nominal 220 V)
+    = error de unidad/medición, igual que la semana siguiente.
+- Excedencias ambiental: CO2 hasta 2,156 ppm (Sala de Operaciones 2;
+  también SO5 1,879, SO1 1,676, SO3 1,507, SO4 1,452, Zona Azul 1,241);
+  TEMP Subestación 30.8 / Sala UPS 30.2 / Zona Roja 27.8 y Ducto
+  resonador frío (prom. 14.5); HUM Operaciones 5 prom. 67.4 (máx 85).
+- Reporte guardado en `analisis/reporte_excedencias_2026-09-21_a_2026-09-27.md`
+  (con umbrales, hallazgos y comparación vs 28-sep → 04-oct).
+
+## Sesión 09-oct-2026 — Sync full de AMBAS bases (energía + ambiental)
+
+### Pedido
+- Generar dump + restore de las dos bases (energía y ambiental) para traer
+  los últimos datos a local.
+
+### Ejecutado
+- Postgres locales caídos al inicio: `pg_ctl -D C:/pgsql16/data` (energía,
+  5432) y `-D C:/pgsql16/data-valhalla` (ambiental, 5433) → ambos arriba.
+- Túneles manuales con keepalives ANTES del script (lección 07-sep) en 55432
+  y 5435 → `sync_db.sh {energia,ambiental} full` los reusó.
+- Energía: dump `backups/energia/energia_prod_20261009_101803.dump` (1.6 GB,
+  -Fd -j 4 -Z 5) → restore en 127.0.0.1:5432. El túnel 55432 murió
+  ("Connection reset by peer") justo tras el dump → el verify automático dio
+  prod=?; se reabrió el túnel y verificó a mano: prod=11,490,715 vs
+  local=11,489,507 (+1,208 filas en vivo, normal); última local 10:18:30 -05
+  (= inicio del dump) vs prod 10:57:39 -05.
+- Ambiental: dump `backups/ambiental/ambiental_prod_20261009_105806.dump`
+  (237 MB) → restore en 127.0.0.1:5433. Verify OK: prod=16,225,030 vs
+  local=16,224,995 (+35 filas en vivo, normal); última local 10:57:37 -05 vs
+  prod 11:02:38 -05.
+- Dumps viejos del 14-sep eliminados (quedan 28-sep, 05-oct, 09-oct por base).
+- Túneles cerrados a mano (PIDs reales 20940/20716 vía Get-CimInstance;
+  puertos 55432/5435 confirmados cerrados). Postgres locales quedan arriba.
+- LECCIÓN: el keepalive no evita del todo el reset del túnel tras la
+  transferencia grande (murió al terminar el dump de energía); el dump quedó
+  íntegro (sha256 OK) y solo falló el verify de prod → reabrir túnel y
+  verificar a mano (no repetir dump/restore).
+
+## Sesión 09-oct-2026 — Respuesta al jefe + formato nuevo de reporte semanal
+
+### Pedido
+- El jefe revisó los reportes 21–27 sep y 28-sep–04-oct y pidió 3 cosas:
+  (1) por cada punto sin lectura (20 Oechsle + 11 Sanna): ¿sensor instalado
+  o solo creado? ¿desde cuándo no envía?; (2) sacar del reporte Pizza Hut,
+  Burger King, KFC, Madam Tusan y TestCorp; (3) ¿los 11 de Sanna están en
+  el alcance contratado o nunca se consideraron?
+- Luz verde para evidencia + formato nuevo (Scotiabank se queda en el
+  reporte; evidencia solo con plataforma; proponer formato propio).
+
+### Evidencia (solo lectura, DB local sync 09-oct)
+- Exports regenerados: `analisis_huecos.py --export` (8,417 filas, 86
+  puntos, 11,489,507 lecturas) + `analisis_huecos_ambiental.py --export`.
+- Query inventario + agregados de `readings_reading` sobre 40 ids
+  (script temporal, no quedó en el repo).
+- **Hallazgo 1**: son **22 Oechsle + 13 Sanna** (no 20/11): el reporte
+  colapsaba nombres duplicados con `set()` ("Reserva" ×2 Oechsle,
+  "Espacio"/"Otros" ×2 Sanna). Bug corregido (clave por `point_id`).
+- **Hallazgo 2**: los 35 tienen `is_active=false`, device
+  "Device falso/false *" inactivo y **0 lecturas** (creados 29-dic-2025
+  Sanna, 09/18-feb-2026 Oechsle) → solo creados, sin sensor. No requieren
+  campo; falta confirmar baja vs reserva con contrato (pregunta 3: la DB
+  no la responde).
+- **Hallazgo 3**: caídos con sensor real y fecha exacta — BK 108
+  (→31-jul-2026, 60k lecturas), KFC 109 (→11-abr-2026), MT 166/167
+  (→14-may-2026), PH 107 (→20-abr-2026; su device se llama "falso" pero
+  transmitió 63,948 lecturas → el nombre solo no prueba nada).
+- `installation_date` en NULL en los 40: columna sin uso, no sirve de
+  evidencia. Evidencia guardada en `docs/respuesta_jefe_puntos_sin_lectura.md`.
+
+### Formato nuevo
+- `webapp.py`: `EMPRESAS_FUERA_DE_ALCANCE` (las 5 pedidas) filtrada en
+  `_reporte_energia` (/gaps intacto); `puntos_sin_datos` ahora lista de
+  dicts por `point_id` con `estado` (sin_sensor/sensor_mudo/caido) +
+  `detalle`; + `alcance` (sitios en scope) y `dias_parciales` en el API.
+- `scripts/analisis_huecos.py --export`: suma `dispositivo` y
+  `punto_activo` por punto en `cobertura_resumen.json` (fuente del estado).
+- `web/static/reporte_semanal.html` reescrito: título con rango + fecha de
+  generación, línea de alcance, KPIs (cobertura, X/Y sin incidencias,
+  parciales, hueco), tabla solo con incidencia, perfectos en una línea +
+  `<details>` (oculto en print), anexo "Puntos pendientes estructurales"
+  agrupado por sede+estado con conteos exactos, misma compactación en
+  ambiental.
+- Verificado API + screenshots Playwright + texto de PDFs (1 pág.,
+  0 menciones de empresas muertas) para 21–27 y 28–04. PDFs nuevos
+  reemplazan a los del 05-oct en `analisis/reporte_cobertura_*.pdf`.
+- Webapp corriendo en :8000 (log `logs_webapp_reporte.log`).
+
+## Sesión 09-oct-2026 — Reporte Sanna por gateway (estilo sketch)
+
+### Pedido
+- Reporte como el sketch dibujado a mano: jerarquía EMPRESA → GATEWAY →
+  sala por día, solo Sanna, mostrando TODAS las salas, con promedios en
+  cada nivel (semanal de gateway, de día ×7 → promedio de la semana,
+  promedio marca/empresa). Lista de despliegue: 26 EUIs en 3 gateways.
+
+### Hallazgo previo (verificación contra DB)
+- De los 26 EUIs, **13 son sensores ambientales** (`equipments_device`,
+  valhalladb) = exactamente las 13 salas del reporte actual (G1: 7 salas,
+  G2: Subestación, G3: SO1–SO5). Los **otros 13 son medidores de ENERGÍA**
+  (ADW300/ADW210 en la base `energy`, verificados por `dev_eui`) y NO van
+  en este reporte de salas (ya están en el reporte de energía).
+- Resolución sala→gateway en vivo por `dev_eui` (robusto ante tildes/caso).
+
+### Implementado
+- `webapp.py`: `GATEWAYS_SANNA` (EUI→gateway) + `GET /api/reporte-gateways`
+  (días, salas con % = promedio de sensores topado en 100 — el pct
+  ritmo-relativo llega a 128% en Zona Roja y rompería la lectura de
+  "cobertura"), + `GET /reporte-gateways` + `GET /reporte-gateways/pdf`.
+- `web/static/reporte_gateways.html`: tabla estilo sketch (EMPRESA con
+  caja azul, gateways con cajas rojas, filas PROMEDIO por gateway/día,
+  pie naranja con promedios de día ×7 → promedio semana). Enlace mutuo
+  con `/reporte-semanal`.
+- Verificado: API (13 salas, G1:7/G2:1/G3:5, prom empresa 99.9% semana
+  28-sep–04-oct), screenshot Playwright y PDF
+  `analisis/reporte_gateways_sanna_2026-09-28_a_2026-10-04.pdf` (1 pág.;
+  los nombres largos se cortan en el extractor de texto pero están
+  completos en el render).
+
+### Extensión (misma sesión): gateways de ENERGÍA Sanna
+- Pedido: mismo sketch pero solo energía de Sanna.
+- `webapp.py`: `_reporte_gateways_energia` (lee `cobertura_diaria.csv`,
+  filtra Sanna, agrupa puntos por gateway vía `dev_eui` en vivo; % crudo
+  lecturas/1440 como el semanal) + `GET /api/reporte-gateways-energia` +
+  `GET /reporte-gateways-energia/pdf`. G1 = TG-P1/TG-RT/TGA (12 equipos),
+  G2 = TFC-BAF (cuarto de bombas); G3 no tiene medidores de energía.
+- `reporte_gateways.html` parametrizada con `?alcance=energia` (misma
+  plantilla, títulos/API/PDF según alcance); enlaces mutuos en el toolbar
+  del reporte semanal. Mini-fix CSS: `white-space:nowrap` en celdas
+  PROMEDIO.
+- Verificado semana 28-sep–04-oct: 13 equipos, prom empresa 96.2%
+  (consistente con el semanal), screenshot Playwright y PDF
+  `analisis/reporte_gateways_sanna_energia_2026-09-28_a_2026-10-04.pdf`.
+
+## Sesión 09-oct-2026 — Fix alineación tabla de gateways
+
+### Pedido
+- La tabla del reporte por gateway mostraba los encabezados corridos una
+  columna y la última columna (Dom 04) sin título; dejarla toda alineada.
+
+### Causa y fix
+- `web/static/reporte_gateways.html`: el encabezado emitía solo 2 `<th>` vacíos
+  (EMPRESA/GATEWAY) mientras las filas de datos tienen 3 celdas antes de los
+  días (EMPRESA/GATEWAY/SALA) → todos los encabezados de día corrían 1 columna
+  a la izquierda y el Dom 04 quedaba sin encabezado; además la fila PROMEDIO
+  por gateway estaba desalineada 1 columna respecto a las filas de equipos.
+  Fix: 3er `<th>` vacío + `<td>` vacío inicial en la fila PROMEDIO.
+- PDFs regenerados con la plantilla corregida (rango 28-sep–04-oct):
+  `analisis/reporte_gateways_sanna_energia_*.pdf` y
+  `analisis/reporte_gateways_sanna_*.pdf`. Verificado con screenshots
+  Playwright: encabezados sobre la columna correcta y cuarto de bombas con
+  Vie 02=94.2% / Sáb 03=81.4% / Dom 04=69.4% bajo sus días.

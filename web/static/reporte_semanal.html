@@ -1,188 +1,290 @@
 <!DOCTYPE html>
 <html lang="es">
 <head>
-<meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Reporte semanal de cobertura</title>
 <style>
-  :root { --verde:#1e9e62; --verde-bg:#e2f5e9; --ambar:#c77e0a; --ambar-bg:#fdf0d5;
-          --rojo:#c93a3a; --rojo-bg:#fbe3e3; --tinta:#222; --gris:#6b7280;
-          --linea:#e5e7eb; --fondo:#f7f8fa; }
+  :root { --verde:#1e9e62; --verde-bg:#e2f5e9; --ambar:#c77e0a;
+          --ambar-bg:#fdf0d5; --rojo:#c93a3a; --rojo-bg:#fbe3e3;
+          --tinta:#222; --gris:#6b7280; --linea:#e5e7eb; --fondo:#f7f8fa; }
   * { box-sizing:border-box; }
-  body { font-family:-apple-system,"Segoe UI",Roboto,Arial,sans-serif; color:var(--tinta);
-         background:var(--fondo); margin:0; padding:24px; }
+  body { font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Arial,sans-serif;
+         color:var(--tinta); background:var(--fondo); margin:0; padding:24px; }
   .hoja { max-width:1100px; margin:0 auto; background:#fff; border:1px solid var(--linea);
           border-radius:10px; padding:28px 32px; }
-  h1 { font-size:22px; margin:0 0 2px; }
-  .sub { color:var(--gris); font-size:13px; margin-bottom:14px; }
-  .kpis { display:flex; gap:10px; flex-wrap:wrap; margin:12px 0 20px; }
-  .kpi { border:1px solid var(--linea); border-radius:8px; padding:8px 14px;
-         font-size:13px; background:#fafafa; }
-  .kpi b { font-size:17px; }
-  h2 { font-size:17px; margin:26px 0 4px; padding-bottom:6px;
-       border-bottom:2px solid var(--linea); }
-  .nota { font-size:12.5px; color:var(--gris); margin:4px 0 10px; }
-  table { border-collapse:collapse; width:100%; font-size:12.5px; margin-bottom:8px; }
-  th, td { border:1px solid var(--linea); padding:6px 8px; text-align:center; }
-  th.dia { background:#f1f3f5; font-weight:600; white-space:nowrap; }
-  td.nombre, th.nombre { text-align:left; min-width:220px; }
-  tr.sala td { background:#eef2ff; font-weight:700; text-align:left; }
-  td.completo { background:var(--verde-bg); color:#14663f; }
-  td.parcial  { background:var(--ambar-bg); color:#7c4d05; font-weight:600; }
-  td.hueco    { background:var(--rojo-bg); color:var(--rojo); font-weight:700; }
-  .leyenda { display:flex; gap:14px; font-size:12.5px; margin:6px 0 14px; flex-wrap:wrap; }
+  .toolbar { display:flex; gap:10px; align-items:end; margin-bottom:18px; flex-wrap:wrap; }
+  .toolbar label { display:block; font-size:11px; color:var(--gris);
+                   text-transform:uppercase; letter-spacing:.04em; }
+  .toolbar input { border:1px solid var(--linea); border-radius:8px; padding:7px 10px;
+                   font-size:13px; color:var(--tinta); }
+  .toolbar button, .toolbar a { border:1px solid var(--linea); background:#fff;
+      color:var(--tinta); border-radius:8px; padding:8px 16px; font-size:13px;
+      cursor:pointer; text-decoration:none; }
+  .toolbar a.pdf { background:var(--rojo); border-color:var(--rojo); color:#fff; }
+  h1 { font-size:19px; margin:0 0 2px; }
+  h2 { font-size:17px; margin:0 0 4px; }
+  h2.detalle { margin-top:22px; }
+  section + section { margin-top:30px; }
+  .nota { font-size:13px; color:var(--gris); margin:2px 0 10px; }
+  .kpis { display:flex; gap:8px; flex-wrap:wrap; margin:8px 0 4px; }
+  .kpi { background:#f1f3f5; border-radius:8px; padding:6px 12px; font-size:12.5px; }
+  .kpi b { font-size:14px; }
+  .leyenda { display:flex; gap:16px; font-size:12.5px; margin:6px 0 12px; flex-wrap:wrap; }
   .leyenda span::before { content:""; display:inline-block; width:12px; height:12px;
       border-radius:3px; margin-right:5px; vertical-align:-1px; }
   .leyenda .c::before { background:var(--verde-bg); border:1px solid var(--verde); }
   .leyenda .p::before { background:var(--ambar-bg); border:1px solid var(--ambar); }
   .leyenda .h::before { background:var(--rojo-bg); border:1px solid var(--rojo); }
+  table { border-collapse:collapse; width:100%; font-size:12.5px; margin-bottom:10px; }
+  th, td { border:1px solid var(--linea); padding:6px 8px; text-align:center; }
+  th.dia { background:#f1f3f5; font-weight:600; white-space:nowrap; }
+  td.nombre, th.nombre { text-align:left; min-width:260px; }
+  tr.sala td.nombre { font-weight:700; }
+  td.completo { background:var(--verde-bg); color:#14663f; }
+  td.parcial  { background:var(--ambar-bg); color:#7c4d05; font-weight:600; }
+  td.hueco    { background:var(--rojo-bg); color:var(--rojo); font-weight:700; }
+  .ok { background:#e8f7ef; border:1px solid #bfe6d2; color:#146c43;
+        border-radius:10px; padding:12px 16px; font-size:13px; margin:10px 0 0;
+        line-height:1.5; }
+  .ok::before { content:"✔ "; font-weight:700; }
+  .ok-line { color:#146c43; font-size:13px; margin:14px 0 0; }
+  .ok-line::before { content:"✔ "; font-weight:700; }
+  details.lista { font-size:12.5px; color:var(--gris); margin:6px 0 0 22px; }
+  details.lista summary { cursor:pointer; }
+  .anexo { font-size:12.5px; color:#374151; line-height:1.6; margin:14px 0 0;
+           background:#f9fafb; border:1px solid var(--linea); border-radius:10px;
+           padding:12px 16px; }
+  .anexo b { color:var(--tinta); }
+  .tag { display:inline-block; font-size:11px; font-weight:600; border-radius:6px;
+         padding:1px 8px; margin-left:6px; vertical-align:1px;
+         background:#eef2ff; color:#3730a3; border:1px solid #c7d2fe; }
   ul.mal { font-size:13px; margin:6px 0 0 18px; padding:0; }
-  ul.mal li { margin:3px 0; }
-  .vacio { font-size:13px; color:var(--gris); font-style:italic; }
-  .toolbar { display:flex; gap:8px; margin-bottom:14px; }
-  .toolbar button, .toolbar a { font-size:13px; padding:6px 12px; border-radius:6px;
-      border:1px solid var(--linea); background:#fff; cursor:pointer;
-      text-decoration:none; color:var(--tinta); }
-  #error { color:var(--rojo); font-weight:600; }
+  ul.mal li { margin:4px 0; }
+  ul.mal li::marker { color:var(--rojo); }
+  #error { display:none; background:#fdecec; border:1px solid var(--rojo);
+           color:var(--rojo); padding:10px 14px; border-radius:8px;
+           font-size:13px; margin-bottom:14px; white-space:pre-wrap; }
   @media print {
     body { background:#fff; padding:0; }
     .hoja { border:none; border-radius:0; max-width:none; padding:0; }
-    .toolbar { display:none; }
+    .toolbar, details.lista { display:none; }
     table { page-break-inside:auto; }
     tr { page-break-inside:avoid; }
+    * { -webkit-print-color-adjust:exact; print-color-adjust:exact; }
   }
 </style>
 </head>
 <body>
 <div class="hoja">
   <div class="toolbar">
-    <button onclick="window.print()">🖨 Imprimir / PDF</button>
-    <a href="/gaps">← Volver a /gaps</a>
+    <span><label>Desde</label><input id="f-desde" type="date"></span>
+    <span><label>Hasta</label><input id="f-hasta" type="date"></span>
+    <span><button id="btn">Generar</button></span>
+    <span><a id="btn-pdf" class="pdf" href="#">Descargar PDF</a></span>
+    <span style="margin-left:auto"><a href="/reporte-gateways">Gateways Sanna (salas) →</a></span>
+    <span><a href="/reporte-gateways?alcance=energia">Gateways Sanna (energía) →</a></span>
   </div>
-  <h1 id="titulo">Reporte semanal de cobertura</h1>
-  <div class="sub" id="generado"></div>
   <div id="error"></div>
 
-  <div class="kpis" id="kpis" style="display:none"></div>
+  <h1 id="titulo">Reporte de cobertura</h1>
+  <div class="nota" id="subtitulo"></div>
 
-  <h2>⚡ Energía — cobertura por punto y día</h2>
-  <div class="nota" id="nota-energia"></div>
-  <div class="leyenda"><span class="c">Completo (≥90%)</span>
-    <span class="p">Parcial</span><span class="h">Sin datos</span></div>
-  <div id="tabla-energia"></div>
-  <div id="muertos-energia"></div>
+  <section id="sec-energia">
+    <h2>⚡ Energía — por equipo y día</h2>
+    <div class="nota" id="nota-energia"></div>
+    <div class="kpis" id="kpis-energia"></div>
+    <div class="leyenda">
+      <span class="c">Día normal (llegó ≥90%)</span>
+      <span class="p">Datos incompletos</span>
+      <span class="h">Sin datos</span>
+    </div>
+    <div id="tabla-energia"></div>
+    <div class="ok-line" id="ok-energia" style="display:none"></div>
+    <details class="lista" id="det-energia" style="display:none">
+      <summary>Ver equipos</summary><span id="lista-energia"></span>
+    </details>
+    <div class="anexo" id="anexo-energia" style="display:none"></div>
+  </section>
 
-  <h2>🌡 Ambiental — cobertura por sala, indicador y día</h2>
-  <div class="nota" id="nota-ambiental"></div>
-  <div class="leyenda"><span class="c">Completo (≥90% del ritmo)</span>
-    <span class="p">Parcial</span><span class="h">Sin datos</span></div>
-  <div id="tabla-ambiental"></div>
+  <section id="sec-ambiental">
+    <h2>🌡 Ambiental — por sala y día</h2>
+    <div class="nota" id="nota-ambiental"></div>
+    <div class="kpis" id="kpis-ambiental"></div>
+    <div class="leyenda">
+      <span class="c">Día normal (todos los sensores bien)</span>
+      <span class="p">Algún sensor con datos incompletos</span>
+      <span class="h">Algún sensor sin datos</span>
+    </div>
+    <div id="tabla-ambiental"></div>
+    <div class="ok-line" id="ok-ambiental" style="display:none"></div>
+    <details class="lista" id="det-ambiental-ok" style="display:none">
+      <summary>Ver salas</summary><span id="lista-ambiental-ok"></span>
+    </details>
+    <div id="det-ambiental" style="display:none">
+      <h2 class="detalle">Detalle de las salas afectadas</h2>
+      <ul class="mal" id="lista-ambiental"></ul>
+    </div>
+  </section>
+
+  <div class="ok-line" id="nota-final" style="display:none">
+    Ningún equipo ni sala se quedó un día entero sin enviar datos en esta semana.
+  </div>
 </div>
 
 <script>
-async function main() {
-  let d;
-  try {
-    const r = await fetch("/api/reporte-semanal" + location.search);
-    if (!r.ok) throw new Error("HTTP " + r.status + ": " + await r.text());
-    d = await r.json();
-  } catch (e) {
-    document.getElementById("error").textContent =
-      "No se pudo cargar el reporte: " + e.message;
-    return;
+const $ = id => document.getElementById(id);
+
+const fmt = v => Number(Number(v == null ? 0 : v).toFixed(1)) + "%";
+
+const ESTADO_PTO = {
+  sin_sensor: "sin sensor instalado",
+  sensor_mudo: "con sensor, nunca reportó",
+  caido: "se cayó",
+};
+
+function filaTabla(celdas, dias, etiqueta, clase) {
+  let h = `<tr${clase ? ` class="${clase}"` : ""}>` +
+          `<td class="nombre">${etiqueta}</td>`;
+  for (const x of dias) {
+    const c = celdas[x.iso] || { estado: "hueco", pct: 0, lecturas: 0 };
+    h += `<td class="${c.estado}" title="${x.etiqueta}: ` +
+         `${c.lecturas.toLocaleString("es-PE")} lecturas">${fmt(c.pct)}</td>`;
   }
-  document.getElementById("titulo").textContent =
-    "Reporte semanal de cobertura — " + d.titulo_rango;
-  document.getElementById("generado").textContent = "Generado el " + d.generado;
-  document.title = "Reporte " + d.desde + " al " + d.hasta;
+  return h + "</tr>";
+}
 
-  const dias = d.dias;  // [{iso, etiqueta:"Lunes 07 de septiembre", corta}]
-  const headDias = dias.map(x =>
-    `<th class="dia" title="${x.etiqueta}">${x.corta}</th>`).join("");
-
-  // ---- KPIs ----
-  const e = d.energia, a = d.ambiental;
-  document.getElementById("kpis").style.display = "flex";
-  document.getElementById("kpis").innerHTML =
-    `<div class="kpi">⚡ Cobertura energía: <b>${e.cobertura_pct}%</b></div>` +
-    `<div class="kpi">⚡ Puntos con huecos: <b>${e.puntos_incidencias}</b> de ${e.puntos_total}</div>` +
-    `<div class="kpi">🌡 Cobertura ambiental: <b>${a.cobertura_pct}%</b></div>` +
-    `<div class="kpi">🌡 Salas con huecos: <b>${a.salas_incidencias}</b> de ${a.salas_total}</div>`;
-
-  // ---- Energía: solo puntos con incidencia ----
-  const malE = e.filas.filter(f => f.con_incidencia);
-  document.getElementById("nota-energia").textContent =
-    malE.length
-      ? `${malE.length} punto(s) con huecos en la semana ` +
-        `(${e.puntos_ok} con cobertura perfecta, omitidos).`
-      : `Los ${e.puntos_total} puntos tuvieron cobertura completa toda la semana.`;
-  if (malE.length) {
-    let h = `<table><tr><th class="nombre">Punto</th>${headDias}</tr>`;
-    for (const f of malE) {
-      h += `<tr><td class="nombre">${f.etiqueta}</td>`;
-      for (const x of dias) {
-        const c = f.dias[x.iso] || {estado:"hueco", lecturas:0, pct:0};
-        h += `<td class="${c.estado}" title="${x.etiqueta}: ${c.lecturas} lecturas">${c.pct}%</td>`;
-      }
-      h += "</tr>";
+function renderEnergia(d) {
+  const e = d.energia, dias = d.dias;
+  const mal = e.filas.filter(f => f.con_incidencia);
+  $("nota-energia").textContent =
+    `Alcance: ${(e.alcance || []).join(" · ") || "—"} (${e.puntos_total} equipos activos).`;
+  $("kpis-energia").innerHTML =
+    `<span class="kpi">Cobertura <b>${e.cobertura_pct}%</b></span>` +
+    `<span class="kpi"><b>${e.puntos_ok}/${e.puntos_total}</b> sin incidencias</span>` +
+    `<span class="kpi"><b>${e.puntos_incidencias}</b> con días parciales</span>` +
+    `<span class="kpi"><b>${e.dias_hueco}</b> días sin datos</span>`;
+  if (mal.length) {
+    let h = `<table><tr><th class="nombre">Equipo</th>`;
+    for (const x of dias) h += `<th class="dia" title="${x.etiqueta}">${x.corta}</th>`;
+    h += "</tr>";
+    for (const f of mal) h += filaTabla(f.dias, dias, f.etiqueta);
+    $("tabla-energia").innerHTML = h + "</table>";
+  } else {
+    $("tabla-energia").innerHTML =
+      `<div class="ok">Ningún equipo tuvo días incompletos ni sin datos.</div>`;
+  }
+  if (e.puntos_ok) {
+    $("ok-energia").style.display = "";
+    $("ok-energia").innerHTML =
+      `<b>${e.puntos_ok} equipos</b> sin incidencias esta semana.`;
+    if ((e.puntos_ok_lista || []).length) {
+      $("det-energia").style.display = "";
+      $("lista-energia").textContent = e.puntos_ok_lista.join(", ") + ".";
     }
-    document.getElementById("tabla-energia").innerHTML = h + "</table>";
   }
-  if (e.puntos_sin_datos && e.puntos_sin_datos.length) {
-    // Agrupar por empresa/sede para que sea legible ("Emp/Sede · Punto")
-    const grupos = {};
-    for (const item of e.puntos_sin_datos) {
-      const i = item.indexOf(" · ");
-      const sede = i >= 0 ? item.slice(0, i) : "Otras";
-      const pto = i >= 0 ? item.slice(i + 3) : item;
-      (grupos[sede] = grupos[sede] || []).push(pto);
+  // Anexo estructural: puntos del alcance sin lectura (no es caída de la
+  // semana). Agrupado por sede y estado, con conteos exactos por point_id.
+  if ((e.puntos_sin_datos || []).length) {
+    const grupos = new Map();
+    for (const p of e.puntos_sin_datos) {
+      const k = `${p.empresa}/${p.sede}||${p.estado}`;
+      if (!grupos.has(k)) grupos.set(k, { sede: `${p.empresa}/${p.sede}`,
+        estado: p.estado, nombres: [] });
+      const g = grupos.get(k);
+      g.nombres.push(p.detalle && p.estado === "caido"
+        ? `${p.punto} (${p.detalle})` : p.punto);
     }
-    const partes = Object.keys(grupos).sort().map(
-      s => `<b>${s}</b> (${grupos[s].length}): ${grupos[s].join(", ")}`);
-    document.getElementById("muertos-energia").innerHTML =
-      `<div class="nota">Puntos sin ningún dato en la semana:<br>` +
-      partes.join("<br>") + `.</div>`;
-  }
-
-  // ---- Ambiental: agrupado por sala, solo combos con incidencia ----
-  const malA = a.filas.filter(f => f.con_incidencia);
-  const salasMal = [...new Set(malA.map(f => f.sala))];
-  document.getElementById("nota-ambiental").textContent =
-    malA.length
-      ? `${salasMal.length} sala(s) con huecos en la semana ` +
-        `(${a.combos_ok} de ${a.combos_total} combos sala×indicador perfectos, omitidos).`
-      : `Las ${a.salas_total} salas tuvieron cobertura completa toda la semana.`;
-  if (malA.length) {
-    // Agrupar por sala conservando orden
-    const porSala = {};
-    for (const f of malA) (porSala[f.sala] = porSala[f.sala] || []).push(f);
-    let h = `<table><tr><th class="nombre">Sala · Indicador</th>${headDias}</tr>`;
-    for (const sala of Object.keys(porSala)) {
-      h += `<tr class="sala"><td colspan="${dias.length + 1}">${sala}</td></tr>`;
-      for (const f of porSala[sala]) {
-        h += `<tr><td class="nombre">↳ ${f.indicador}</td>`;
-        for (const x of dias) {
-          const c = f.dias[x.iso] || {estado:"hueco", lecturas:0, pct:0};
-          h += `<td class="${c.estado}" title="${x.etiqueta}: ${c.lecturas} lecturas">${c.pct}%</td>`;
-        }
-        h += "</tr>";
-      }
-    }
-    document.getElementById("tabla-ambiental").innerHTML = h + "</table>";
-  }
-
-  // ---- Detalle de incidencias ----
-  const det = [];
-  for (const i of e.incidencias) det.push(`<li>⚡ ${i.punto}: ${i.detalle}</li>`);
-  for (const i of a.incidencias) det.push(`<li>🌡 ${i.punto}: ${i.detalle}</li>`);
-  if (det.length) {
-    const div = document.createElement("div");
-    div.innerHTML = "<h2>Detalle de incidencias</h2><ul class='mal'>" +
-      det.join("") + "</ul>";
-    document.querySelector(".hoja").appendChild(div);
+    const partes = [...grupos.values()].map(g =>
+      `<b>${g.sede}</b> (${g.nombres.length}) ` +
+      `<span class="tag">${ESTADO_PTO[g.estado] || g.estado}</span><br>` +
+      g.nombres.join(", ") + ".");
+    $("anexo-energia").style.display = "";
+    $("anexo-energia").innerHTML =
+      `<b>Puntos pendientes estructurales</b> (no es una caída de esta semana: ` +
+      `nunca enviaron o se cayeron hace meses):<br>` + partes.join("<br>");
   }
 }
-main();
+
+function renderAmbiental(d) {
+  const a = d.ambiental, dias = d.dias;
+  const mal = a.filas.filter(f => f.con_incidencia);
+  $("nota-ambiental").textContent =
+    `${a.salas_total} salas monitoreadas en San Borja.`;
+  $("kpis-ambiental").innerHTML =
+    `<span class="kpi">Cobertura <b>${a.cobertura_pct}%</b></span>` +
+    `<span class="kpi"><b>${a.salas_ok}/${a.salas_total}</b> sin incidencias</span>` +
+    `<span class="kpi"><b>${a.salas_incidencias}</b> con incidencias</span>`;
+  if (mal.length) {
+    const key = f => `${f.empresa}|${f.sede}|${f.sala}`;
+    const porSala = new Map();
+    for (const f of mal) {
+      if (!porSala.has(key(f))) porSala.set(key(f), []);
+      porSala.get(key(f)).push(f);
+    }
+    let h = `<table><tr><th class="nombre">Sala · Sensor</th>`;
+    for (const x of dias) h += `<th class="dia" title="${x.etiqueta}">${x.corta}</th>`;
+    h += "</tr>";
+    for (const [k, lista] of porSala) {
+      const sf = (a.salas || []).find(s => key(s) === k);
+      if (sf) h += filaTabla(sf.dias, dias, sf.etiqueta, "sala");
+      for (const f of lista) h += filaTabla(f.dias, dias, "· " + f.indicador);
+    }
+    $("tabla-ambiental").innerHTML = h + "</table>";
+  } else {
+    $("tabla-ambiental").innerHTML =
+      `<div class="ok">Ninguna sala tuvo días incompletos ni sin datos.</div>`;
+  }
+  if (a.salas_ok) {
+    $("ok-ambiental").style.display = "";
+    $("ok-ambiental").innerHTML =
+      `<b>${a.salas_ok} salas</b> sin incidencias esta semana.`;
+    if ((a.salas_ok_lista || []).length) {
+      $("det-ambiental-ok").style.display = "";
+      $("lista-ambiental-ok").textContent = a.salas_ok_lista.join(", ") + ".";
+    }
+  }
+  if (a.incidencias.length) {
+    $("det-ambiental").style.display = "";
+    $("lista-ambiental").innerHTML = a.incidencias.map(i =>
+      `<li>${i.punto}: ${i.detalle}.</li>`).join("");
+  }
+}
+
+async function cargar() {
+  const q = new URLSearchParams();
+  if ($("f-desde").value) q.set("desde", $("f-desde").value);
+  if ($("f-hasta").value) q.set("hasta", $("f-hasta").value);
+  $("error").style.display = "none";
+  try {
+    const r = await fetch("/api/reporte-semanal" + (q.toString() ? "?" + q : ""));
+    if (!r.ok) throw new Error("HTTP " + r.status);
+    const d = await r.json();
+    document.title = `Reporte ${d.desde} al ${d.hasta}`;
+    $("titulo").textContent = `Reporte de cobertura — ${d.titulo_rango}`;
+    $("subtitulo").textContent = `Generado ${d.generado}.`;
+    $("f-desde").value = d.desde;
+    $("f-hasta").value = d.hasta;
+    $("btn-pdf").href = `/reporte-semanal/pdf?desde=${d.desde}&hasta=${d.hasta}`;
+    renderEnergia(d);
+    renderAmbiental(d);
+    $("nota-final").style.display =
+      (d.energia.dias_hueco === 0 && d.ambiental.dias_hueco === 0) ? "" : "none";
+  } catch (err) {
+    const box = $("error");
+    box.style.display = "block";
+    box.textContent = "Error al cargar el reporte: " +
+                      (err && err.message ? err.message : err);
+  }
+}
+
+$("btn").addEventListener("click", cargar);
+// Rango por URL (?desde=&hasta=): lo usa el PDF headless y los enlaces
+// compartidos; sin esto la página siempre mostraba la última semana.
+const _qs = new URLSearchParams(location.search);
+if (_qs.get("desde")) $("f-desde").value = _qs.get("desde");
+if (_qs.get("hasta")) $("f-hasta").value = _qs.get("hasta");
+cargar();
 </script>
 </body>
 </html>
