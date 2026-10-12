@@ -1574,3 +1574,96 @@ El monitor debía ser una "pantalla de TV" que se entiende de un vistazo:
   - Bitácora: sesiones de ambos lados en orden de fecha, sin perder líneas.
 - Lección: trabajar en dos PCs sin pushear diverge. Antes de empezar en
   cualquiera de las dos: `git pull`; al terminar: commit + push.
+
+## Sesión 12-oct-2026 (casa) — Sync full de AMBAS bases (energía + ambiental)
+
+### Pedido
+- Actualizar el backup local al día de hoy para generar un reporte.
+
+### Estado inicial
+- Postgres locales caídos: `pg_ctl -D C:/pgsql16/data` (energía, 5432) y
+  `-D C:/pgsql16/data-valhalla` (ambiental, 5433) → ambos arriba.
+- Copias locales en 09-oct-2026 10:18 Lima (energía, 11,489,507) y 10:57 Lima
+  (ambiental, 16,224,995).
+
+### Ejecutado
+- Túneles manuales con keepalives ANTES del script en 55432 y 5435 →
+  `sync_db.sh {energia,ambiental} full` los reusó.
+- Energía: 1er dump MURIÓ en las tablas grandes (SSL SYSCALL EOF, túnel 55432
+  caído — misma falla del 07-sep/09-oct); dump parcial eliminado, túnel
+  reabierto (keepalive 15s) y 2do intento OK → dump
+  `backups/energia/energia_prod_20261012_101506.dump` (1.6 GB) → restore en
+  127.0.0.1:5432. Local quedó en **12-oct-2026 10:15 Lima (11,621,668
+  lecturas)**.
+- Ambiental: dump `backups/ambiental/ambiental_prod_20261012_104215.dump`
+  (238 MB) → restore en 127.0.0.1:5433. Verify: prod=16,254,832 vs
+  local=16,254,797 (+35 filas en vivo, normal); última local **12-oct 10:41
+  Lima** vs prod 10:46 Lima.
+- Dumps viejos del 28-sep eliminados (quedan 05-oct, 09-oct, 12-oct por base).
+- Túneles cerrados a mano (`taskkill` a los PIDs reales de `ssh.exe` vía
+  `Get-CimInstance`; los PIDs de netstat SÍ eran los reales esta vez).
+- LECCIÓN: el `bash` de este entorno devuelve el control mientras `pg_dump`
+  sigue corriendo en fondo (el log se corta tras `alerts_alert`); no relanzar
+  el sync: monitorear con `ps aux | grep pg_dump` + tamaño del `.dump` hasta
+  que aparezca el `pg_restore`.
+- Listo para el reporte: `python scripts/reporte_conectividad.py` (default =
+  semana pasada lun–dom) o con `--desde/--hasta`.
+
+### Reporte semanal de conectividad (semana 05-oct → 11-oct)
+- `python scripts/reporte_conectividad.py --desde 2026-10-05 --hasta 2026-10-11`
+  sobre las copias locales de hoy → `~/Downloads/reporte_conectividad_2026-10-05_a_2026-10-11.pdf`
+  (4 págs.). 12 empresas sin datos en el periodo (las inactivas conocidas).
+- **Oechsle 95.5%** (solo energía; sem. anterior 96.0%). Rojos: TF-UMAS 1
+  lun 05 87.6%, vie 09 87.9%, sáb 10 85.2%; TF-UMAS 2 vie 09 75.5% (también
+  cayó el vie 02); Llave General TGE-TR1 dom 11 78.5%.
+- **Sanna 88.9%** = (88.4 + 89.3) ÷ 2 (sem. anterior 97.9%).
+  - Caída en ambos módulos lun 05–mar 06. Energía: Llave general (TG-P1),
+    Tomógrafo, Llave general TGA y Resonador ~52% el lun 05 y ~36% el mar 06;
+    los otros 8 circuitos de TGA 47–60% el mar 06. Ambiental mar 06: Ducto
+    resonador, Sala de tomografía, Sala técnica, Sala UPS y Zona Azul en
+    38–51%. Siguieron normales el cuarto de bombas (99.6%), las Salas de
+    Operaciones 1–5 y la Subestación (≥99.7%) → apunta a red/gateways de una
+    parte de la sede (inferencia, no verificada en sitio). Desde el mié 07
+    todo volvió a ≥93%, salvo lo siguiente.
+  - **Sin recuperar al dom 11**: Zona Verde (18–30%/día desde el mar 06) y
+    Zona Roja (61–72%/día desde el mar 06).
+- **Scotiabank 99.6%** (solo energía; sem. anterior 100.0%).
+- Formato: Sanna ocupó 2 páginas (energía pág. 2, ambiental pág. 3) por las
+  subfilas por sensor de 4 salas con días en rojo, casi idénticas a la fila
+  de la sala (difieren ≤0.7 pts). Pendiente decidir si se exige una
+  diferencia mínima para mostrar subfilas y volver a 1 página por empresa.
+
+### Batería en ambiental (misma sesión)
+- `equipments_device.battery` (numeric, %): último valor reportado por sensor;
+  solo los 13 de Sanna lo tienen (los otros 52 dispositivos, desactivados, en
+  NULL). Coincide con el último uplink del historial en los 13.
+- Historia: `historical_readinghistory.data_json->>'battery'` (+ `rssi`,
+  `snr`, `devEUI`; unir con `lower(equipments_device.dev_eui)`). El JSON trae
+  también `password` → extraer solo campos puntuales. No hay indicador de
+  batería en `equipments_indicator` (no está en `readings_reading`). El agente
+  aún no lo sabe (no está en `src/prompts.py`).
+- Al 12-oct 10:41: Zona Verde 9%, Sala UPS 25%, Sala de tomografía 40%,
+  Sala de Operaciones 4 58%, resto 66–100%.
+- Zona Verde (AM107): 34% (14-sep) → 12% (05-oct) → 8% (06-oct); desde el
+  06-oct 60–86 uplinks/día vs 288 → explica su 18–30% del reporte. Batería
+  casi agotada (inferencia) → cambiarla.
+- Zona Roja (AM107): batería 87–90%, pero desde el 06-oct SNR ~+10 → ~−12 dB
+  (RSSI igual, ~−95) y 412–476 uplinks/día vs 288, con menos lecturas válidas
+  → problema de enlace radio/gateway, no batería (inferencia).
+
+### Batería en el reporte de conectividad (misma sesión)
+- `scripts/reporte_conectividad.py`: columna "Batería" en la tabla ambiental,
+  a la derecha de "Semana" (solo en la fila de la sala; subfilas por sensor y
+  "Promedio del día" quedan vacías). Valor = último `data_json->>'battery'`
+  numérico de cada dispositivo hasta el cierre del rango (domingo 23:59 Lima),
+  buscando hasta `LOOKBACK_DIAS` (28) antes del inicio (`SQL_BATERIA_AMBIENTAL`
+  + `cargar_baterias()`; filtra por `room_id`, que tiene índice; solo lee las
+  claves `battery` y `devEUI`). Varios dispositivos en una sala → el más bajo.
+  < `BATERIA_BAJA` (20%) en rojo; sin dato → "—"; si ninguna sala de la
+  empresa tiene dato, la columna no aparece. Consola: línea "batería < 20%".
+- Semana 05 → 11 oct: las 13 salas coinciden con una consulta independiente
+  (unión solo por devEUI). Zona Verde 9% (único rojo), Sala UPS 25%, Sala de
+  tomografía 41%, …, Zona Azul 100%; Zona Roja 87% es del 10-oct 04:16 (su
+  último uplink con batería). Borrador:
+  `~/Downloads/reporte_conectividad_2026-10-05_a_2026-10-11_bateria.pdf`
+  (4 págs., igual que sin batería). Pruebas: 19 OK.
