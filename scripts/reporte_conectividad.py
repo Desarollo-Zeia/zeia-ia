@@ -19,6 +19,11 @@ equipos/sensores con datos en la semana o en las 4 semanas previas (los
 circuitos del inventario que nunca se instalaron no cuentan como falla).
 No agrupa por gateway: esa asignación no está en la base de datos.
 
+En ambiental, la columna "Batería" muestra la del dispositivo de cada sala: el
+último valor que reportó hasta el cierre del rango (historial de uplinks,
+buscando hasta 4 semanas antes), en rojo bajo el 20%, y "—" si no reportó. Si
+ningún dispositivo de la empresa reporta batería, la columna no aparece.
+
 Cada empresa termina con su conectividad promedio de la semana por módulo (la
 última celda de cada tabla) y la conectividad final: el promedio simple de los
 módulos que tiene, con las cifras impresas: (96.2% + 99.5%) ÷ 2 = 97.9%. Si
@@ -49,6 +54,7 @@ import unicodedata
 from collections import defaultdict
 from datetime import date, datetime, timedelta, timezone
 from decimal import ROUND_HALF_UP, Decimal
+from functools import partial
 from pathlib import Path
 from statistics import mean
 
@@ -63,6 +69,7 @@ from src.monitor import EXCLUIR as EMPRESAS_PRUEBA  # noqa: E402  (mismas que el
 
 LIMA = timezone(timedelta(hours=-5))  # Perú no tiene horario de verano
 UMBRAL = 90.0                         # % mínimo de un día "normal"
+BATERIA_BAJA = 20                     # % de batería que se pinta en rojo
 LOOKBACK_DIAS = 28                    # ventana para decidir si un equipo debería reportar
 ESPERADAS = {"energia": 1440, "ambiental": 288}
 BASES = ("energia", "ambiental")
@@ -122,7 +129,7 @@ SQL_PREVIOS_ENERGIA = """
 
 SQL_INV_AMBIENTAL = """
     SELECT f.name AS empresa, hq.name AS sede, r.name AS sala, rd.id AS uid,
-           i.name AS indicador
+           i.name AS indicador, r.id AS sala_id
     FROM equipments_indicatordevice rd
     JOIN equipments_indicator i ON i.id = rd.indicator_id
     JOIN equipments_device d ON d.id = rd.device_id
@@ -150,6 +157,23 @@ SQL_PREVIOS_AMBIENTAL = """
 
 SQL = {"energia": (SQL_INV_ENERGIA, SQL_DIAS_ENERGIA, SQL_PREVIOS_ENERGIA),
        "ambiental": (SQL_INV_AMBIENTAL, SQL_DIAS_AMBIENTAL, SQL_PREVIOS_AMBIENTAL)}
+
+# Batería de cada dispositivo = el último valor que reportó antes del cierre del
+# rango, desde el historial de uplinks (equipments_device.battery es solo la foto
+# de ahora y no sirve para semanas pasadas). data_json trae credenciales del
+# dispositivo: solo se leen las claves battery y devEUI. El filtro por room_id
+# usa su índice (la tabla no tiene índice por created_at).
+SQL_BATERIA_AMBIENTAL = """
+    SELECT DISTINCT ON (d.id) d.room_id AS sala_id,
+           (h.data_json->>'battery')::numeric AS bateria
+    FROM historical_readinghistory h
+    JOIN equipments_device d
+      ON d.room_id = h.room_id AND lower(d.dev_eui) = lower(h.data_json->>'devEUI')
+    WHERE h.room_id = ANY(:salas)
+      AND h.created_at >= :ini AND h.created_at < :fin
+      AND jsonb_typeof(h.data_json->'battery') = 'number'
+    ORDER BY d.id, h.created_at DESC
+"""
 
 
 def consultar(base: str, sql: str, **params) -> list:
@@ -190,6 +214,23 @@ def cargar(base: str, dias: list[date]) -> tuple[list, dict, set]:
     cnt = conteos(base, sql_dias, ids, dias) if ids else {}
     previos = con_datos_previos(base, sql_prev, [i for i in ids if i not in cnt], dias)
     return inv, cnt, previos
+
+
+def cargar_baterias(inv: list, cnt: dict, previos: set, dias: list[date]) -> dict:
+    """{sala_id: batería %} de las salas que entran al reporte: el último valor
+    de cada dispositivo hasta el cierre del rango (buscando hasta LOOKBACK_DIAS
+    antes del inicio); con varios dispositivos en la sala, el más bajo."""
+    salas = sorted({r.sala_id for r in inv if r.uid in cnt or r.uid in previos})
+    if not salas:
+        return {}
+    ini = _inicio_dia(dias[0]) - timedelta(days=LOOKBACK_DIAS)
+    fin = _inicio_dia(dias[-1]) + timedelta(days=1)
+    out: dict = {}
+    for sala_id, valor in consultar("ambiental", SQL_BATERIA_AMBIENTAL,
+                                    salas=salas, ini=ini, fin=fin):
+        v = float(valor)
+        out[sala_id] = min(v, out.get(sala_id, v))
+    return out
 
 
 def verificar_horizonte(base: str, dias: list[date]) -> datetime:
@@ -233,6 +274,10 @@ def bajo(v: float, umbral: float) -> bool:
     return round(v, 1) < umbral
 
 
+def bateria_baja(v: float) -> bool:
+    return round(v) < BATERIA_BAJA   # igual que bajo(): el entero que se imprime
+
+
 def modulo_energia(inv: list, cnt: dict, previos: set, dias: list[date]) -> dict | None:
     """Módulo de energía de UNA empresa (`inv` = sus filas del inventario)."""
     esperadas = ESPERADAS["energia"]
@@ -265,10 +310,13 @@ def modulo_energia(inv: list, cnt: dict, previos: set, dias: list[date]) -> dict
             "unidad": ("equipo", "equipos")}
 
 
-def modulo_ambiental(inv: list, cnt: dict, previos: set, dias: list[date]) -> dict | None:
-    """Módulo ambiental de UNA empresa (`inv` = sus filas del inventario)."""
+def modulo_ambiental(inv: list, cnt: dict, previos: set, dias: list[date],
+                     baterias: dict | None = None) -> dict | None:
+    """Módulo ambiental de UNA empresa (`inv` = sus filas del inventario;
+    `baterias` = {sala_id: %} de cargar_baterias)."""
     esperadas = ESPERADAS["ambiental"]
     salas: dict = defaultdict(list)
+    bat_sala: dict = {}   # (sede, sala) -> % (la batería es del dispositivo, no del sensor)
     excluidos = 0
     for r in inv:
         if r.uid not in cnt and r.uid not in previos:
@@ -280,6 +328,9 @@ def modulo_ambiental(inv: list, cnt: dict, previos: set, dias: list[date]) -> di
             "indicador": ind, "nombre": INDICADORES.get(ind, r.indicador),
             "lecturas": lect, "esperadas": esperadas,
             "vals": [pct(n, esperadas) for n in lect]})
+        b = baterias.get(r.sala_id) if baterias else None
+        if b is not None:   # varios dispositivos: el más bajo (como el peor sensor)
+            bat_sala[(r.sede, r.sala)] = min(b, bat_sala.get((r.sede, r.sala), b))
     if not salas:
         return None
     sedes = sorted({k[0] for k in salas}, key=_orden)
@@ -298,7 +349,7 @@ def modulo_ambiental(inv: list, cnt: dict, previos: set, dias: list[date]) -> di
         por_sede[sede].append({
             "nombre": sala, "vals": vals, "esperadas": esperadas,
             "lecturas": [peor[i]["lecturas"][i] for i in idx],
-            "todos_sensores": sensores})
+            "todos_sensores": sensores, "bateria": bat_sala.get((sede, sala))})
     bloques = [{"titulo": None if len(sedes) == 1 else sede, "filas": por_sede[sede]}
                for sede in sedes]
     n_salas = sum(len(b["filas"]) for b in bloques)
@@ -310,7 +361,8 @@ def modulo_ambiental(inv: list, cnt: dict, previos: set, dias: list[date]) -> di
             "subtitulo": (f"{n_salas} {plural(n_salas, 'sala', 'salas')} · "
                           f"{n_sensores} {plural(n_sensores, 'sensor', 'sensores')} "
                           f"({unir(nombres_ind)})"),
-            "unidad": ("sala", "salas")}
+            "unidad": ("sala", "salas"),
+            "con_bateria": bool(bat_sala)}   # sin ningún dato, la columna no aparece
 
 
 def calcular(mod: dict, umbral: float) -> None:
@@ -353,11 +405,13 @@ def conectividad_final(mods: list[dict]) -> dict:
 
 
 def armar_empresas(datos: dict, dias: list[date], umbral: float,
-                   pedidas: list[str] | None = None) -> tuple[list[dict], list[str]]:
+                   pedidas: list[str] | None = None,
+                   baterias: dict | None = None) -> tuple[list[dict], list[str]]:
     """Cruza las dos bases por nombre de empresa y arma el reporte de cada una.
 
     Sin `pedidas`: todas las empresas con datos, en orden alfabético, menos las
-    de prueba. Con `pedidas`: solo esas y en ese orden. Devuelve
+    de prueba. Con `pedidas`: solo esas y en ese orden. `baterias` = salida de
+    cargar_baterias (columna "Batería" de ambiental). Devuelve
     (reportes, omitidas), donde omitidas = empresas sin datos en el periodo.
     """
     empresas: dict = {}
@@ -372,7 +426,8 @@ def armar_empresas(datos: dict, dias: list[date], umbral: float,
     else:
         claves = [(k, empresas[k]["nombre"]) for k in sorted(empresas, key=_orden)
                   if k not in EMPRESAS_PRUEBA]
-    armadores = {"energia": modulo_energia, "ambiental": modulo_ambiental}
+    armadores = {"energia": modulo_energia,
+                 "ambiental": partial(modulo_ambiental, baterias=baterias)}
     reportes, omitidas, vistas = [], [], set()
     for k, nombre in claves:
         if k in vistas:
@@ -415,6 +470,10 @@ def fmt(v: float) -> str:
     return f"{v:.1f}%"
 
 
+def fmt_bateria(v: float) -> str:
+    return f"{v:.0f}%"
+
+
 def dia_corto(d: date) -> str:
     return f"{DIAS_CORTOS[d.weekday()]} {d.day:02d}"
 
@@ -454,12 +513,14 @@ table { width: 100%; border-collapse: collapse; table-layout: fixed; }
 col.c-nombre { width: 33%; }
 col.c-dia { width: 8.25%; }
 col.c-sem { width: 9.25%; }
+table.con-bat col.c-nombre { width: 25.5%; }
+col.c-bat { width: 7.5%; }
 th, td { border: 1px solid #e5e7eb; padding: 2.5px 5px; line-height: 1.25; }
 thead th { background: #1f2937; color: #fff; font-weight: 600; font-size: 9.5px;
            text-align: center; border-color: #1f2937; }
 thead th.nombre { text-align: left; }
 td.pct { text-align: center; font-variant-numeric: tabular-nums; }
-th.sem, td.sem { border-left: 2px solid #94a3b8; }
+th.sem, td.sem, th.bat, td.bat { border-left: 2px solid #94a3b8; }
 td.sem { font-weight: 700; background: #f8fafc; }
 tr.grupo td { background: #eef2f7; font-weight: 700; color: #334155; font-size: 9.5px;
               padding: 2px 5px; }
@@ -486,30 +547,45 @@ def _celda(v: float, umbral: float, extra: str = "") -> str:
     return f'<td class="{clase}">{fmt(v)}</td>'
 
 
+def _celda_bateria(v: float | None) -> str:
+    if v is None:   # el dispositivo no reportó batería en la ventana
+        return '<td class="pct bat">—</td>'
+    clase = "pct" + (" bajo" if bateria_baja(v) else "") + " bat"
+    return f'<td class="{clase}">{fmt_bateria(v)}</td>'
+
+
 def _tabla(mod: dict, dias: list[date], umbral: float) -> str:
-    cols = '<col class="c-nombre">' + '<col class="c-dia">' * len(dias) + '<col class="c-sem">'
+    # Columna "Batería" (solo ambiental con datos): se llena en la fila de la
+    # sala; las subfilas por sensor y el promedio del día la dejan vacía.
+    con_bat = mod.get("con_bateria", False)
+    vacia = '<td class="bat"></td>' if con_bat else ""
+    cols = ('<col class="c-nombre">' + '<col class="c-dia">' * len(dias) + '<col class="c-sem">'
+            + ('<col class="c-bat">' if con_bat else ""))
     head = (f'<tr><th class="nombre" scope="col">{esc(mod["col_nombre"])}</th>'
             + "".join(f'<th scope="col">{dia_corto(d)}</th>' for d in dias)
-            + '<th class="sem" scope="col">Semana</th></tr>')
+            + '<th class="sem" scope="col">Semana</th>'
+            + ('<th class="bat" scope="col">Batería</th>' if con_bat else "") + "</tr>")
     cuerpo = []
     for b in mod["bloques"]:
         if b["titulo"]:
-            cuerpo.append(f'<tr class="grupo"><td colspan="{len(dias) + 2}">'
+            cuerpo.append(f'<tr class="grupo"><td colspan="{len(dias) + 2 + int(con_bat)}">'
                           f'{esc(b["titulo"])}</td></tr>')
         ind = " ind" if b["titulo"] else ""
         for f in b["filas"]:
             clase = ' class="falla"' if f["malos"] else ""
             cuerpo.append(f'<tr{clase}><td class="nombre{ind}">{esc(f["nombre"])}</td>'
                           + "".join(_celda(v, umbral) for v in f["vals"])
-                          + _celda(f["semana"], umbral, "sem") + "</tr>")
+                          + _celda(f["semana"], umbral, "sem")
+                          + (_celda_bateria(f["bateria"]) if con_bat else "") + "</tr>")
             for s in f["sensores"]:   # solo si los sensores de la sala difieren
                 cuerpo.append(f'<tr class="sensor"><td class="nombre">↳ {esc(s["nombre"])}</td>'
                               + "".join(_celda(v, umbral) for v in s["vals"])
-                              + _celda(s["semana"], umbral, "sem") + "</tr>")
+                              + _celda(s["semana"], umbral, "sem") + vacia + "</tr>")
     pie = ('<tr><td class="nombre">Promedio del día</td>'
            + "".join(_celda(v, umbral) for v in mod["prom_dia"])
-           + _celda(mod["prom_semana"], umbral, "sem") + "</tr>")
-    return (f"<table><colgroup>{cols}</colgroup><thead>{head}</thead>"
+           + _celda(mod["prom_semana"], umbral, "sem") + vacia + "</tr>")
+    tabla = '<table class="con-bat">' if con_bat else "<table>"
+    return (f"{tabla}<colgroup>{cols}</colgroup><thead>{head}</thead>"
             f"<tbody>{''.join(cuerpo)}</tbody><tfoot>{pie}</tfoot></table>")
 
 
@@ -708,9 +784,12 @@ def main(argv: list[str] | None = None) -> int:
         for base in BASES:
             verificar_horizonte(base, dias)
             datos[base] = cargar(base, dias)
+        inv_amb, cnt_amb, previos_amb = datos["ambiental"]
+        baterias = cargar_baterias(inv_amb, cnt_amb, previos_amb, dias)
     finally:
         tunnel.close_tunnel()   # solo cierra túneles que abrió este proceso
-    reportes, omitidas = armar_empresas(datos, dias, args.umbral, args.empresa)
+    reportes, omitidas = armar_empresas(datos, dias, args.umbral, args.empresa,
+                                        baterias=baterias)
     if not reportes:
         raise SystemExit("Ninguna empresa tiene datos en el periodo"
                          + (f": {', '.join(omitidas)}" if omitidas else "") + ".")
@@ -739,6 +818,11 @@ def main(argv: list[str] | None = None) -> int:
             for f in m["fallas"]:
                 print("      < umbral:", f["nombre"], "→",
                       ", ".join(f"{dias[i]} {fmt(f['vals'][i])}" for i in f["malos"]))
+            bajas = [f for b in m["bloques"] for f in b["filas"]
+                     if f.get("bateria") is not None and bateria_baja(f["bateria"])]
+            if bajas:
+                print(f"      batería < {BATERIA_BAJA}%: "
+                      + ", ".join(f"{f['nombre']} {fmt_bateria(f['bateria'])}" for f in bajas))
         fin = rep["final"]
         print(f"   Conectividad final: {fmt(fin['valor'])} ({fin['nota']})")
     if omitidas:

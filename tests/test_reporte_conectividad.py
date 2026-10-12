@@ -8,6 +8,7 @@ import importlib.util
 import unittest
 from collections import namedtuple
 from datetime import date, timedelta
+from decimal import Decimal
 from pathlib import Path
 from unittest import mock
 
@@ -17,7 +18,7 @@ rc = importlib.util.module_from_spec(_spec)
 _spec.loader.exec_module(rc)
 
 DIAS = [date(2026, 9, 28) + timedelta(days=i) for i in range(7)]
-InvAmb = namedtuple("InvAmb", "empresa sede sala uid indicador")
+InvAmb = namedtuple("InvAmb", "empresa sede sala uid indicador sala_id", defaults=(None,))
 InvEne = namedtuple("InvEne", "empresa sede tablero uid nombre principal")
 
 
@@ -121,6 +122,48 @@ class TestAmbiental(unittest.TestCase):
 
     def test_peores_primero(self):
         self.assertEqual([f["nombre"] for f in self.mod["fallas"]], ["Sala B", "Sala A"])
+
+
+class TestBateria(unittest.TestCase):
+    INV = [InvAmb("Sanna", "San Borja", "Sala A", 1, "CO2", 10),
+           InvAmb("Sanna", "San Borja", "Sala A", 2, "HUMIDITY", 10),
+           InvAmb("Sanna", "San Borja", "Sala B", 3, "CO2", 20),
+           InvAmb("Sanna", "San Borja", "Sala C", 4, "CO2", 30)]
+
+    def test_ultimo_valor_por_sala_y_el_mas_bajo_si_hay_varios(self):
+        pedidos = []
+
+        def consultar(base, sql, **params):
+            pedidos.append((base, params))
+            return [(10, Decimal("35")), (10, Decimal("12")), (20, Decimal("77"))]
+        cnt = {1: {DIAS[0]: 288}, 2: {DIAS[0]: 288}}   # Sala B solo en previas, C nunca
+        with mock.patch.object(rc, "consultar", consultar):
+            self.assertEqual(rc.cargar_baterias(self.INV, cnt, {3}, DIAS), {10: 12.0, 20: 77.0})
+        base, p = pedidos[0]
+        self.assertEqual((base, p["salas"]), ("ambiental", [10, 20]))
+        # Hasta el cierre del domingo (hora Lima), buscando 4 semanas antes del lunes
+        self.assertEqual(p["ini"].isoformat(), "2026-08-31T00:00:00-05:00")
+        self.assertEqual(p["fin"].isoformat(), "2026-10-05T00:00:00-05:00")
+
+    def test_columna_solo_en_la_fila_de_la_sala(self):
+        lect = {u: [288] * 7 for u in (1, 2, 3, 4)}
+        lect[1][0] = 100                       # Sala A: solo el CO2 falla -> subfilas
+        cnt = _cnt(lect)
+        mod = rc.modulo_ambiental(self.INV, cnt, set(), DIAS, {10: 9.0, 20: 77.0})
+        rc.calcular(mod, 90.0)
+        doc = rc.armar_html([{"empresa": "Sanna", "modulos": [mod],
+                              "final": rc.conectividad_final([mod])}], DIAS, 90.0)
+        self.assertIn('<th class="bat" scope="col">Batería</th>', doc)
+        self.assertIn('<td class="pct bajo bat">9%</td>', doc)     # < 20% en rojo
+        self.assertIn('<td class="pct bat">77%</td>', doc)
+        self.assertIn('<td class="pct bat">—</td>', doc)           # Sala C sin dato
+        self.assertEqual(doc.count('<td class="bat"></td>'), 3)    # 2 subfilas + promedio
+        # Si ningún dispositivo de la empresa reporta batería, no hay columna
+        sin = rc.modulo_ambiental(self.INV, cnt, set(), DIAS, {})
+        rc.calcular(sin, 90.0)
+        doc = rc.armar_html([{"empresa": "Sanna", "modulos": [sin],
+                              "final": rc.conectividad_final([sin])}], DIAS, 90.0)
+        self.assertNotIn("Batería", doc)
 
 
 class TestEnergia(unittest.TestCase):
