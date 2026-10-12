@@ -18,11 +18,21 @@ plantilla). En el trabajo ambas bases corren en 127.0.0.1 (5432 energía /
 
 ```
 cli.py                  Chat en terminal (--base energia|ambiental)
-webapp.py               App web (FastAPI): chat + gráficos + voz → python webapp.py (:8000)
+webapp.py               App web (FastAPI): chat + gráficos + voz + MONITOR EN VIVO
+                        (/monitor, /api/monitor/*) + reportes /reporte-semanal y
+                        /reporte-gateways (con /pdf) → python webapp.py (:8000)
 web/static/index.html   UI de chat (selector de MÓDULO + modelo, chips, 🎙 modo
                         conversación por voz con VAD: detecta habla/silencio)
+web/static/monitor.html Monitor EN VIVO (salud de datos): tablero "TV" con TODOS
+                        los puntos activos y los minutos de HOY (verde/rojo, sin
+                        clics, auto-refresh 20s); vista Resumen tienda→punto;
+                        semáforos por última lectura y ritmo; incidentes;
+                        deep-links ?base=&vista=&tienda=&uid=
 web/static/vendor/      echarts.min.js + marked.min.js locales (sin CDN)
 src/
+  monitor.py            Estado en vivo multi-base: qué punto/combo dejó de
+                        reportar (última lectura + ritmo real + fuente congelada).
+                        Energía=1/min; ambiental=cadencia por combo (14 días)
   config.py             Carga .env; DBConfig por base (ENERGIA_DB/AMBIENTAL_DB),
                         DEFAULT_MODEL y credenciales; alias DB_* = energía (retrocompat)
   tunnel.py             Túnel SSH POR BASE (reutiliza uno existente si el puerto ya
@@ -57,6 +67,13 @@ docs/
 scripts/
   test_connection.py    Verifica túnel + login + lista esquemas
   introspect.py         Regenera docs/schema.md y docs/schema_full.json (con filas de ejemplo)
+  reporte_conectividad.py  ★ Reporte semanal para jefes en PDF: 1 página por empresa
+                        con datos (energía + ambiental), % lecturas/esperadas por día
+                        (1,440 energía; 288/sensor ambiental), rojo <90%, energía por
+                        tablero (sin gateways: no están en la DB) y al final la
+                        conectividad final = promedio simple de sus módulos.
+                        Consulta en vivo; Chrome headless
+tests/                  unittest sin DB (python -m unittest discover -s tests)
 eval/
   questions.yaml        Preguntas de prueba con hechos esperados
   questions_carga.yaml  Prueba de carga: 3 meses × 2 puntos/tableros
@@ -83,9 +100,11 @@ docs/
   en `.env` como `AMBIENTAL_DB_PASSWORD` (¡incluye el punto final!).
 - **⚠️ DBs locales (plan trabajo, 20-ago-2026)**: en la máquina del trabajo
   ambas corren en `127.0.0.1` — energía `5432`, ambiental `5433`
-  (`USE_SSH_TUNNEL_*=false`). En casa: energía local 5432 (backup 18-ago) y
-  ambiental vía túnel en 5435 (`AMBIENTAL_DB_PORT=5435` para probar). Sync:
-  `scripts/sync_db.sh <energia|ambiental>` → `backups/<base>/`.
+  (`USE_SSH_TUNNEL_*=false`). En casa: **ambas por túnel** — energía 55432
+  (`ENERGIA_DB_PORT=55432`) y ambiental 5435, con `USE_SSH_TUNNEL_*=true`
+  (la app levanta los túneles sola; el monitor en vivo requiere esto para no
+  ver la copia congelada). Sync: `scripts/sync_db.sh <energia|ambiental>` →
+  `backups/<base>/`.
 
 ## Conocimiento clave del dominio (también en src/prompts.py)
 
@@ -185,9 +204,12 @@ source venv/bin/activate
 python scripts/test_connection.py     # verificar conectividad
 python cli.py --verbose               # chat terminal (muestra herramientas/SQL)
 python cli.py --base ambiental        # chat del módulo ambiental (valhalladb)
-python webapp.py                      # chat web con gráficos → http://localhost:8000
+python webapp.py                      # chat + monitor → http://localhost:8000
+                                      #   monitor en vivo: http://localhost:8000/monitor
 python scripts/introspect.py          # regenerar docs del esquema
 python scripts/analisis_huecos.py --export   # informe de huecos → dashboard :8000/gaps
+python scripts/reporte_conectividad.py       # PDF semana pasada, todas las empresas → ~/Downloads
+python scripts/reporte_conectividad.py --desde 2026-09-28 --hasta 2026-10-04 --empresa Sanna
 python eval/compare_models.py --questions q1_empresas_puntos  # eval rápida
 scripts/sync_db.sh ambiental full     # sync de una base (dump+restore+verifica)
 ```

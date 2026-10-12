@@ -955,6 +955,104 @@ solo proyecto: `energia` (energy, consumo eléctrico) y `ambiental`
   fin de semana; Zona Azul sin datos mié 09–jue 10 + parcial vie 11).
 - URL: http://localhost:8000/reporte-semanal (default = última semana completa).
 
+## Sesión 24-sep-2026 (casa) — Sync energía + ambiental full (ambos al día)
+
+### Pedido
+- Sincronizar AMBAS bases a hoy (dump + restore). El usuario creía que ya
+  estaban corriendo en algún puerto; verificado: solo energía (5432) estaba
+  arriba.
+
+### Estado inicial encontrado
+- Postgres local energía 5432 corriendo (brew); clúster ambiental
+  `/opt/homebrew/var/postgresql@16-ambiental` (port 5433) APAGADO y sin
+  túneles SSH. Se levantó con
+  `pg_ctl -D /opt/homebrew/var/postgresql@16-ambiental -l /opt/homebrew/var/log/postgresql@16-ambiental.log start`
+  (queda corriendo; no tiene LaunchAgent de Homebrew).
+
+### Ejecutado
+- Túneles manuales con keepalives (lección del sync 07-sep) en 55432
+  (energy.pem) y 5435 (valhallaprod.pem); `sync_db.sh` los reusó.
+- Energía: local 15-sep 08:37 (10,437,170) → dump
+  `backups/energia/energia_prod_20260924_091801.dump` (1.5 GB) → restore en
+  5432. Local quedó 10,832,055 filas, últ. lectura 24-sep 09:17:57 -05; prod
+  al verify 10,832,933 (dif 878 filas en vivo, normal).
+- Ambiental: local 09-sep 17:01 (15,911,383) → dump
+  `backups/ambiental/ambiental_prod_20260924_094634.dump` (260 MB) → restore
+  en 5433. Local quedó 16,066,412 filas, últ. 24-sep 09:46:33 -05; prod
+  16,066,427 (dif 15, normal).
+- Nota: en `valhalladb` la tabla activa es `readings_reading` (ocupacional);
+  `readings_readingambiental` sigue inactiva (885 filas, últ. dic-2024).
+- Túneles cerrados a mano al final; dumps energía conserva 09/15/24-sep.
+
+## Sesión 24-sep-2026 (casa) — Reportes semanales 07–13 y 14–20 sep
+
+### Pedido
+- Análisis de conectividad (cobertura) de energía + ambiental para jefes, de
+  las semanas 07–13 sep y 14–20 sep (HTML imprimible + resumen).
+
+### Ejecutado
+- Exports regenerados con la data fresca de hoy:
+  `scripts/analisis_huecos.py --export` (7,937 filas) y
+  `scripts/analisis_huecos_ambiental.py --export` (72,472 días-combo); logs
+  `analisis/export_{energia,ambiental}_20260924.log`.
+- Webapp levantada en :8000. URLs:
+  `/reporte-semanal?desde=2026-09-07&hasta=2026-09-13` y
+  `?desde=2026-09-14&hasta=2026-09-20`.
+
+### Hallazgos
+- ⚡ 07–13: 95.0% (26/32 puntos OK, 0 días-hueco). TF-UMAS 1 de Oechsle
+  parcial los 5 días (33–55% de su ritmo); TGE-TR1 07–08 (~71%); Tomógrafo
+  09 y 11; Llave general Sanna 11; TF-UMAS 2 12; TF-VM 07.
+- ⚡ 14–20: 94.7% (13/32 OK, 0 días-hueco). Evento de sede Oechsle Salaverry
+  el lun 15 (~14:20–18:40, corte de ~4h20m) → 18 puntos al ~79–80%. Además:
+  Chiller 1 (16 y 17, hasta 61%), TF-UMAS 1 (14–15, 44–58%), TF-UMAS 2
+  (15–16, 69–79%), TGE-TR1 (18, 84%), Tomógrafo (20, 63%). Verificado que la
+  cadencia normal de esos puntos es ~1,377–1,392 lecturas/día (el umbral
+  completo=1,300 es correcto).
+- 🌡 07–13: 89.0% (11/13 salas OK). Sala de Operaciones 2 sin datos lun 07 a
+  vie 11 y parcial el fin de semana (28–55%); Zona Azul sin datos mié 09–jue
+  10 y parcial vie 11 (44%).
+- 🌡 14–20: 98.9% (12/13 salas OK). Sala de Operaciones 2 solo parcial el lun
+  14 (42–44%); recuperada desde el mar 15.
+- Contexto: Burger King (31-jul), Pizza Hut (20-abr), Madam Tusan (14-may) y
+  KFC (11-abr) siguen sin medición; ~49 puntos de inventario nunca medidos
+  (subcircuitos sin instalar). Se reportó como tal, sin contarlos como falla
+  de conectividad de las semanas.
+
+### Corrección del reporte (feedback del usuario)
+- Problema: el jefe no entendía "huecos" ni de dónde salía el %; y ambiental
+  se veía por indicador, no por sala.
+- `webapp.py`: el reporte ambiental ahora devuelve `filas_salas` (una fila
+  por SALA: estado del día = peor indicador, % = lecturas recibidas / lecturas
+  normales de sus sensores ese día) además de los combos para el detalle;
+  `dias_hueco` en ambas bases; detalle textual "datos incompletos" (ya no
+  "parcial").
+- `reporte_semanal.html` reescrito: título "Reporte semanal de conectividad",
+  caja "¿Qué muestra este reporte?" (energía: 1,440 lecturas/día = 1/min;
+  ambiental: ritmo propio del sensor; verdes ≥90%), leyenda en palabras
+  (día normal / datos incompletos / sin datos), KPIs en lenguaje simple,
+  tabla ambiental por sala con filas indentadas por indicador solo donde hay
+  problema, tooltips con lecturas exactas y frase positiva si no hubo ningún
+  día entero sin datos. JS validado con `node --check`; webapp reiniciada.
+- 2º feedback: quitar las tarjetas KPI y dejar solo una frase corta
+  ("se esperan 1,440 lecturas/equipo en energía y el ritmo normal de cada
+  sensor en ambiental; así se mide la conectividad"). Las tablas y leyendas
+  quedan como única vista.
+- 3er feedback: detallar ambiental en la explicación. La frase ahora dice
+  "~288 por sensor en ambiental (1 cada 5 min)" (ritmo real de Sanna San
+  Borja) y los tooltips ambientales muestran "X de Y lecturas esperadas (Z%)"
+  (Y = ritmo del sensor o suma de ritmos de la sala). API: `esperadas` por
+  celda en `filas` y `filas_salas`.
+- 4º feedback: aclarar por qué faltan salas en la tabla. Se añadió debajo
+  "✅ Las otras N salas no tuvieron ninguna incidencia (por eso no aparecen en
+  la tabla): <nombres>".
+- 5º feedback: la misma línea para energía ("✅ Los otros 26 equipos no
+  tuvieron ninguna incidencia…") debajo de la tabla de equipos.
+- Deuda detectada (no corregida): en `analisis_huecos_ambiental.py/export`
+  los campos del JSON salen corridos (empresa=sede, sede=sala_activa,
+  lugar=sala; `r[11]` empresa sin usar). El reporte funciona porque usa esos
+  mismos nombres; si algún día hay salas de varias sedes, corregir el export.
+
 ## Sesión 28-sep-2026 — Sync full de AMBAS bases (energía + ambiental)
 
 ### Pedido
@@ -1140,6 +1238,97 @@ solo proyecto: `energia` (energy, consumo eléctrico) y `ambiental`
 - Reporte guardado en `analisis/reporte_excedencias_2026-09-21_a_2026-09-27.md`
   (con umbrales, hallazgos y comparación vs 28-sep → 04-oct).
 
+---
+
+## Sesión 07-oct-2026 (casa) — Monitor en vivo (tiempo real)
+
+### Objetivo (pedido del usuario)
+Los reportes actuales son batch (cada lunes + restore): ven el problema
+después. Se quiere una app interna bien diseñada que muestre **en tiempo real
+minuto a minuto** qué punto dejó de traer información, para todas las empresas
+(Sanna y Oechsle hoy), con drill-down General → Empresa → Punto, escalable a
+cientos de tiendas. Decisiones acordadas: fuente = **producción vía túnel SSH**;
+empaquetado = **pestaña/página dentro de `webapp.py` (:8000)**; alcance =
+**energía + ambiental**; notificaciones = **solo tablero visual** por ahora.
+
+### Implementado
+- **`src/monitor.py`** (nuevo): estado en vivo multi-base. No escanea la tabla
+  completa: una sola consulta acotada a la ventana del día (o 24 h si la
+  fuente está congelada) obtiene `max(created_at)` + conteo por punto/combo.
+  Semáforo por antigüedad de la última lectura y por **ritmo** (degrada si
+  reporta <70% de lo normal). Detección de **fuente congelada** (sin datos
+  globales >30 min): mide contra el horizonte y avisa, para no pintar todo
+  rojo cuando es una copia/restore.
+- **Ambiental**: cadencia **real por combo** (lecturas/día de los últimos 14
+  días, cacheada 30 min) en vez de un valor fijo; bucket del heatmap = cadencia
+  del sensor. Energía usa 1 lectura/min.
+- **`webapp.py`**: `GET /monitor` (página), `GET /api/monitor/estado?base=`,
+  `GET /api/monitor/lecturas?base=&ids=&desde=&hasta=` (minuto a minuto,
+  ≤40 ids, ≤10 días). Importa `src.monitor`.
+- **`web/static/monitor.html`** (nuevo): tema oscuro igual a `/gaps`; KPIs,
+  banner de fuente, breadcrumb, cards por empresa/sede, tabla por tablero/sala
+  con semáforo + barra de disponibilidad, detalle minuto a minuto (reusa el
+  heatmap ECharts que le gusta al usuario), bandeja de incidentes abiertos,
+  auto-refresh 30 s y enlaces directos `?base=&empresa=&sede=&uid=`.
+- **`web/static/index.html`**: links "Monitor" y "Huecos" en el header.
+- `docs/dashboard_huecos_spec.md` no se tocó (documenta el pipeline batch).
+
+### Hallazgos / validación
+- **La copia local de energía está congelada al 24-sep-2026** (13 días): el
+  monitor lo detecta y lo explica. **Resuelto**: se apuntó energía a
+  producción por túnel (`ENERGIA_DB_PORT=55432`, `USE_SSH_TUNNEL_ENERGIA=true`)
+  y ambiental a 5435 (`USE_SSH_TUNNEL_AMBIENTAL=true`); ahora `python webapp.py`
+  levanta los túneles solo y ambas bases quedan en vivo (verificado: max_global
+  = ahora; Sanna 97.8%, Oechsle 96.5%, Scotiabank 100%). El Postgres local
+  sigue en 5432, por eso el túnel usa 55432.
+- **Ambiental está vivo** (valhallad 5435 en casa) y el monitor **detectó una
+  degradación real en curso**: Zona Verde (CO2/HUM/TEMP) reportaba 288/día y
+  cayó a 46–52 el 6–7-oct (→ 33%, "Bajo ritmo"); Zona Roja al 67%. Sanna
+  global 92.4%.
+- Energía: Oechsle 94.9% y Sanna 95.4% al horizonte; BK/KFC/Madam Tusan/Pizza
+  Hut caídos desde hace meses; 48 puntos de inventario inactivos (no cuentan
+  en la disponibilidad).
+- Performance: `estado` energía ≈0.09 s; ambiental ≈1–3 s (primera consulta
+  en frío, luego cache 20 s). Recomendación DBA: índice
+  `(indicator_device_id, created_at DESC)` en valhalladb para que el "última
+  lectura por combo" sea instantáneo (el actual tiene `room_id` en medio).
+- QA: `py_compile` + `node --check` del JS + Chrome headless (`--dump-dom` y
+  `--screenshot`) sobre las 4 vistas (general/empresa/sede/detalle) y ambas
+  bases. Sin errores de consola.
+
+### Rediseño según feedback del usuario (misma sesión)
+El monitor debía ser una "pantalla de TV" que se entiende de un vistazo:
+- **Solo HOY** (antes mostraba 2 días en el detalle): el tablero y el detalle
+  usan el día en curso y excluyen el minuto en curso (siempre salía rojo).
+- **Tienda + punto, sin nivel de sede**: `tienda` = empresa + sede
+  (campo nuevo en `src/monitor.py`); el árbol pasó de empresa→sede→punto a
+  tienda→punto. En ambiental la etiqueta incluye la sala para desambiguar
+  (CO2/TEMP/HUM se repiten por sala).
+- **Sin clics**: al abrir `/monitor` carga solo el **tablero en vivo** (todas
+  las filas = puntos activos, columnas = minutos de hoy, verde/rojo), con
+  auto-refresh cada 20 s. Vista "Resumen" (tiendas → puntos) es secundaria.
+- **Ruido**: se ignoran huecos aislados de 1-2 min (smear por cadencia +
+  denoise de 3 min); solo se ven cortes reales. Caídos se ordenan arriba
+  (`yAxis.inverse`).
+- Verificado con Chrome headless vía CDP (Node + WebSocket) porque
+  `--virtual-time-budget` se cuelga con el heatmap grande; el canvas de
+  ECharts (`getDataURL`) y las capturas confirman el render correcto.
+- **Feedback: "no sé qué sala/punto me estás mostrando".** Causa: en ambiental
+  las etiquetas repetían `CO2/HUMIDITY/TEMPERATURE` sin la sala, y la empresa
+  de prueba "Machu picchu food" tiene una sala llamada literalmente
+  **"Punto de Monitoreo"**. Fix: (1) esa empresa se excluye (`EXCLUIR`);
+  (2) etiquetas: si hay una sola tienda → `Sala · Indicador` (ambiental) /
+  `Punto` (energía); si hay varias → `Tienda · [Sala ·] Punto`;
+  (3) `/monitor` se sirve con `Cache-Control: no-store` para que no quede
+  HTML viejo en caché. Ambiental queda solo con Sanna San Borja (38 combos).
+
+### Pendiente / ideas (fase 2)
+- Notificaciones automáticas (email/webhook/WhatsApp) al cruzar umbral.
+- Página ambient: `analisis_huecos_ambiental.py` tiene el export corrido
+  (deuda ya registrada); el monitor NO usa esos JSON, va en vivo.
+- Si se apunta a producción, revisar `statement_timeout` y pooling para
+  cientos de tiendas (hoy LATERAL/ventana por índice; cache 20 s).
+
 ## Sesión 09-oct-2026 — Sync full de AMBAS bases (energía + ambiental)
 
 ### Pedido
@@ -1282,3 +1471,106 @@ solo proyecto: `energia` (energy, consumo eléctrico) y `ambiental`
   `analisis/reporte_gateways_sanna_*.pdf`. Verificado con screenshots
   Playwright: encabezados sobre la columna correcta y cuarto de bombas con
   Vie 02=94.2% / Sáb 03=81.4% / Dom 04=69.4% bajo sus días.
+
+---
+
+## Sesión 11-oct-2026 (casa) — Reporte semanal de conectividad en PDF (28-sep a 04-oct)
+
+### Pedido
+- Rehacer, más ordenado, el PDF `~/Downloads/reporte_gateways_sanna_energia_2026-09-28_a_2026-10-04.pdf`
+  (solo energía, agrupado por gateway) para el jefe: energía + ambiental, **sin
+  gateways** (la asignación punto→gateway no está en la DB) y con los días
+  por debajo del 90% en otro color.
+
+### Ejecutado
+- `scripts/reporte_conectividad.py` (nuevo): consulta EN VIVO ambas bases vía
+  `src.db` (read-only + `validate_sql`), arma un HTML auto-contenido y lo
+  imprime a PDF con Chrome/Edge headless (1 hoja carta). Default = semana
+  pasada lun–dom, empresa Sanna, salida
+  `~/Downloads/reporte_conectividad_<empresa>_<desde>_a_<hasta>.pdf`;
+  opciones `--desde/--hasta/--empresa/--umbral/--out/--html/--chrome`.
+- Métrica = lecturas del día (hora Lima) / esperadas, tope 100%: energía
+  1,440 por equipo (filas con EPpos, criterio de `analisis_huecos.py`),
+  ambiental 288 por sensor. La sala toma su sensor más bajo del día (una
+  falla no se diluye en un promedio); subfilas por sensor solo si en un día
+  en rojo los sensores difieren. Rojo = valor impreso (1 decimal) < 90.
+- Energía agrupada por tablero (sí está en la DB), llave/is_main primero;
+  columna "Semana", fila "Promedio del día" y detalle de cada día en rojo
+  con lecturas recibidas y tiempo total sin datos.
+- Excluye el inventario sin ningún dato en 5 semanas (Sanna: 13 circuitos
+  "Device Falso") y lo aclara en el pie. Aborta si la base no cubre el rango
+  (copia local vieja → rojos falsos) o si el rango incluye el día en curso.
+- `tests/test_reporte_conectividad.py`: 12 pruebas unittest sin DB
+  (`python -m unittest discover -s tests`). ~10 s por reporte.
+
+### Resultado (semana 28-sep → 04-oct)
+- ⚡ 96.2% (13 equipos, 4 tableros). **91/91 celdas idénticas al PDF de
+  referencia** y mismos promedios por día (96.9 … 94.5) y semana. Único
+  rojo: **Llave general cuarto de bombas** (punto 3): sáb 03 81.4% (1,172 de
+  1,440) y dom 04 69.4% (1,000 de 1,440), patrón intermitente (muchos huecos
+  cortos; el más largo 41 min, dom 04 08:59–09:40). Siguió el lun 05 (86.9%)
+  y se recuperó desde el mar 06 (97.4–99.6%).
+- 🌡 99.5% (13 salas, 38 sensores), todas ≥94.8% (la más baja: Ducto
+  resonador magnético, sensor TS-201-TH con ~273–281 lecturas/día).
+  91/91 celdas verificadas contra una consulta independiente por `room_id`.
+
+### Lecciones
+- Chrome headless en macOS escribe el PDF de `--print-to-pdf` pero el
+  proceso no termina (`subprocess.run` colgado hasta el timeout): esperar a
+  que el archivo termine en `%%EOF` y matar el grupo de procesos
+  (`start_new_session` + `killpg`; `taskkill /T` en Windows).
+- Decidir "equipo activo" contando 5 semanas tardaba ~16 s en energía;
+  `EXISTS` por índice solo para los ids sin datos en la semana → ~10 s total.
+- Los túneles que abre `ensure_tunnel` desde scripts sueltos sobreviven al
+  proceso: el script llama a `tunnel.close_tunnel()` al final (solo cierra
+  los que abrió él; reutiliza y deja vivos los ajenos).
+
+### 2º pedido (misma sesión): menos texto + todas las empresas + conectividad final
+- Quitados del PDF: "Generado el…", la explicación "Cada celda es…/En rojo…",
+  el detalle "Días por debajo del 90%", el "✓ Todas las salas…" y el pie de
+  circuitos excluidos (esa info queda solo en la salida de consola).
+- Una página por empresa con datos (semana o 4 semanas previas), orden
+  alfabético; empresas de prueba fuera con `src.monitor.EXCLUIR`.
+  `--empresa` ahora es repetible (default: todas). Archivo:
+  `reporte_conectividad_<desde>_a_<hasta>.pdf` (con `_<empresa>` si se filtra).
+- Al final de cada empresa: tabla "Conectividad promedio de la semana" con
+  Energía | Ambiental | Conectividad final. Final = **promedio simple** de los
+  módulos con las cifras impresas y redondeo .5 hacia arriba (el usuario dijo
+  "sumando ambos": 96.2 + 99.5 = 195.7 no es un %, se divide entre 2). Con
+  un solo módulo, la final es ese módulo ("solo energía").
+- Inventario de empresas (hoy): energía tiene 8; con datos solo Oechsle (18
+  de 40 puntos), Sanna (13 de 26) y Scotiabank (1). Sin datos: BK (31-jul),
+  Madam Tusan (14-may), Pizza Hut (20-abr), KFC (11-abr), TestCorp (nunca).
+  Ambiental tiene 13 empresas; con datos solo Sanna (38 sensores); el resto
+  dejó de enviar entre 2023 y abr-2026 (Zeia y Machu picchu food = prueba).
+  BanBif no existe en ninguna de las dos bases.
+- Semana 28-sep → 04-oct: **Oechsle 96.0%** (solo energía; rojos: Chiller 1
+  dom 04 67.4%, TF-UMAS 2 vie 02 69.8%, Chiller 2 mar 29 88.0%), **Sanna
+  97.9%** = (96.2 + 99.5) ÷ 2, **Scotiabank 100.0%** (solo energía).
+- Verificado contra consultas independientes: 224 celdas de energía (3
+  empresas) + 91 ambientales, promedios desde conteos crudos y las 3
+  conectividades finales; Sanna energía sigue 91/91 igual al PDF original.
+  Ojo: promediar a mano las celdas YA redondeadas puede diferir 0.1 del
+  "Semana" impreso (p. ej. TD-A1: 97.14 vs real 97.16 → 97.2); el reporte
+  promedia los valores sin redondear.
+- Scotiabank el lun 28 tuvo 1,441 filas (1 minuto duplicado): el tope de 100%
+  por celda lo absorbe.
+- Consulta ambiental de "última lectura por combo" con subconsulta por id dio
+  timeout (el índice es `(indicator_device_id, room_id, created_at)`); un solo
+  `GROUP BY` sobre toda la tabla tarda ~9 s.
+
+### Push (misma sesión): integración con el trabajo del 09-oct
+- Al pushear, `origin/main` tenía 3 commits del trabajo (PC Windows, 09-oct:
+  reportes por gateway, `/reporte-semanal/pdf`, respuesta al jefe) y la casa
+  tenía sin commitear lo del 24-sep, 07-oct y 11-oct. Se hizo fast-forward a
+  `origin/main` y se reaplicó lo de casa encima (historia lineal, sin merge):
+  - `webapp.py` = versión del trabajo + el monitor en vivo (import + 3
+    endpoints).
+  - Reporte semanal web (`reporte_semanal.html` + `_reporte_energia/
+    _reporte_ambiental`): se quedó la versión del trabajo (02/09-oct), que
+    reemplaza a la variante de casa del 24-sep (mismo feedback del jefe,
+    implementado dos veces). La variante del 24-sep quedó en la rama LOCAL
+    `respaldo/casa-24sep-11oct` (no pusheada).
+  - Bitácora: sesiones de ambos lados en orden de fecha, sin perder líneas.
+- Lección: trabajar en dos PCs sin pushear diverge. Antes de empezar en
+  cualquiera de las dos: `git pull`; al terminar: commit + push.
