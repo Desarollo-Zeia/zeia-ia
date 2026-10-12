@@ -1,0 +1,621 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+<title>ZEIA · Monitor en vivo</title>
+<script src="/static/vendor/echarts.min.js"></script>
+<style>
+  :root { --bg:#0b1410; --panel:#12201b; --panel2:#0f1b16; --text:#e6edf3;
+          --muted:#8b98a5; --accent:#2dd4a7; --danger:#f87171; --warn:#f59e0b;
+          --border:#1e332b; --inact:#4b5b54; }
+  * { box-sizing:border-box; margin:0; padding:0; }
+  body { font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;
+         background:var(--bg); color:var(--text); padding:18px 22px 50px; }
+  a { color:var(--accent); text-decoration:none; }
+  header { display:flex; align-items:center; gap:14px; flex-wrap:wrap; margin-bottom:6px; }
+  h1 { font-size:19px; color:var(--accent); letter-spacing:.01em; }
+  .sub { color:var(--muted); font-size:12.5px; }
+  .spacer { margin-left:auto; }
+  select, button { background:var(--panel); border:1px solid var(--border); color:var(--text);
+                   padding:7px 12px; border-radius:8px; font-size:13px; cursor:pointer; }
+  button:hover, select:hover { border-color:var(--accent); color:var(--accent); }
+  .seg { display:flex; gap:0; border:1px solid var(--border); border-radius:8px; overflow:hidden; }
+  .seg button { border:none; border-radius:0; background:var(--panel); color:var(--muted); }
+  .seg button.on { background:var(--accent); color:#0b1410; font-weight:600; }
+  .live { display:flex; align-items:center; gap:6px; font-size:12.5px; color:var(--muted); }
+  .live .beacon { width:8px; height:8px; border-radius:50%; background:var(--accent);
+                  animation:pulse 2s infinite; }
+  @keyframes pulse { 0%{box-shadow:0 0 0 0 rgba(45,212,167,.5)} 70%{box-shadow:0 0 0 8px rgba(45,212,167,0)} 100%{box-shadow:0 0 0 0 rgba(45,212,167,0)} }
+
+  #banner { display:none; margin:10px 0 4px; padding:10px 14px; border-radius:10px;
+            font-size:13px; border:1px solid var(--border); background:var(--panel); }
+  #banner.frozen { border-color:var(--warn); color:#f6c56a; background:rgba(245,158,11,.08); }
+  #banner.live { border-color:var(--accent); color:var(--accent); background:rgba(45,212,167,.06); }
+
+  .kpis { display:flex; gap:10px; flex-wrap:wrap; margin:12px 0 4px; }
+  .kpi { background:var(--panel); border:1px solid var(--border); border-radius:10px;
+         padding:9px 15px; min-width:104px; }
+  .kpi .k { font-size:10.5px; color:var(--muted); text-transform:uppercase; letter-spacing:.05em; }
+  .kpi .v { font-size:21px; font-weight:700; color:var(--accent); line-height:1.25; }
+  .kpi .v.warn { color:var(--warn); } .kpi .v.danger { color:var(--danger); }
+  .kpi .v.muted { color:var(--muted); }
+
+  .toolbar { display:flex; align-items:center; gap:10px; margin:14px 0 8px; flex-wrap:wrap; }
+  .crumbs { display:flex; align-items:center; gap:6px; font-size:14px; flex-wrap:wrap; }
+  .crumbs button { padding:4px 9px; font-size:13px; background:transparent; border-color:transparent; }
+  .crumbs button:hover { background:var(--panel); }
+  .crumbs .sep { color:var(--muted); }
+  .crumbs .cur { color:var(--text); font-weight:600; padding:4px 6px; }
+
+  #wall-resumen { color:var(--muted); font-size:13px; margin:6px 0 10px; }
+  #wall-resumen b { color:var(--text); }
+  #chart-wall { width:100%; background:var(--panel); border:1px solid var(--border);
+                border-radius:10px; padding:6px; }
+
+  .grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(240px,1fr)); gap:12px; }
+  .card { background:var(--panel); border:1px solid var(--border); border-radius:12px;
+          padding:14px 16px; cursor:pointer; transition:border-color .15s, transform .1s; }
+  .card:hover { border-color:var(--accent); transform:translateY(-1px); }
+  .card .top { display:flex; align-items:center; gap:8px; margin-bottom:10px; }
+  .card .top b { font-size:15px; }
+  .card .top .tipo { color:var(--muted); font-size:11px; margin-left:auto; text-transform:uppercase; letter-spacing:.04em; }
+  .card .pct { font-size:26px; font-weight:700; }
+  .card .cnt { color:var(--muted); font-size:12px; margin-top:6px; display:flex; gap:10px; flex-wrap:wrap; }
+  .card .cnt b { font-weight:600; }
+
+  .dot { width:11px; height:11px; border-radius:50%; display:inline-block; flex:none; }
+  .dot.ok { background:var(--accent); }
+  .dot.warn { background:var(--warn); }
+  .dot.caido { background:var(--danger); animation:blink 1.1s infinite; }
+  .dot.inactivo, .dot.sin_datos { background:var(--inact); }
+  @keyframes blink { 0%,100%{opacity:1} 50%{opacity:.35} }
+
+  .bar { display:flex; height:8px; border-radius:6px; overflow:hidden; background:var(--border); margin-top:8px; }
+  .bar .seg { height:100%; }
+  .seg.ok { background:var(--accent); } .seg.warn { background:var(--warn); }
+  .seg.caido { background:var(--danger); } .seg.inactivo { background:var(--inact); }
+
+  table { width:100%; border-collapse:collapse; font-size:13px; background:var(--panel);
+          border-radius:10px; overflow:hidden; margin-bottom:16px; }
+  th { background:var(--border); color:var(--muted); font-weight:600; font-size:10.5px;
+       text-transform:uppercase; letter-spacing:.04em; text-align:left; padding:9px 10px; }
+  td { padding:8px 10px; border-top:1px solid var(--border); white-space:nowrap; }
+  tbody tr { cursor:pointer; }
+  tbody tr:hover td { background:rgba(45,212,167,.06); }
+  .grupo-h { font-size:12px; color:var(--muted); text-transform:uppercase; letter-spacing:.05em;
+             margin:16px 0 6px; display:flex; align-items:center; gap:8px; }
+  .grupo-h .dot { width:8px; height:8px; }
+  .bar-mini { width:120px; height:7px; }
+  .bar-mini .seg { height:100%; }
+  .mono { font-variant-numeric:tabular-nums; }
+  .muted { color:var(--muted); }
+  .badge { padding:2px 8px; border-radius:10px; font-size:11px; font-weight:600; white-space:nowrap; }
+  .badge.ok { background:rgba(45,212,167,.15); color:var(--accent); }
+  .badge.warn { background:rgba(245,158,11,.15); color:var(--warn); }
+  .badge.caido { background:rgba(248,113,113,.15); color:var(--danger); }
+  .badge.inactivo { background:rgba(75,91,84,.25); color:var(--muted); }
+
+  #incid-wrap { margin-top:24px; }
+  #incid-wrap h2 { font-size:14px; color:var(--muted); font-weight:600; margin-bottom:8px;
+                   text-transform:uppercase; letter-spacing:.05em; }
+  #incid tbody tr td:first-child { border-left:3px solid transparent; }
+  #incid tbody tr.caido td:first-child { border-left-color:var(--danger); }
+  #incid tbody tr.warn td:first-child { border-left-color:var(--warn); }
+
+  #chart-min { width:100%; background:var(--panel); border:1px solid var(--border);
+               border-radius:10px; padding:6px; }
+  .leyenda { color:var(--muted); font-size:11.5px; margin:6px 0 14px; line-height:1.5; }
+  .resumen { color:var(--muted); font-size:13px; margin:4px 0 12px; }
+  .resumen b { color:var(--accent); }
+  .estado-det { display:flex; gap:14px; flex-wrap:wrap; margin:10px 0; }
+  .estado-det .item { background:var(--panel); border:1px solid var(--border); border-radius:10px;
+                      padding:10px 14px; min-width:130px; }
+  .estado-det .item .k { font-size:10.5px; color:var(--muted); text-transform:uppercase; letter-spacing:.04em; }
+  .estado-det .item .v { font-size:17px; font-weight:700; margin-top:2px; }
+  #err { display:none; background:rgba(248,113,113,.12); border:1px solid var(--danger);
+         color:var(--danger); padding:10px 14px; border-radius:8px; font-size:13px; margin:10px 0;
+         white-space:pre-wrap; }
+  .cargando { animation:blink 1s infinite; }
+  .seccion { display:none; }
+</style>
+</head>
+<body>
+  <header>
+    <h1>ZEIA · Monitor en vivo</h1>
+    <span class="sub" id="sub">Detección de puntos que dejan de enviar datos</span>
+    <span class="spacer"></span>
+    <div class="seg" id="vista">
+      <button data-v="wall" class="on">🖥 En vivo</button>
+      <button data-v="resumen">📋 Resumen</button>
+    </div>
+    <select id="base" title="Módulo"></select>
+    <label class="live"><input type="checkbox" id="live" checked> <span class="beacon"></span> En vivo</label>
+    <button id="refresh">Actualizar</button>
+    <a href="/" style="font-size:13px">Chat →</a>
+  </header>
+
+  <div id="err"></div>
+  <div id="banner"></div>
+  <div class="kpis" id="kpis"></div>
+
+  <div class="toolbar" id="toolbar">
+    <div class="crumbs" id="crumbs"></div>
+    <span class="spacer"></span>
+    <label class="muted" id="lbl-inact" style="font-size:12.5px;display:none"><input type="checkbox" id="ver-inact"> mostrar inactivos</label>
+  </div>
+
+  <!-- ============ TABLERO EN VIVO (todos los puntos, solo hoy, automático) ============ -->
+  <div id="wall" class="seccion">
+    <div id="wall-resumen"></div>
+    <div id="chart-wall"></div>
+    <div class="leyenda">
+      Cada fila = un punto (tienda · punto) · cada celda = 1 minuto de <b>hoy</b> (hora Lima) ·
+      <b style="color:#2dd4a7">Verde</b>: llegó la lectura · <b style="color:#f87171">Rojo</b>: no llegó.
+      Se actualiza solo; no requiere ninguna acción. Los puntos con problema se ordenan arriba.
+    </div>
+  </div>
+
+  <!-- ============ RESUMEN (tienda → punto) ============ -->
+  <div id="lista" class="seccion"></div>
+
+  <!-- Detalle de un punto (solo hoy) -->
+  <div id="detalle" class="seccion">
+    <div class="resumen" id="det-resumen"></div>
+    <div id="det-stats" class="estado-det"></div>
+    <div id="chart-min"></div>
+    <div class="leyenda">
+      Cada celda = 1 minuto de <b>hoy</b>. <b style="color:#2dd4a7">Verde</b>: llegó ·
+      <b style="color:#f87171">Rojo</b>: no llegó · <b style="color:#3a4a44">Gris</b>: fuera de la ventana.
+    </div>
+  </div>
+
+  <div id="incid-wrap">
+    <h2 id="incid-title">Incidentes abiertos</h2>
+    <table id="incid">
+      <thead><tr>
+        <th>Estado</th><th>Tienda</th><th>Tablero / Sala</th>
+        <th>Punto / Indicador</th><th>Última lectura</th><th>Sin reportar</th><th>Disp. hoy</th>
+      </tr></thead>
+      <tbody></tbody>
+    </table>
+  </div>
+
+<script>
+const $ = (id) => document.getElementById(id);
+const MINUTOS_DIA = 1440;
+const ESTADOS = {
+  ok:       {label:"Al día",    color:"#2dd4a7"},
+  warn:     {label:"Atrasado",  color:"#f59e0b"},
+  caido:    {label:"Caído",     color:"#f87171"},
+  sin_datos:{label:"Sin datos", color:"#8b98a5"},
+  inactivo: {label:"Inactivo",  color:"#4b5b54"},
+};
+const ORD = {caido:0, warn:1, sin_datos:2, ok:3, inactivo:4};
+let DATA = null, MODELS = null, TIMER = null, CHART_W = null, CHART_D = null;
+const state = { base:"energia", view:"wall", nivel:"tiendas", tienda:null, uid:null,
+                live:true, verInact:false };
+
+window.addEventListener("error", (e) => {
+  const b = $("err"); b.style.display = "block";
+  b.textContent = "Error en el monitor: " + (e.message || e.type);
+});
+
+/* ---------- utilidades ---------- */
+function pad(n){ return String(n).padStart(2,"0"); }
+function hhmm(m){ return pad(Math.floor(m/60)) + ":" + pad(m%60); }
+function hace(min){
+  if (min == null) return "—";
+  if (min < 1) return "ahora";
+  if (min < 60) return `hace ${Math.round(min)} min`;
+  if (min < 1440) return `hace ${(min/60).toFixed(1)} h`;
+  return `hace ${(min/1440).toFixed(1)} d`;
+}
+function pctColor(p){ return p >= 95 ? "var(--accent)" : p >= 80 ? "var(--warn)" : "var(--danger)"; }
+function esc(s){ return String(s==null?"":s).replace(/[&<>"]/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c])); }
+function tienda(u){ return u.tienda || `${u.empresa} ${u.sede}`.trim(); }
+function dot(e){ return `<span class="dot ${e}"></span>`; }
+function etiquetaEstado(u){
+  if (u.estado === "warn" && u.motivo === "bajo_ritmo") return "Bajo ritmo";
+  if (u.estado === "caido" && u.motivo === "sin_datos") return "Sin datos";
+  return ESTADOS[u.estado].label;
+}
+function peorEstado(us){
+  if (us.some(u=>u.estado==="caido")) return "caido";
+  if (us.some(u=>u.estado==="warn")) return "warn";
+  if (us.some(u=>u.estado==="ok")) return "ok";
+  if (us.some(u=>u.estado==="sin_datos")) return "sin_datos";
+  return "inactivo";
+}
+function agg(us){
+  const c = {total:us.length, ok:0, warn:0, caido:0, sin_datos:0, inactivo:0, esperado:0, perdidos:0};
+  us.forEach(u => { c[u.estado] = (c[u.estado]||0)+1; c.esperado += u.esperado; c.perdidos += u.perdidos; });
+  c.estado = peorEstado(us);
+  c.pct = c.esperado ? Math.round(1000*(c.esperado-c.perdidos)/c.esperado)/10 : 100;
+  return c;
+}
+function barra(a){
+  const t = Math.max(1, a.total);
+  const seg = (n, cls) => n ? `<span class="seg ${cls}" style="width:${100*n/t}%"></span>` : "";
+  return `<div class="bar">${seg(a.ok,"ok")}${seg(a.warn,"warn")}${seg(a.caido,"caido")}${seg(a.inactivo+a.sin_datos,"inactivo")}</div>`;
+}
+
+/* ---------- carga ---------- */
+async function cargar(fresh=false){
+  const b = $("err"); b.style.display = "none";
+  $("sub").classList.add("cargando");
+  try {
+    const r = await fetch(`/api/monitor/estado?base=${encodeURIComponent(state.base)}${fresh?"&fresh=1":""}`);
+    if (!r.ok) throw new Error((await r.json()).detail || r.statusText);
+    DATA = await r.json();
+    DATA._tree = construirArbol(DATA.unidades);
+    pintarKpis(); pintarBanner(); pintarIncidentes();
+    if (state.view === "wall") { $("crumbs").innerHTML=""; $("lbl-inact").style.display="none"; await cargarWall(); }
+    else { $("lbl-inact").style.display=""; pintarCrumbs(); renderResumen();
+           if (state.nivel === "punto") await cargarDetalle(); }
+  } catch (e) {
+    b.style.display = "block"; b.textContent = "Error: " + e.message;
+  } finally {
+    $("sub").classList.remove("cargando");
+  }
+}
+
+function construirArbol(us){
+  const t = new Map();
+  us.forEach(u => {
+    const k = tienda(u);
+    if (!t.has(k)) t.set(k, {unidades:[], grupos:new Map()});
+    const x = t.get(k); x.unidades.push(u);
+    if (!x.grupos.has(u.grupo)) x.grupos.set(u.grupo, []);
+    x.grupos.get(u.grupo).push(u);
+  });
+  return t;
+}
+
+/* ---------- KPIs / banner / incidentes ---------- */
+function kpi(k,v,cls=""){ return `<div class="kpi"><div class="k">${k}</div><div class="v ${cls}">${v}</div></div>`; }
+function pintarKpis(){
+  const t = DATA.resumen.total, f = DATA.fuente;
+  $("kpis").innerHTML = [
+    kpi("Puntos", t.total - t.inactivo),
+    kpi("Al día", t.ok, t.ok ? "" : "muted"),
+    kpi("Atrasados", t.warn, t.warn ? "warn" : "muted"),
+    kpi("Caídos", t.caido, t.caido ? "danger" : "muted"),
+    kpi("Disponibilidad hoy", t.pct + "%", t.pct >= 95 ? "" : t.pct >= 80 ? "warn" : "danger"),
+  ].join("");
+}
+function pintarBanner(){
+  const f = DATA.fuente, el = $("banner");
+  if (f.congelada) {
+    el.className = "frozen";
+    el.innerHTML = `⚠️ <b>Fuente congelada</b>: la base no recibe datos desde ${hace(f.antiguedad_min)} ` +
+      `(${(f.max_global||"").replace("T"," ").slice(0,19)}). El estado refleja el último momento con datos ` +
+      `(probablemente una copia/restore), <b>no</b> una caída de los medidores. ` +
+      `Para monitoreo real apunta la base a producción (túnel SSH).`;
+  } else {
+    el.className = "live";
+    el.innerHTML = `● Fuente en vivo · ${esc(f.dbname)} @ ${esc(f.host)}:${f.port} · ` +
+      `última lectura global ${hace(f.antiguedad_min)}`;
+  }
+  el.style.display = "block";
+}
+function pintarIncidentes(){
+  const us = DATA.unidades
+    .filter(u => u.estado === "warn" || u.estado === "caido")
+    .sort((a,b) => ORD[a.estado]-ORD[b.estado] || (b.antiguedad_min||1e9) - (a.antiguedad_min||1e9));
+  $("incid-title").textContent = `Incidentes abiertos (${us.length})`;
+  $("incid").querySelector("tbody").innerHTML = us.length === 0
+    ? `<tr><td colspan="7" class="muted" style="text-align:center;padding:20px">Sin incidentes · todos los puntos al día ✓</td></tr>`
+    : us.map(u => {
+        const pct = u.pct == null ? "—" : u.pct + "%";
+        return `<tr class="${u.estado}" onclick="verPunto(${u.uid})">
+          <td><span class="badge ${u.estado}">${etiquetaEstado(u)}</span></td>
+          <td>${esc(tienda(u))}</td><td class="muted">${esc(u.grupo)}</td>
+          <td>${u.is_main?"★ ":""}${esc(u.nombre)}</td>
+          <td class="mono">${u.ultima ? esc(u.ultima.replace("T"," ").slice(0,16)) : "—"}</td>
+          <td class="mono">${hace(u.antiguedad_min)}</td>
+          <td class="mono" style="color:${u.pct==null?"var(--muted)":pctColor(u.pct)}">${pct}</td>
+        </tr>`;
+      }).join("");
+}
+
+/* ---------- TABLERO EN VIVO ---------- */
+function puntosActivos(){
+  return DATA.unidades
+    .filter(u => u.estado !== "inactivo")
+    .sort((a,b) => ORD[a.estado]-ORD[b.estado]
+                || tienda(a).localeCompare(tienda(b))
+                || a.nombre.localeCompare(b.nombre));
+}
+async function cargarWall(){
+  const us = puntosActivos();
+  const hoy = DATA.fuente.dia, limite = Math.max(0, DATA.fuente.min_actual - 1);
+  $("wall").style.display = "block"; $("lista").style.display = "none"; $("detalle").style.display = "none";
+  if (!us.length) { $("wall-resumen").textContent = "Sin puntos activos."; return; }
+  const ids = us.map(u => u.uid);
+  let data;
+  try {
+    data = await (await fetch(`/api/monitor/lecturas?base=${state.base}&ids=${ids.join(",")}&desde=${hoy}&hasta=${hoy}`)).json();
+    if (data.detail) throw new Error(data.detail);
+  } catch (e) {
+    $("wall-resumen").innerHTML = `<span style="color:var(--danger)">Error: ${esc(e.message)}</span>`; return;
+  }
+  const pres = {};
+  data.rows.forEach(r => { (pres[r.uid] = pres[r.uid] || new Set()).add(r.hora*60 + r.minuto); });
+  const t = DATA.resumen.total;
+  $("wall-resumen").innerHTML =
+    `<b>Hoy ${hoy}</b> · ahora ${hhmm(limite)} · ${us.length} puntos · ` +
+    `<b style="color:var(--accent)">${t.ok} al día</b> · ` +
+    `<b style="color:var(--warn)">${t.warn} atrasados</b> · ` +
+    `<b style="color:var(--danger)">${t.caido} caídos</b>` +
+    `<span class="muted" style="float:right">actualizado ${new Date().toLocaleTimeString("es-PE")}</span>`;
+  pintarWall(us, pres, limite);
+}
+
+function denoise(fila, n, minRun){
+  // Ignora huecos aislados de 1-2 min (ruido de red); solo deja los cortes reales.
+  let i = 0;
+  while (i < n) {
+    if (fila[i] === 1) {
+      let j = i; while (j < n && fila[j] === 1) j++;
+      if (j - i < minRun) for (let k = i; k < j; k++) fila[k] = 0;
+      i = j;
+    } else i++;
+  }
+}
+function pintarWall(us, pres, limite){
+  const n = Math.max(1, limite + 1);
+  const rich = {ok:{color:"#2dd4a7"}, warn:{color:"#f59e0b"}, caido:{color:"#f87171"},
+                sin_datos:{color:"#8b98a5"}, inactivo:{color:"#4b5b54"}};
+  const conGrupo = state.base === "ambiental";  // la sala desambigua los indicadores
+  const multiTienda = new Set(us.map(u => tienda(u))).size > 1;
+  const data = [], labels = [];
+  us.forEach((u, y) => {
+    const set = pres[u.uid] || new Set();
+    const c = Math.max(1, u.cadencia_min || 1);
+    const fila = new Array(n).fill(1);
+    // "smear" hacia adelante según la cadencia: un sensor cada 5/16 min no
+    // debe verse con huecos; solo se pinta rojo cuando supera su cadencia.
+    set.forEach(m => { for (let k = 0; k < c; k++) { const x = m + k; if (x < n) fila[x] = 0; } });
+    denoise(fila, n, 3);
+    for (let x = 0; x < n; x++) data.push([x, y, fila[x]]);
+    // Etiqueta: tienda (si hay varias) · sala (ambiental) · punto/indicador
+    const partes = [];
+    if (multiTienda) partes.push(tienda(u));
+    if (conGrupo) partes.push(u.grupo);
+    partes.push(u.nombre);
+    labels.push(`{${u.estado}|●} ${partes.join(" · ")}`);
+  });
+  const el = $("chart-wall");
+  el.style.height = Math.max(240, us.length*24 + 120) + "px";
+  if (CHART_W) { CHART_W.dispose(); CHART_W = null; }
+  CHART_W = echarts.init(el);
+  const etX = Array.from({length:n}, (_,i)=>hhmm(i));
+  CHART_W.setOption({
+    grid: {left: 340, right: 26, top: 8, bottom: 54},
+    xAxis: {type:"category", data:etX, axisLine:{lineStyle:{color:"#2dd4a7"}},
+            axisLabel:{color:"#8b98a5", interval:Math.max(1, Math.round(n/28)),
+                       formatter:(_v,i)=>etX[i]}, axisTick:{show:false}},
+    yAxis: {type:"category", data:labels, inverse:true,
+            axisLabel:{color:"#e6edf3", fontSize:11, width:330, overflow:"truncate"},
+            splitLine:{show:false}},
+    visualMap: {show:true, orient:"horizontal", left:"center", bottom:0, type:"piecewise",
+                pieces:[{value:0,label:"Llegó",color:"#1d7a5f"},{value:1,label:"No llegó",color:"#7a1f1f"}],
+                textStyle:{color:"#8b98a5", fontSize:10.5}},
+    dataZoom: [{type:"inside", xAxisIndex:0, startValue:0, endValue:n-1},
+               {type:"slider", xAxisIndex:0, height:14, bottom:24, startValue:0, endValue:n-1,
+                textStyle:{color:"#8b98a5"}}],
+    series: [{type:"heatmap", data, itemStyle:{borderColor:"#0b1410", borderWidth:0.2},
+              emphasis:{itemStyle:{shadowBlur:6, shadowColor:"rgba(0,0,0,.5)"}}}],
+    tooltip: {formatter(a){
+      const u = us[a.value[1]];
+      const pie = a.value[2] === 0 ? "Llegó la lectura" : "No llegó lectura";
+      return `${tienda(u)} · ${u.nombre}<br><b>${hhmm(a.value[0])}</b> — ${pie}`;
+    }},
+  }, true);
+}
+
+/* ---------- RESUMEN: tienda → punto ---------- */
+function renderResumen(){
+  $("wall").style.display = "none";
+  $("lbl-inact").style.display = "";
+  if (state.nivel === "punto") { $("lista").style.display = "none"; $("detalle").style.display = "block"; return; }
+  $("lista").style.display = "block"; $("detalle").style.display = "none";
+  if (state.nivel === "tienda") renderTienda(); else renderTiendas();
+}
+function pintarCrumbs(){
+  const c = [];
+  c.push(state.nivel === "tiendas" ? `<span class="cur">Tiendas</span>` : `<button onclick="irTiendas()">Tiendas</button>`);
+  if (state.tienda) {
+    c.push(`<span class="sep">/</span>`);
+    c.push(state.nivel === "tienda" ? `<span class="cur">${esc(state.tienda)}</span>`
+      : `<button onclick="irTienda('${esc(state.tienda)}')">${esc(state.tienda)}</button>`);
+  }
+  if (state.nivel === "punto" && state.uid) {
+    const u = DATA.unidades.find(x=>x.uid===state.uid);
+    if (u) c.push(`<span class="sep">/</span><span class="cur">${esc(u.nombre)}</span>`);
+  }
+  $("crumbs").innerHTML = c.join(" ");
+}
+function card(nombre, a, onclick){
+  return `<div class="card" onclick="${onclick}">
+    <div class="top">${dot(a.estado)}<b>${esc(nombre)}</b><span class="tipo">tienda</span></div>
+    <div class="pct" style="color:${pctColor(a.pct)}">${a.pct}%</div>
+    ${barra(a)}
+    <div class="cnt">
+      <span><b style="color:var(--accent)">${a.ok}</b> al día</span>
+      ${a.warn?`<span><b style="color:var(--warn)">${a.warn}</b> atras.</span>`:""}
+      ${a.caido?`<span><b style="color:var(--danger)">${a.caido}</b> caídos</span>`:""}
+    </div>
+  </div>`;
+}
+function renderTiendas(){
+  const arr = [...DATA._tree.entries()].map(([t,e]) => [t, agg(e.unidades)])
+    .sort((a,b) => ORD[a[1].estado]-ORD[b[1].estado] || a[0].localeCompare(b[0]));
+  $("lista").innerHTML = `<div class="grid">` +
+    arr.map(([t,a]) => card(t, a, `irTienda('${esc(t)}')`)).join("") + `</div>`;
+}
+function filaPunto(u){
+  const pct = u.pct == null ? "—" : u.pct + "%";
+  return `<tr onclick="verPunto(${u.uid})">
+    <td>${dot(u.estado)} <span class="badge ${u.estado}">${etiquetaEstado(u)}</span></td>
+    <td>${u.is_main ? '<span title="punto principal">★</span> ' : ""}${esc(u.nombre)}</td>
+    <td class="muted">${esc(u.dispositivo||"")}</td>
+    <td class="mono">${hace(u.antiguedad_min)}</td>
+    <td class="mono">${u.esperado ? `${u.min_ventana} / ${u.esperado}` : "—"}</td>
+    <td><div style="display:flex;align-items:center;gap:8px">
+      <div class="bar bar-mini"><span class="seg ${u.pct>=95?"ok":u.pct>=80?"warn":"caido"}" style="width:${u.pct||0}%"></span></div>
+      <span class="mono" style="color:${u.pct==null?"var(--muted)":pctColor(u.pct)}">${pct}</span></div></td>
+  </tr>`;
+}
+function renderTienda(){
+  const e = DATA._tree.get(state.tienda);
+  if (!e) return irTiendas();
+  const a = agg(e.unidades);
+  const grupos = [...e.grupos.entries()].sort((x,y)=>x[0].localeCompare(y[0]));
+  let html = `<div class="resumen"><b>${a.pct}%</b> disponibilidad hoy · ` +
+    `<b style="color:var(--accent)">${a.ok}</b> al día · ` +
+    `<b style="color:var(--warn)">${a.warn}</b> atrasados · ` +
+    `<b style="color:var(--danger)">${a.caido}</b> caídos</div>`;
+  grupos.forEach(([grupo, us]) => {
+    const vis = us.filter(u => state.verInact || u.estado !== "inactivo")
+                  .sort((x,y) => ORD[x.estado]-ORD[y.estado] || x.nombre.localeCompare(y.nombre));
+    if (!vis.length) return;
+    const ga = agg(us);
+    html += `<div class="grupo-h">${dot(ga.estado)} ${esc(grupo)} <span class="muted">(${vis.length})</span></div>
+      <table><thead><tr><th>Estado</th><th>Punto / Indicador</th><th>Dispositivo</th>
+      <th>Última lectura</th><th>Min / esper.</th><th>Disponibilidad</th></tr></thead>
+      <tbody>${vis.map(filaPunto).join("")}</tbody></table>`;
+  });
+  $("lista").innerHTML = html;
+}
+
+/* ---------- DETALLE de un punto (solo hoy) ---------- */
+async function verPunto(uid){
+  const u = DATA.unidades.find(x => x.uid === uid);
+  if (!u) return;
+  state.view = "resumen"; state.nivel = "punto"; state.uid = uid; state.tienda = tienda(u);
+  document.querySelectorAll("#vista button").forEach(b => b.classList.toggle("on", b.dataset.v==="resumen"));
+  pintarCrumbs();
+  $("wall").style.display = "none"; $("lista").style.display = "none"; $("detalle").style.display = "block";
+  $("lbl-inact").style.display = "";
+  await cargarDetalle();
+}
+async function cargarDetalle(){
+  const u = DATA.unidades.find(x => x.uid === state.uid);
+  if (!u) return;
+  const hoy = DATA.fuente.dia, limite = Math.max(0, DATA.fuente.min_actual - 1);
+  $("det-resumen").textContent = "Cargando…";
+  try {
+    const data = await (await fetch(`/api/monitor/lecturas?base=${state.base}&ids=${u.uid}&desde=${hoy}&hasta=${hoy}`)).json();
+    if (data.detail) throw new Error(data.detail);
+    const set = new Set();
+    data.rows.forEach(r => set.add(r.hora*60 + r.minuto));
+    const meta = (data.meta||[])[0] || {};
+    pintarDetalle(u, set, hoy, limite, meta);
+  } catch (e) {
+    $("det-resumen").innerHTML = `<span style="color:var(--danger)">Error: ${esc(e.message)}</span>`;
+  }
+}
+function pintarDetalle(u, set, hoy, limite, meta){
+  const n = Math.max(1, limite + 1);
+  const c = Math.max(1, u.cadencia_min || 1);
+  const fila = new Array(n).fill(1);
+  set.forEach(m => { for (let k = 0; k < c; k++) { const x = m + k; if (x < n) fila[x] = 0; } });
+  let presentes = 0;
+  for (let x = 0; x < n; x++) if (fila[x] === 0) presentes++;
+  const faltan = n - presentes;
+  const cob = n ? 100*presentes/n : 0;
+  // ventanas de minutos sin dato (en tiempo real)
+  const vent = []; let ini = null;
+  for (let x = 0; x < n; x++) {
+    if (fila[x] === 1) { if (ini === null) ini = x; }
+    else if (ini !== null) { vent.push([ini, x-1]); ini = null; }
+  }
+  if (ini !== null) vent.push([ini, n-1]);
+  const racha = vent.slice().sort((a,b)=>(b[1]-b[0])-(a[1]-a[0]))[0];
+  const grandes = vent.filter(v=>v[1]-v[0]+1>15).sort((a,b)=>(b[1]-b[0])-(a[1]-a[0])).slice(0,4)
+    .map(v=>`${hhmm(v[0])}–${hhmm(v[1])} (${v[1]-v[0]+1}m)`).join(" · ") || "—";
+  $("det-resumen").innerHTML = `<b>${esc(tienda(u))} · ${esc(u.nombre)}</b> · ` +
+    `<span class="badge ${u.estado}">${etiquetaEstado(u)}</span> · ` +
+    `<b style="color:${cob>=95?"var(--accent)":cob>=80?"var(--warn)":"var(--danger)"}">${cob.toFixed(1)}%</b> ` +
+    `de cobertura hoy (${hhmm(limite)}) · <b>${faltan}</b> min sin dato`;
+  $("det-stats").innerHTML = [
+    detItem("Último dato", meta.ultima_hhmm ? (meta.ultimo_dia + " " + meta.ultima_hhmm) : "—"),
+    detItem("Hace", hace(u.antiguedad_min)),
+    detItem("Racha sin datos", racha ? `${hhmm(racha[0])}–${hhmm(racha[1])} (${racha[1]-racha[0]+1} min)` : "—"),
+    detItem("Ventanas > 15 min", grandes),
+  ].join("");
+  const el = $("chart-min");
+  el.style.height = "260px";
+  if (CHART_D) { CHART_D.dispose(); CHART_D = null; }
+  CHART_D = echarts.init(el);
+  const data = []; for (let x = 0; x < n; x++) data.push([x, 0, fila[x]]);
+  const etX = Array.from({length:n}, (_,i)=>hhmm(i));
+  CHART_D.setOption({
+    grid: {left: 130, right: 26, top: 8, bottom: 54},
+    xAxis: {type:"category", data:etX, axisLine:{lineStyle:{color:"#2dd4a7"}},
+            axisLabel:{color:"#8b98a5", interval:Math.max(1, Math.round(n/28)), formatter:(_v,i)=>etX[i]},
+            axisTick:{show:false}},
+    yAxis: {type:"category", data:[u.nombre], axisLabel:{color:"#e6edf3", fontSize:11},
+            splitLine:{show:false}},
+    visualMap: {show:true, orient:"horizontal", left:"center", bottom:0, type:"piecewise",
+                pieces:[{value:0,label:"Llegó",color:"#1d7a5f"},{value:1,label:"No llegó",color:"#7a1f1f"}],
+                textStyle:{color:"#8b98a5", fontSize:10.5}},
+    dataZoom: [{type:"inside", xAxisIndex:0, startValue:0, endValue:n-1},
+               {type:"slider", xAxisIndex:0, height:14, bottom:24, startValue:0, endValue:n-1,
+                textStyle:{color:"#8b98a5"}}],
+    series: [{type:"heatmap", data, itemStyle:{borderColor:"#0b1410", borderWidth:0.2}}],
+    tooltip: {formatter(a){
+      return `${hhmm(a.value[0])} — ${a.value[2]===0?"Llegó la lectura":"No llegó lectura"}`;
+    }},
+  }, true);
+}
+function detItem(k,v){ return `<div class="item"><div class="k">${k}</div><div class="v">${esc(v)}</div></div>`; }
+
+/* ---------- navegación ---------- */
+function irTiendas(){ state.nivel="tiendas"; state.tienda=null; state.uid=null; renderResumen(); pintarCrumbs(); }
+function irTienda(t){ state.nivel="tienda"; state.tienda=t; state.uid=null; renderResumen(); pintarCrumbs(); }
+function setVista(v){
+  state.view = v;
+  document.querySelectorAll("#vista button").forEach(b => b.classList.toggle("on", b.dataset.v===v));
+  if (v === "wall") { $("crumbs").innerHTML = ""; $("lbl-inact").style.display = "none"; cargarWall(); }
+  else { $("lbl-inact").style.display = ""; pintarCrumbs(); renderResumen(); }
+}
+window.irTiendas = irTiendas; window.irTienda = irTienda; window.verPunto = verPunto;
+
+/* ---------- eventos ---------- */
+$("refresh").addEventListener("click", () => cargar(true));
+$("ver-inact").addEventListener("change", e => { state.verInact = e.target.checked; renderResumen(); });
+$("base").addEventListener("change", e => { state.base = e.target.value; irTiendas(); cargar(true); });
+document.querySelectorAll("#vista button").forEach(b =>
+  b.addEventListener("click", () => setVista(b.dataset.v)));
+$("live").addEventListener("change", e => {
+  state.live = e.target.checked;
+  if (TIMER) { clearInterval(TIMER); TIMER = null; }
+  if (state.live) TIMER = setInterval(() => cargar(true), 20000);
+});
+window.addEventListener("resize", () => { CHART_W && CHART_W.resize(); CHART_D && CHART_D.resize(); });
+
+(async function init(){
+  const params = new URLSearchParams(location.search);
+  try {
+    MODELS = await (await fetch("/api/models")).json();
+    $("base").innerHTML = (MODELS.bases||[]).map(b => `<option value="${b.id}">${b.label}</option>`).join("");
+    const pref = params.get("base");
+    if (pref && (MODELS.bases||[]).some(b=>b.id===pref)) state.base = pref;
+    $("base").value = state.base;
+  } catch (e) {}
+  // Enlaces directos: ?vista=resumen&tienda=..&uid=.. (antes de la 1ª carga)
+  if (params.get("vista") === "resumen") state.view = "resumen";
+  document.querySelectorAll("#vista button").forEach(b => b.classList.toggle("on", b.dataset.v===state.view));
+  TIMER = setInterval(() => { if (state.live) cargar(true); }, 20000);
+  await cargar(true);
+  const t = params.get("tienda"), uid = Number(params.get("uid"));
+  if (t && DATA._tree.has(t)) irTienda(t);
+  if (uid && DATA.unidades.some(u => u.uid === uid)) await verPunto(uid);
+})();
+</script>
+</body>
+</html>

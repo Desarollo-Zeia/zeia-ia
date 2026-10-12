@@ -32,7 +32,7 @@ from openai import OpenAI
 from pydantic import BaseModel
 import psycopg2
 
-from src import config, elevenlabs, speech
+from src import config, elevenlabs, speech, monitor
 from src.agent import EnergyAgent
 
 ROOT = Path(__file__).resolve().parent
@@ -929,6 +929,56 @@ def lecturas_data(puntos: Optional[str] = None,
             return {"rows": rows, "total": len(rows), "meta": meta}
     finally:
         conn.close()
+
+
+# --- Monitor en vivo (salud de datos) -----------------------------------------
+# Vista "qué punto/combo dejó de traer información" con drill-down
+# General → Empresa → Sede → Unidad. Estado calculado en src/monitor.py.
+
+@app.get("/monitor")
+def monitor_page():
+    """Monitor en tiempo real de llegada de lecturas."""
+    return FileResponse(STATIC / "monitor.html",
+                        headers={"Cache-Control": "no-store"})
+
+
+@app.get("/api/monitor/estado")
+def monitor_estado(base: str = "energia", fresh: int = 0):
+    """Estado en vivo de todos los puntos/combos de una base."""
+    try:
+        return monitor.estado(base, fresh=bool(fresh))
+    except ValueError as e:
+        raise HTTPException(400, str(e))
+    except Exception as e:
+        raise HTTPException(503, f"No se pudo leer la base '{base}': {e}")
+
+
+@app.get("/api/monitor/lecturas")
+def monitor_lecturas(base: str = "energia", ids: str = "",
+                     desde: Optional[str] = None,
+                     hasta: Optional[str] = None):
+    """Minuto a minuto (hora Lima) de 1..40 puntos/combos para el detalle."""
+    idlist = [int(x) for x in ids.split(",") if x.strip().isdigit()]
+    if not idlist:
+        raise HTTPException(400, "Parámetro ids requerido, ej: ?ids=76,75")
+    if len(idlist) > 100:
+        raise HTTPException(400, "Máximo 100 puntos/combos a la vez")
+    if not desde:
+        desde = (date.today() - timedelta(days=1)).isoformat()
+    hasta = hasta or desde
+    try:
+        d0 = date.fromisoformat(desde)
+        d1 = date.fromisoformat(hasta)
+    except ValueError:
+        raise HTTPException(400, "Fechas inválidas (usar YYYY-MM-DD)")
+    if d1 < d0 or (d1 - d0).days >= 10:
+        raise HTTPException(400, "Rango máximo 10 días")
+    try:
+        return monitor.lecturas(base, idlist, desde, hasta)
+    except ValueError as e:
+        raise HTTPException(400, str(e))
+    except Exception as e:
+        raise HTTPException(503, f"No se pudo leer la base '{base}': {e}")
 
 
 # --- Reporte por gateway (Sanna ambiental, estilo sketch oct-2026) ---------------
