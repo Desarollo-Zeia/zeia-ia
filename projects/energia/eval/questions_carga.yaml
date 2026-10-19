@@ -1,0 +1,18 @@
+# Prueba de carga: análisis de 3 meses sobre datos reales (mayo-julio 2026).
+# Mide: latencia total, costo, iteraciones y corrección numérica.
+
+- id: c1_puntos_3meses
+  difficulty: 2
+  question: "Compara el consumo mensual en kWh de los puntos 'Data center UPS / Transformadores' y 'TN-P-12/TE-P-12' de Sanna San Borja durante mayo, junio y julio de 2026. ¿Cuál consume más y cómo evoluciona mes a mes?"
+  expected_facts:
+    - "GT mp40 Data center: may 6,677 / jun 6,509 / jul 6,012 kWh"
+    - "GT mp34 TN-P-12: may 4,289 / jun 4,240 / jul 3,752 kWh"
+    - "Data center consume ~55-60% más; ambos bajan mes a mes"
+
+- id: c2_tableros_3meses
+  difficulty: 3
+  question: "Compara el consumo mensual en kWh entre el tablero TGA (N) y el tablero TG-RT de Sanna San Borja durante mayo, junio y julio de 2026 usando sus llaves generales. ¿Qué tablero concentra más consumo y qué porcentaje del total representa?"
+  expected_facts:
+    - "TGA llave (mp4): may 72,277 / jun 71,373 / jul 64,629 kWh"
+    - "TG-RT Tomógrafo (mp2): may 20,589 / jun 20,313 / jul 18,745 kWh"
+    - "TGA ≈ 77-78% del total de ambos"

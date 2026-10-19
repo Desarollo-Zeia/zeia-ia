@@ -8,6 +8,7 @@
 <meta http-equiv="Expires" content="0">
 <title>ZEIA · Huecos de lectura</title>
 <script src="/static/vendor/echarts.min.js"></script>
+<script src="/static/nav.js?v=1" defer></script>
 <style>
   :root { --bg:#0b1410; --panel:#12201b; --text:#e6edf3; --muted:#8b98a5;
           --accent:#2dd4a7; --danger:#f87171; --warn:#f59e0b; --border:#1e332b; }
@@ -70,9 +71,9 @@
 </head>
 <body>
   <header>
+    <span data-zeia-nav></span>
     <h1>ZEIA · Huecos de lectura</h1>
     <span class="sub">Pérdidas de datos en el monitoreo. Datos generados por scripts/analisis_huecos.py</span>
-    <span style="margin-left:auto"><a href="/reporte-semanal" style="color:var(--accent);font-size:13px">Reporte semanal →</a></span>
   </header>
 
   <div id="err"></div>

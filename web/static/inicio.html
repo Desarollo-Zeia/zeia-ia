@@ -1,0 +1,395 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>ZEIA · Índice de páginas</title>
+<style>
+  :root{
+    --bg:#0b0e13; --panel:#12161d; --panel-2:#171c25; --line:#232a35;
+    --ink:#e8ecf2; --mut:#9aa3b2; --soft:#c9cfda; --accent:#ffb454;
+    --ok:#2dd4a7; --warn:#f5b041; --bad:#ff7a7a; --link:#7cb8ff;
+  }
+  *{box-sizing:border-box}
+  [hidden]{display:none!important}
+  body{margin:0;background:var(--bg);color:var(--ink);
+       font:14px/1.55 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;
+       background-image:radial-gradient(circle at 1px 1px,rgba(255,255,255,.03) 1px,transparent 0);
+       background-size:26px 26px}
+  a{color:var(--link);text-decoration:none}
+  a:hover{text-decoration:underline}
+  :focus-visible{outline:2px solid var(--accent);outline-offset:2px;border-radius:4px}
+  code{font:12.5px/1.4 ui-monospace,"Cascadia Mono",Consolas,monospace;background:var(--panel-2);
+       border:1px solid var(--line);border-radius:6px;padding:1px 6px;color:#dde2ea;
+       overflow-wrap:anywhere}
+  .wrap{max-width:1180px;margin:0 auto;padding:26px clamp(14px,3vw,32px) 60px}
+  header.top{display:flex;align-items:center;gap:14px;margin-bottom:20px}
+  .logo{width:42px;height:42px;border-radius:11px;display:grid;place-items:center;flex:none;
+        font-weight:800;font-size:20px;color:#0b0e13;background:linear-gradient(135deg,var(--accent),#fff4)}
+  h1{font-size:23px;margin:0;letter-spacing:-.01em}
+  h2{font-size:17px;margin:0 0 4px}
+  h3{font-size:15px;margin:0}
+  .sub{color:var(--mut);margin:3px 0 0;font-size:13.5px}
+  .mut{color:var(--mut)}
+  .chico{font-size:12.5px}
+  .nota{color:var(--mut);font-size:13px;margin:0 0 12px}
+  .panel{background:var(--panel);border:1px solid var(--line);border-radius:14px;
+         padding:16px 18px;margin-bottom:22px}
+
+  /* Buscador */
+  .buscar{display:flex;align-items:center;gap:10px;margin:0 0 20px;flex-wrap:wrap}
+  .buscar label{font-weight:600}
+  .buscar input{flex:1;min-width:240px;max-width:520px;background:var(--panel);color:var(--ink);
+                border:1px solid var(--line);border-radius:10px;padding:10px 13px;font-size:14px}
+  .buscar input:focus{border-color:var(--accent);outline:none}
+  .buscar kbd{font:12px ui-monospace,Consolas,monospace;border:1px solid var(--line);
+              border-radius:5px;padding:0 5px;color:var(--soft)}
+
+  /* Secciones y tarjetas */
+  .seccion{margin-bottom:26px}
+  .seccion > h2{font-size:18px}
+  .cards{display:grid;grid-template-columns:repeat(auto-fill,minmax(min(330px,100%),1fr));gap:14px}
+  .card{background:linear-gradient(165deg,var(--panel),var(--panel-2));border:1px solid var(--line);
+        border-radius:14px;padding:15px 17px;display:flex;flex-direction:column;gap:8px}
+  .card:hover{border-color:#3a4456}
+  .card h3 a{color:var(--ink);font-size:16px}
+  .card h3 a:hover{color:var(--accent);text-decoration:none}
+  .ruta{align-self:flex-start;color:var(--accent)}
+  .resumen{margin:0}
+  .detalle{margin:0;padding-left:18px;color:var(--soft);font-size:13px;display:flex;
+           flex-direction:column;gap:3px}
+  .cuando{margin:0;font-size:13px;color:var(--soft)}
+  .cuando b{color:var(--ink)}
+  .links{display:flex;flex-wrap:wrap;gap:6px;align-items:center}
+  .lbl{font-size:12px;color:var(--mut);margin-right:2px}
+  .chip{border:1px solid var(--line);background:var(--panel-2);border-radius:999px;
+        padding:3px 11px;font-size:12.5px;color:var(--ink)}
+  .chip:hover{border-color:var(--accent);color:var(--accent);text-decoration:none}
+  .chip.pdf{border-color:rgba(255,122,122,.45)}
+  .fuentes{display:flex;flex-wrap:wrap;gap:6px;margin-top:auto;padding-top:8px;
+           border-top:1px dashed var(--line)}
+  .badge{font-size:11.5px;border-radius:7px;padding:2px 8px;border:1px solid var(--line);
+         color:var(--mut);background:#0f131a}
+  .badge.vivo{color:var(--ok);border-color:rgba(45,212,167,.35)}
+  .badge.ok{color:#b9e8d9;border-color:rgba(45,212,167,.25)}
+  .badge.viejo{color:var(--warn);border-color:rgba(245,176,65,.4)}
+  .badge.local{color:var(--soft);border-color:#3a4252}
+  .ext{margin:0;font-size:13px}
+  .ext.on{color:var(--ok)}
+  .ext.off{color:var(--warn)}
+
+  /* Estado de los datos */
+  .estado-grid{display:grid;grid-template-columns:1fr 1.3fr;gap:20px}
+  @media(max-width:860px){.estado-grid{grid-template-columns:1fr}}
+  .estado-grid h3{font-size:12px;text-transform:uppercase;letter-spacing:.06em;color:var(--mut);
+                  margin-bottom:8px}
+  .lista{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:12px}
+  .pill{display:inline-block;font-size:11px;font-weight:700;border-radius:999px;padding:1px 9px;
+        margin-right:4px;vertical-align:1px;border:1px solid}
+  .pill.ok{color:var(--ok);border-color:rgba(45,212,167,.45);background:rgba(45,212,167,.1)}
+  .pill.viejo{color:var(--warn);border-color:rgba(245,176,65,.45);background:rgba(245,176,65,.1)}
+  .pill.mal{color:var(--bad);border-color:rgba(255,122,122,.45);background:rgba(255,122,122,.1)}
+  .pill.local{color:var(--soft);border-color:#3a4252;background:#1b212c}
+  .cmd{display:flex;align-items:center;gap:8px;margin-top:6px;flex-wrap:wrap}
+  .copiar{background:var(--panel-2);color:var(--ink);border:1px solid var(--line);border-radius:7px;
+          padding:3px 10px;font-size:12px;cursor:pointer}
+  .copiar:hover{border-color:var(--accent);color:var(--accent)}
+
+  /* Terminal y rutas */
+  .comandos{list-style:none;margin:0;padding:0;display:grid;
+            grid-template-columns:repeat(auto-fill,minmax(min(340px,100%),1fr));gap:12px}
+  .comandos li{background:var(--panel-2);border:1px solid var(--line);border-radius:10px;padding:10px 12px}
+  .ct{font-weight:600}
+  details.panel > summary{cursor:pointer}
+  details.panel > summary h2{display:inline;font-size:17px}
+  .tabla{overflow-x:auto}
+  table{width:100%;border-collapse:collapse;font-size:13px;margin-top:10px}
+  th,td{text-align:left;padding:6px 8px;border-top:1px solid var(--line);vertical-align:top}
+  th{color:var(--mut);font-size:11.5px;text-transform:uppercase;letter-spacing:.05em;border-top:0}
+  td:first-child{white-space:nowrap}
+  .alerta{border:1px solid rgba(245,176,65,.5);background:rgba(245,176,65,.08);color:#f6d38d;
+          border-radius:10px;padding:10px 14px;margin-bottom:16px}
+  .alerta.mal{border-color:rgba(255,122,122,.5);background:rgba(255,122,122,.08);color:var(--bad)}
+  .pie{color:var(--mut);font-size:12.5px;margin-top:10px}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header class="top">
+    <div class="logo" aria-hidden="true">Z</div>
+    <div>
+      <h1>ZEIA · Índice de páginas</h1>
+      <p class="sub">Todo lo que hay en esta app, para qué sirve cada página y de dónde saca los
+        datos. En cualquier página, el botón <b>☰ Índice</b> trae este listado.</p>
+    </div>
+  </header>
+
+  <div id="error" class="alerta mal" role="alert" hidden></div>
+  <div id="sin-describir" class="alerta" role="status" hidden></div>
+
+  <div class="buscar" role="search">
+    <label for="q">Buscar página</label>
+    <input id="q" type="search" autocomplete="off"
+           placeholder="ej.: gateway, PDF, sala, huecos, voz…" aria-describedby="ayuda-q">
+    <span id="ayuda-q" class="mut chico">Enter abre la mejor coincidencia · <kbd>/</kbd> para buscar</span>
+    <span id="cuenta" class="mut chico" aria-live="polite"></span>
+  </div>
+
+  <div id="secciones"><p class="mut">Cargando…</p></div>
+  <p id="vacio" class="mut" hidden>Ninguna página coincide con la búsqueda.</p>
+
+  <section class="panel" id="estado" aria-labelledby="t-estado">
+    <h2 id="t-estado">De dónde salen los datos ahora</h2>
+    <p class="nota">Las páginas <b>en vivo</b> consultan la base en el momento. Las que leen un
+      <b>export</b> (archivos de <code>analisis/</code>) muestran lo que había cuando se generó.</p>
+    <div class="estado-grid">
+      <div><h3>Bases</h3><ul id="bases" class="lista"></ul></div>
+      <div><h3>Exports</h3><ul id="exports" class="lista"></ul></div>
+    </div>
+  </section>
+
+  <section class="panel" id="terminal" aria-labelledby="t-term">
+    <h2 id="t-term">Desde la terminal</h2>
+    <p class="nota">En PowerShell, dentro de la carpeta del proyecto y con el entorno activado
+      (<code>.\venv\Scripts\Activate.ps1</code>).</p>
+    <ul id="comandos" class="comandos"></ul>
+  </section>
+
+  <details class="panel" id="rutas">
+    <summary><h2>Todas las rutas de la app (<span id="n-rutas">…</span>)</h2>
+      <span class="mut chico">— lista automática, para desarrollo</span></summary>
+    <p class="nota" style="margin-top:10px">Sale de la propia app, así que siempre está completa. Las
+      <b>API</b> las usan las páginas por dentro; se prueban en <a href="/docs">/docs</a>.</p>
+    <div class="tabla">
+      <table>
+        <thead><tr><th scope="col">Tipo</th><th scope="col">Método</th>
+                   <th scope="col">Ruta</th><th scope="col">Descripción</th></tr></thead>
+        <tbody id="tabla-rutas"></tbody>
+      </table>
+    </div>
+  </details>
+
+  <p class="pie" id="pie"></p>
+</div>
+
+<script>
+const $ = id => document.getElementById(id);
+const esc = s => String(s ?? "").replace(/[&<>"']/g, c =>
+  ({"&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;"}[c]));
+const MESES = ["ene","feb","mar","abr","may","jun","jul","ago","sep","oct","nov","dic"];
+const fecha = iso => {
+  if (!iso) return "?";
+  const [, m, d] = String(iso).slice(0, 10).split("-");
+  return `${d}-${MESES[+m - 1]}`;
+};
+const norm = s => String(s || "").normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase();
+const ICONO_SECCION = {ia: "💬", vivo: "🟢", reportes: "📄", historico: "🔎", tecnico: "🛠"};
+const ICONO_BASE = {energia: "⚡", ambiental: "🌡"};
+const MODO = {produccion: "en vivo (producción)", local: "copia local", remota: "servidor remoto"};
+const TIPO = {pagina: "Página", pdf: "PDF", api: "API", fastapi: "FastAPI"};
+let D = null;
+
+function btnCopiar(txt) {
+  return `<button type="button" class="copiar" data-copiar="${esc(txt)}"
+            aria-label="Copiar: ${esc(txt)}">Copiar</button>`;
+}
+
+function badgeBase(id) {
+  const b = D.bases.find(x => x.id === id);
+  if (!b) return "";
+  const cls = b.modo === "produccion" ? "vivo" : "local";
+  return `<span class="badge ${cls}">${ICONO_BASE[id] || ""} Consulta ${esc(b.label)}:
+          ${esc(MODO[b.modo] || b.modo)}</span>`;
+}
+
+function badgeExport(id) {
+  const e = D.exports[id];
+  if (!e) return "";
+  const txt = e.estado === "falta" ? "falta el archivo"
+            : e.hasta ? `datos hasta el ${fecha(e.hasta)}` : "sin fecha";
+  const cls = e.estado === "ok" ? "ok" : "viejo";
+  return `<span class="badge ${cls}" title="${esc(e.texto)}">📁 ${esc(e.titulo)}: ${txt}${
+            e.estado === "ok" ? "" : " ⚠"}</span>`;
+}
+
+function card(p) {
+  const ext = p.externa;
+  const datos = p.datos || {};
+  const fuentes = [...(datos.bases || []).map(badgeBase),
+                   ...(datos.exports || []).map(badgeExport)].join("");
+  const variantes = (p.variantes || []).map(v =>
+    `<a class="chip" href="${esc(v.url)}">${esc(v.etiqueta)}</a>`).join("");
+  const pdfs = (p.pdf || []).map(v =>
+    `<a class="chip pdf" href="${esc(v.url)}">⬇ ${esc(v.etiqueta)}</a>`).join("");
+  const estadoExt = !ext ? "" : `<p class="ext ${p.corriendo ? "on" : "off"}">${
+      p.corriendo ? "● Encendida ahora" : "○ Apagada ahora"} — es otra app, puerto ${ext.puerto}.
+      Se levanta con <code>${esc(ext.comando)}</code></p>`;
+  const texto = norm([p.titulo, p.resumen, ...(p.detalle || []), p.cuando, p.ruta,
+                      ...(p.variantes || []).map(v => v.etiqueta),
+                      (p.pdf || []).length ? "pdf descargar" : ""].join(" "));
+  return `<article class="card" data-texto="${esc(texto)}" data-titulo="${esc(norm(p.titulo))}"
+             data-url="${esc(p.url)}">
+    <h3><a href="${esc(p.url)}">${esc(p.titulo)}</a></h3>
+    <code class="ruta">${esc(ext ? p.url : p.ruta)}</code>
+    <p class="resumen">${esc(p.resumen)}</p>
+    ${(p.detalle || []).length
+        ? `<ul class="detalle">${p.detalle.map(x => `<li>${esc(x)}</li>`).join("")}</ul>` : ""}
+    ${p.cuando ? `<p class="cuando"><b>Úsala para:</b> ${esc(p.cuando)}</p>` : ""}
+    ${estadoExt}
+    ${variantes ? `<div class="links"><span class="lbl">Abrir:</span>${variantes}</div>` : ""}
+    ${pdfs ? `<div class="links"><span class="lbl">PDF:</span>${pdfs}
+              <span class="mut chico">(tarda unos segundos)</span></div>` : ""}
+    ${fuentes ? `<div class="fuentes">${fuentes}</div>` : ""}
+  </article>`;
+}
+
+function renderSecciones() {
+  $("secciones").innerHTML = D.secciones.filter(s => s.paginas.length).map(s => `
+    <section class="seccion" aria-labelledby="sec-${esc(s.id)}">
+      <h2 id="sec-${esc(s.id)}"><span aria-hidden="true">${ICONO_SECCION[s.id] || "•"}</span>
+        ${esc(s.titulo)}</h2>
+      <p class="nota">${esc(s.descripcion)}</p>
+      <div class="cards">${s.paginas.map(card).join("")}</div>
+    </section>`).join("");
+}
+
+function renderEstado() {
+  const enVivo = D.comandos.find(c => c.comando.includes("webapp_en_vivo"));
+  $("bases").innerHTML = D.bases.map(b => `<li>
+      <span class="pill ${b.modo === "produccion" ? "ok" : "local"}">${
+        b.modo === "produccion" ? "En vivo" : b.modo === "local" ? "Local" : "Remota"}</span>
+      <b>${ICONO_BASE[b.id] || ""} ${esc(b.label)}</b> <span class="mut">(base ${esc(b.base)})</span>
+      → ${esc(b.texto)} <code>${esc(b.destino)}</code></li>`).join("") +
+    `<li class="mut chico">Se cambia en <code>.env</code>${enVivo
+        ? ` (o arrancando con <code>${esc(enVivo.comando)}</code>)` : ""}. Si es una copia
+      local, el <a href="/monitor">Monitor</a> avisa hasta cuándo llega.</li>`;
+  $("exports").innerHTML = Object.values(D.exports).map(e => `<li>
+      <span class="pill ${e.estado === "ok" ? "ok" : e.estado === "falta" ? "mal" : "viejo"}">${
+        e.estado === "ok" ? "Al día" : e.estado === "falta" ? "Falta" : "Desactualizado"}</span>
+      <b>${esc(e.titulo)}</b> — ${esc(e.texto)}
+      ${e.nota ? `<div class="mut chico">${esc(e.nota)}</div>` : ""}
+      ${e.comando && e.estado !== "ok"
+          ? `<div class="cmd"><span class="mut chico">Para actualizarlo:</span>
+               <code>${esc(e.comando)}</code>${btnCopiar(e.comando)}</div>` : ""}
+    </li>`).join("");
+}
+
+function renderComandos() {
+  $("comandos").innerHTML = D.comandos.map(c => `<li>
+      <div class="ct">${esc(c.titulo)}</div>
+      <div class="cmd"><code>${esc(c.comando)}</code>${btnCopiar(c.comando)}</div>
+      ${c.nota ? `<div class="mut chico" style="margin-top:6px">${esc(c.nota)}</div>` : ""}
+    </li>`).join("");
+}
+
+function renderRutas() {
+  $("n-rutas").textContent = D.rutas.length;
+  $("tabla-rutas").innerHTML = D.rutas.map(r => {
+    const enlazable = r.metodos.includes("GET") && !r.ruta.includes("{") &&
+                      (r.tipo === "pagina" || r.ruta === "/docs" || r.ruta === "/redoc");
+    const ruta = enlazable ? `<a href="${esc(r.ruta)}">${esc(r.ruta)}</a>` : esc(r.ruta);
+    return `<tr><td>${esc(TIPO[r.tipo] || r.tipo)}</td><td>${esc(r.metodos.join(", "))}</td>
+              <td><code>${ruta}</code></td><td>${esc(r.descripcion)}</td></tr>`;
+  }).join("");
+}
+
+function renderAvisos() {
+  if (!D.sin_describir.length) return;
+  const el = $("sin-describir");
+  el.hidden = false;
+  el.innerHTML = `⚠ Hay ${D.sin_describir.length} página(s) que todavía no están descritas aquí: ${
+    D.sin_describir.map(r => `<code>${esc(r.ruta)}</code>`).join(", ")}. Agregarlas a
+    <code>src/indice.py</code> (lista PAGINAS).`;
+}
+
+function filtrar() {
+  const palabras = norm($("q").value.trim()).split(/\s+/).filter(Boolean);
+  let total = 0;
+  document.querySelectorAll(".seccion").forEach(sec => {
+    let visibles = 0;
+    sec.querySelectorAll(".card").forEach(c => {
+      const ok = palabras.every(w => c.dataset.texto.includes(w));
+      c.hidden = !ok;
+      if (ok) visibles++;
+    });
+    sec.hidden = visibles === 0;
+    total += visibles;
+  });
+  $("vacio").hidden = total > 0;
+  $("cuenta").textContent = palabras.length ? `${total} página${total === 1 ? "" : "s"}` : "";
+}
+
+$("q").addEventListener("input", filtrar);
+$("q").addEventListener("keydown", e => {
+  if (e.key === "Enter") {
+    // Mejor coincidencia: la primera cuyo TÍTULO tiene todas las palabras;
+    // si ninguna, la primera visible.
+    const palabras = norm($("q").value.trim()).split(/\s+/).filter(Boolean);
+    const visibles = [...document.querySelectorAll(".card")]
+      .filter(x => !x.hidden && !x.closest("[hidden]"));
+    const mejor = visibles.find(x => palabras.length &&
+                                     palabras.every(w => x.dataset.titulo.includes(w)))
+                  || visibles[0];
+    if (mejor) location.href = mejor.dataset.url;
+  } else if (e.key === "Escape") {
+    $("q").value = "";
+    filtrar();
+  }
+});
+document.addEventListener("keydown", e => {
+  const tag = (document.activeElement && document.activeElement.tagName) || "";
+  if (e.key === "/" && !/^(INPUT|TEXTAREA|SELECT)$/.test(tag)) {
+    e.preventDefault();
+    $("q").focus();
+  }
+});
+
+// Copiar comandos (navigator.clipboard solo existe en localhost/https).
+document.addEventListener("click", async e => {
+  const b = e.target.closest("[data-copiar]");
+  if (!b) return;
+  const txt = b.dataset.copiar;
+  let ok = false;
+  try {
+    await navigator.clipboard.writeText(txt);
+    ok = true;
+  } catch (err) {
+    const ta = document.createElement("textarea");
+    ta.value = txt;
+    ta.setAttribute("readonly", "");
+    ta.style.position = "fixed";
+    ta.style.opacity = "0";
+    document.body.appendChild(ta);
+    ta.select();
+    try { ok = document.execCommand("copy"); } catch (err2) { ok = false; }
+    ta.remove();
+  }
+  b.textContent = ok ? "Copiado ✓" : "Cópialo a mano";
+  setTimeout(() => { b.textContent = "Copiar"; }, 1600);
+});
+
+(async function init() {
+  try {
+    const r = await fetch("/api/indice", {cache: "no-store"});
+    if (!r.ok) throw new Error("HTTP " + r.status);
+    D = await r.json();
+  } catch (e) {
+    $("secciones").innerHTML = "";
+    $("error").hidden = false;
+    $("error").textContent = `No pude cargar el índice (${e.message}). ` +
+                             "¿Sigue corriendo «python webapp.py»?";
+    return;
+  }
+  renderSecciones();
+  renderEstado();
+  renderComandos();
+  renderRutas();
+  renderAvisos();
+  $("pie").innerHTML = `Actualizado ${esc(D.generado.replace("T", " ").slice(0, 16))}. ` +
+    "Para sumar una página nueva: agrégala a <code>src/indice.py</code> (lista PAGINAS); " +
+    "<code>tests/test_indice.py</code> avisa si falta.";
+  if ($("q").value) filtrar();
+})();
+</script>
+</body>
+</html>

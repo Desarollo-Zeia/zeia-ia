@@ -6,6 +6,7 @@
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
 <title>ZEIA · Monitor en vivo</title>
 <script src="/static/vendor/echarts.min.js"></script>
+<script src="/static/nav.js?v=1" defer></script>
 <style>
   :root { --bg:#0b1410; --panel:#12201b; --panel2:#0f1b16; --text:#e6edf3;
           --muted:#8b98a5; --accent:#2dd4a7; --danger:#f87171; --warn:#f59e0b;
@@ -123,6 +124,7 @@
 </head>
 <body>
   <header>
+    <span data-zeia-nav></span>
     <h1>ZEIA · Monitor en vivo</h1>
     <span class="sub" id="sub">Detección de puntos que dejan de enviar datos</span>
     <span class="spacer"></span>
@@ -133,7 +135,6 @@
     <select id="base" title="Módulo"></select>
     <label class="live"><input type="checkbox" id="live" checked> <span class="beacon"></span> En vivo</label>
     <button id="refresh">Actualizar</button>
-    <a href="/" style="font-size:13px">Chat →</a>
   </header>
 
   <div id="err"></div>

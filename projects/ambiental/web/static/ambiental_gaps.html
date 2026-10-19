@@ -1,0 +1,612 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+<title>ZEIA Ambiental · Huecos de lectura</title>
+<script src="/static/vendor/echarts.min.js"></script>
+<style>
+  :root { --bg:#0b1410; --panel:#12201b; --text:#e6edf3; --muted:#8b98a5;
+          --accent:#2dd4a7; --danger:#f87171; --warn:#f59e0b; --border:#1e332b;
+          --accent2:#60a5fa; }
+  * { box-sizing:border-box; margin:0; padding:0; }
+  body { font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;
+         background:var(--bg); color:var(--text); padding:24px; }
+  header { display:flex; align-items:baseline; gap:12px; margin-bottom:14px; flex-wrap:wrap; }
+  h1 { font-size:20px; color:var(--accent); }
+  h1 .amb { color:var(--accent2); }
+  .sub { color:var(--muted); font-size:13px; }
+  .tabs { display:flex; gap:8px; margin-bottom:18px; flex-wrap:wrap; align-items:flex-end; }
+  .tab { background:var(--panel); border:1px solid var(--border); color:var(--muted);
+         padding:8px 16px; border-radius:8px; font-size:13px; cursor:pointer; }
+  .tab.active { color:var(--accent); border-color:var(--accent); font-weight:600; }
+  .track { margin-left:auto; display:flex; align-items:center; gap:8px; font-size:12px; color:var(--muted); }
+  .filtros { display:flex; gap:10px; margin-bottom:16px; flex-wrap:wrap; align-items:center; }
+  input, select, button { background:var(--panel); border:1px solid var(--border); color:var(--text);
+                  padding:7px 10px; border-radius:8px; font-size:13px; }
+  input:focus, select:focus { outline:none; border-color:var(--accent); }
+  button { cursor:pointer; }
+  button:hover:not(:disabled) { border-color:var(--accent); color:var(--accent); }
+  label { font-size:12px; color:var(--muted); }
+  .kpis { display:flex; gap:12px; flex-wrap:wrap; margin-bottom:16px; }
+  .kpi { background:var(--panel); border:1px solid var(--border); border-radius:10px;
+         padding:12px 18px; min-width:150px; }
+  .kpi .k { font-size:11px; color:var(--muted); text-transform:uppercase; letter-spacing:.04em; }
+  .kpi .v { font-size:22px; font-weight:700; color:var(--accent); }
+  .kpi .v.warn { color:var(--warn); }
+  .kpi .v.danger { color:var(--danger); }
+  .resumen { color:var(--muted); font-size:13px; margin-bottom:10px; }
+  .resumen b { color:var(--accent); }
+  table { width:100%; border-collapse:collapse; font-size:13px; background:var(--panel);
+          border-radius:10px; overflow:hidden; }
+  th { background:var(--border); color:var(--muted); font-weight:600; font-size:11px;
+       text-transform:uppercase; letter-spacing:.04em; text-align:left; padding:9px 10px; }
+  td { padding:8px 10px; border-top:1px solid var(--border); white-space:nowrap; }
+  tr:hover td { background:rgba(96,165,250,.06); }
+  .dur { font-weight:700; }
+  .gravedad-alta { color:var(--danger); }
+  .gravedad-media { color:var(--warn); }
+  .gravedad-baja { color:var(--muted); }
+  .emp { color:var(--accent2); }
+  .badge { padding:2px 8px; border-radius:10px; font-size:11px; font-weight:600; }
+  .badge.ok { background:rgba(45,212,167,.15); color:var(--accent); }
+  .badge.caid { background:rgba(248,113,113,.15); color:var(--danger); }
+  .empty { text-align:center; color:var(--muted); padding:30px 0; font-size:13px; }
+  #err { display:none; background:rgba(248,113,113,.12); border:1px solid var(--danger);
+         color:var(--danger); padding:10px 14px; border-radius:8px; font-size:13px;
+         margin-bottom:14px; white-space:pre-wrap; }
+  @keyframes pulso { 0%,100% { opacity:1; } 50% { opacity:.45; } }
+  .cargando { color:var(--warn) !important; animation:pulso 1s infinite; }
+  #status { color:var(--muted); font-size:13px; padding:20px 0; }
+  .vista, #chart-cob, #minuto, #web, #episodios { display:none; }
+  .grafico { width:100%; height:56vh; background:var(--panel); border-radius:10px;
+             border:1px solid var(--border); padding:6px; }
+  #cobertura #chart-cob { display:block; }
+  #minuto #chart-min { display:block; }
+  #chart-min { width:100%; height:56vh; }
+  .chmuted { color:var(--muted); font-size:11px; margin:4px 0 14px 4px; }
+</style>
+</head>
+<body>
+  <header>
+    <h1>ZEIA <span class="amb">Ambiental</span> · Huecos de lectura</h1>
+    <span class="sub">valhalladb — cobertura de sensores ambientales (CO2, temperatura, humedad…)</span>
+  </header>
+
+  <div id="err"></div>
+
+  <div class="tabs">
+    <div class="tab active" data-tab="cobertura">Cobertura diaria</div>
+    <div class="tab" data-tab="minuto">Lectura a lectura</div>
+    <div class="tab" data-tab="episodios">Episodios</div>
+    <span class="track"><label>Fuente:</label>
+      <select id="f-track">
+        <option value="salas">Salas (readings_reading)</option>
+        <option value="puntos">Puntos ambientales (readings_readingambiental)</option>
+      </select></span>
+  </div>
+
+  <!-- ============ Cobertura diaria ============ -->
+  <div id="cobertura" class="vista">
+    <div id="status">Cargando cobertura diaria…</div>
+    <div class="kpis" id="kpis"></div>
+    <div id="chart-cob" class="grafico"></div>
+    <div class="chmuted">Cada celda = un día de un combo (sensor × sala). El "día completo"
+      se mide contra el ritmo propio del sensor (~288 lecturas/día si reporta cada 5 min).</div>
+    <div class="filtros">
+      <span><label>Empresa</label><br><input id="c-empresa" placeholder="San Borja..."></span>
+      <span><label>Sala / indicador</label><br><input id="c-lugar" placeholder="UPS, CO2..."></span>
+      <span><label>Desde</label><br><input id="c-desde" type="date"></span>
+      <span><label>Hasta</label><br><input id="c-hasta" type="date"></span>
+      <span><label>Ordenar</label><br>
+        <select id="c-orden">
+          <option value="hueco">Peor cobertura</option>
+          <option value="empresa">Empresa / sala</option>
+          <option value="dia">Inicio de datos</option>
+        </select></span>
+    </div>
+    <div class="resumen"><b id="c-resumen"></b></div>
+    <table>
+      <thead><tr>
+        <th>Empresa</th><th>Sede</th><th>Lugar</th><th>Indicador</th><th>Sensor</th><th>ID</th>
+        <th>Rango</th><th>Ritmo/día</th><th>Días datos</th><th>Completos</th><th>Parciales</th>
+        <th>Hueco</th><th>Episodios</th><th>Mayor hueco</th><th>Estado</th>
+      </tr></thead>
+      <tbody id="c-tbody"></tbody>
+    </table>
+  </div>
+
+  <!-- ============ Lectura a lectura ============ -->
+  <div id="minuto" class="vista">
+    <div class="filtros">
+      <span><label>Combo 1</label><br><select id="m-p1"></select></span>
+      <span><label>Combo 2 (opcional)</label><br><select id="m-p2"></select></span>
+      <span><label>Combo 3 (opcional)</label><br><select id="m-p3"></select></span>
+      <span><label>Fecha</label><br><input id="m-fecha" type="date"></span>
+      <span><label><input type="checkbox" id="m-todos"> Comparar todos los combos</label></span>
+      <span><button id="m-cargar">Ver lectura a lectura</button></span>
+    </div>
+    <div id="m-status" class="resumen"></div>
+    <div id="chart-min"></div>
+    <div class="chmuted" id="m-ayuda"></div>
+    <table>
+      <thead><tr>
+        <th>Combo</th><th>Fecha</th><th>Buckets con datos</th><th>Faltantes</th>
+        <th>Cobertura</th><th>Último dato</th><th>Racha más larga</th><th>Ventanas &gt;<span id="m-umbral">15</span> min</th>
+      </tr></thead>
+      <tbody id="m-tbody"></tbody>
+    </table>
+  </div>
+
+  <!-- ============ Episodios ============ -->
+  <div id="episodios" class="vista">
+    <div class="resumen"><b id="e-resumen"></b></div>
+    <table>
+      <thead><tr>
+        <th>Días</th><th>Inicio</th><th>Fin</th><th>Empresa</th><th>Sede</th>
+        <th>Lugar</th><th>Indicador</th><th>Sensor</th>
+      </tr></thead>
+      <tbody id="e-tbody"></tbody>
+    </table>
+  </div>
+
+<script>
+const $ = (id) => document.getElementById(id);
+let TRACK = "salas";
+let RESUMEN = null, CHART_COB = null, CHART_MIN = null;
+let M_ABORT = null, M_DEBOUNCE = null;
+
+window.addEventListener("error", (e) => {
+  const box = $("err");
+  box.style.display = "block";
+  box.textContent = "Error en el dashboard: " + (e.message || e.type);
+});
+
+function pad(n) { return String(n).padStart(2, "0"); }
+function hhmm(min) { return pad(Math.floor(min / 60)) + ":" + pad(min % 60); }
+
+/* ================= COBERTURA DIARIA ================= */
+
+function kpi(label, value, cls="") {
+  return `<div class="kpi"><div class="k">${label}</div><div class="v ${cls}">${value}</div></div>`;
+}
+
+async function cargarCobertura() {
+  const status = $("status");
+  status.classList.add("cargando");
+  status.textContent = "Cargando cobertura diaria…";
+  const q = new URLSearchParams({ track: TRACK });
+  if ($("c-empresa").value) q.set("empresa", $("c-empresa").value);
+  if ($("c-lugar").value)   q.set("lugar", $("c-lugar").value);
+  if ($("c-desde").value)   q.set("desde", $("c-desde").value);
+  if ($("c-hasta").value)   q.set("hasta", $("c-hasta").value);
+  try {
+    const [dias, resumen] = await Promise.all([
+      fetch("/api/ambiental/cobertura/diaria?" + q).then(x => x.json()),
+      fetch("/api/ambiental/cobertura/resumen?track=" + TRACK).then(x => x.json()),
+    ]);
+    if (!resumen || !resumen.meta && !resumen.puntos) throw new Error("resumen inválido");
+    RESUMEN = resumen;
+    const m = resumen;
+    const hueco = m.puntos.reduce((s,p) => s + (p.dias_hueco||0), 0);
+    const peor = Math.max(...m.puntos.flatMap(p => (p.episodios||[]).map(e=>e[2])), 0);
+    $("kpis").innerHTML = [
+      kpi("Combos inventario", m.combos_inventario),
+      kpi("Con datos", m.combos_con_datos),
+      kpi("Sin lecturas", m.combos_sin_datos),
+      kpi("Días-hueco totales", hueco, hueco ? "danger" : ""),
+      kpi("Mayor hueco (días)", peor, peor >= 30 ? "danger" : (peor ? "warn" : "")),
+      kpi("Datos hasta", m.global_max_day || "—"),
+    ].join("");
+
+    // tabla
+    let lista = m.puntos.slice();
+    const f = (p) => (!$("c-empresa").value || p.empresa.toLowerCase().includes($("c-empresa").value.toLowerCase()))
+                && (!$("c-lugar").value || ((p.lugar||"") + " " + (p.indicador||"")).toLowerCase().includes($("c-lugar").value.toLowerCase()));
+    lista = lista.filter(f);
+    const ordenes = {
+      hueco:   (a,b) => (b.dias_hueco||0)-(a.dias_hueco||0) || (b.staleness_dias||0)-(a.staleness_dias||0),
+      empresa: (a,b) => ((a.empresa+a.sede+a.lugar)+(a.indicador)).localeCompare((b.empresa+b.sede+b.lugar)+(b.indicador)),
+      dia:     (a,b) => (a.inicio||"9999").localeCompare(b.inicio||"9999"),
+    };
+    lista.sort(ordenes[$("c-orden").value] || ordenes.empresa);
+
+    const conDatos = lista.filter(p => p.con_datos);
+    $("c-resumen").innerHTML =
+      `${lista.length} combos · <b>con datos: ${conDatos.length}</b> · ` +
+      `<b>${hueco}</b> días-hueco · datos hasta <b>${m.global_max_day}</b> (Lima)` +
+      (TRACK === "puntos" ? " · track puntual: solo ~885 lecturas históricas (nov-dic 2024)" : "");
+
+    $("c-tbody").innerHTML = lista.length === 0
+      ? '<tr><td colspan="15" class="empty">Sin combos con esos filtros</td></tr>'
+      : lista.map(p => {
+        const mayor = Math.max(...(p.episodios||[]).map(e => e[2]), 0);
+        const ep = p.con_datos ? `${(p.episodios||[]).length}/${(p.episodios||[]).reduce((s,e)=>s+e[2],0)}` : "—";
+        const badge = !p.con_datos ? `<span class="badge caid">sin lecturas</span>`
+                    : p.staleness_dias > 2 ? `<span class="badge caid">sin datos ${p.staleness_dias}+ días</span>`
+                    : `<span class="badge ok">al día</span>`;
+        return `<tr>
+          <td class="emp">${p.empresa}</td><td>${p.sede}</td><td>${p.lugar}</td>
+          <td>${p.indicador}</td><td>${p.sensor||"—"}</td><td>${p.combo_id}</td>
+          <td>${p.con_datos ? p.inicio+" → "+p.fin : "—"}</td>
+          <td>${p.con_datos ? "~"+p.ritmo_diario : "—"}</td>
+          <td>${p.con_datos ? p.dias_datos : "0"}</td>
+          <td>${p.con_datos ? p.dias_completos : "0"}</td>
+          <td class="${p.dias_parciales?"gravedad-media":""}">${p.con_datos?p.dias_parciales:"0"}</td>
+          <td class="dur ${p.dias_hueco?"gravedad-alta":""}">${p.con_datos?p.dias_hueco:"0"}</td>
+          <td>${ep}</td>
+          <td class="dur ${mayor>=30?"gravedad-alta":mayor?"gravedad-media":""}">${mayor||"0"} días</td>
+          <td>${badge}</td>
+        </tr>`;
+      }).join("");
+
+    pintarHeatmapCob(dias.rows);
+    status.classList.remove("cargando");
+    status.style.display = "none";
+  } catch (err) {
+    status.classList.remove("cargando");
+    status.innerHTML = `<span class="gravedad-alta">Error: ${err.message}</span>`;
+    console.error(err);
+  }
+}
+
+function pintarHeatmapCob(dias) {
+  if (!CHART_COB) CHART_COB = echarts.init($("chart-cob"));
+  if (!dias || !dias.length) { CHART_COB.clear(); return; }
+  const metaCombo = {};
+  (RESUMEN.puntos||[]).forEach(p => metaCombo[p.combo_id] = p);
+  const labelsSet = [...new Set(dias.map(d => d.combo_id))];
+  labelsSet.sort((a,b) => {
+    const A = metaCombo[a]||{}, B = metaCombo[b]||{};
+    return ((A.empresa||"")+(A.sede||"")+(A.lugar||"")+(A.indicador||""))
+      .localeCompare(((B.empresa||"")+(B.sede||"")+(B.lugar||"")+(B.indicador||"")));
+  });
+  const labels = labelsSet.map(cid => {
+    const m = metaCombo[cid] || {};
+    return `${m.empresa||"?"}/${m.sede||""} · ${m.lugar||"?"} · ${m.indicador||""}`;
+  });
+  const fechas = [...new Set(dias.map(d => d.dia))].sort();
+  const mapa = new Map();
+  dias.forEach(d => mapa.set(d.combo_id + "|" + d.dia,
+    d.estado === "completo" ? 0 : (d.estado === "parcial" ? 1 : 2)));
+  const ventana = {};
+  dias.forEach(d => {
+    ventana[d.combo_id] = ventana[d.combo_id] || { min: d.dia, max: d.dia };
+    if (d.dia < ventana[d.combo_id].min) ventana[d.combo_id].min = d.dia;
+    if (d.dia > ventana[d.combo_id].max) ventana[d.combo_id].max = d.dia;
+  });
+  const data = [];
+  labelsSet.forEach((cid, y) => {
+    const w = ventana[cid];
+    fechas.forEach((fx, x) => {
+      if (fx < w.min || fx > w.max) return;
+      data.push([x, y, mapa.get(cid + "|" + fx)]);
+    });
+  });
+  CHART_COB.setOption({
+    grid: { left: 300, right: 40, top: 10, bottom: 110 },
+    xAxis: { type:"category", data:fechas, axisLine:{lineStyle:{color:"#2dd4a7"}},
+             axisLabel:{ color:"#8b98a5", formatter:v => v.slice(5) } },
+    yAxis: { type:"category", data:labels, axisLabel:{ color:"#e6edf3", fontSize:10.5,
+             width:280, overflow:"truncate" }, splitLine:{ show:false } },
+    visualMap: { show:true, orient:"horizontal", left:"center", bottom:0,
+                 type:"piecewise",
+                 pieces:[{value:0,label:"Completo",color:"#10b981"},
+                         {value:1,label:"Parcial",color:"#f59e0b"},
+                         {value:2,label:"Hueco",color:"#ef4444"}],
+                 textStyle:{color:"#8b98a5", fontSize:11} },
+    dataZoom:[{ type:"inside", xAxisIndex:0 },
+              { type:"slider", xAxisIndex:0, height:16, bottom:28,
+                textStyle:{ color:"#8b98a5" } }],
+    series: [{ type:"heatmap", data,
+               itemStyle:{ borderColor:"#0b1410", borderWidth:0.2 },
+               emphasis:{ itemStyle:{ shadowBlur:6, shadowColor:"rgba(0,0,0,.5)" } } }],
+    tooltip: { formatter(a) {
+        const es = ["Completo","Parcial","Hueco"][a.value[2]];
+        const d = dias.find(x => x.combo_id === labelsSet[a.value[1]] && x.dia === fechas[a.value[0]]);
+        return `${labels[a.value[1]]}<br><b>${fechas[a.value[0]]}</b> — ${es}` +
+               (d ? ` (${d.lecturas} lecturas, ${d.pct}% del ritmo)` : "");
+    } },
+  }, true);
+}
+
+/* ================= LECTURA A LECTURA ================= */
+
+const MINUTOS_DIA = 1440;
+
+function bucketDe(ritmo) {
+  if (!ritmo || ritmo <= 0) return 5;
+  return Math.max(1, Math.min(30, Math.round(1440 / ritmo)));
+}
+
+async function asegurarResumen() {
+  if (!RESUMEN) RESUMEN = await fetch("/api/ambiental/cobertura/resumen?track=" + TRACK).then(x => x.json());
+  return RESUMEN;
+}
+
+async function cargarMinuto() {
+  const status = $("m-status");
+  const btn = $("m-cargar");
+  if (M_ABORT) M_ABORT.abort();
+  M_ABORT = new AbortController();
+  const t0 = performance.now();
+  status.classList.add("cargando");
+  status.textContent = "Actualizando data de la fecha seleccionada…";
+  btn.disabled = true; btn.textContent = "Actualizando…";
+  try {
+    await asegurarResumen();
+    const activos = RESUMEN.puntos.filter(p => p.con_datos);
+    const ids = $("m-todos").checked
+      ? activos.map(p => p.combo_id)
+      : ["m-p1","m-p2","m-p3"].map(id => Number($(id).value)).filter(v => v);
+    let fecha = $("m-fecha").value;
+    if (!fecha) fecha = fechaPorDefecto();
+    if (!ids.length) { status.textContent = "Selecciona al menos 1 combo"; return; }
+    $("m-fecha").value = fecha;
+
+    const celda = $("chart-min");
+    celda.style.height = Math.max(430, ids.length * 26 + 240) + "px";
+
+    const url = `/api/ambiental/lecturas?track=${TRACK}&combos=${ids.join(",")}&desde=${fecha}&hasta=${fecha}`;
+    const data = await fetch(url, { signal: M_ABORT.signal }).then(x => x.json());
+    if (M_ABORT.signal.aborted) return;
+    if (!data || data.detail) throw new Error(data && data.detail || "respuesta inválida");
+
+    pintarMinuto(ids, fecha, data);
+    const totalEval = ids.reduce((s, pid) => s + evalLimite(pid, fecha, data), 0);
+    const totalFaltan = ids.reduce((s, pid) => {
+      let f = 0;
+      for (let i = 0; i < evalLimite(pid, fecha, data); i++)
+        if (estadoCelda(pid, fecha, i, data) === 1) f++;
+      return s + f;
+    }, 0);
+    status.innerHTML = `<b>${data.total.toLocaleString("es")}</b> minutos con lectura · ` +
+      `<b class="${totalFaltan?"gravedad-alta":""}">${totalFaltan.toLocaleString("es")}</b> buckets faltantes dentro del horizonte` +
+      ` (${(100*(totalEval-totalFaltan)/Math.max(1,totalEval)).toFixed(1)}% cobertura)` +
+      ` · hora Lima · <span style="opacity:.7">actualizado ${new Date().toLocaleTimeString("es-PE")} (${((performance.now()-t0)/1000).toFixed(2)} s)</span>`;
+  } catch (err) {
+    if (err && err.name === "AbortError") return;
+    status.innerHTML = `<span class="gravedad-alta">Error: ${err.message}</span>`;
+  } finally {
+    status.classList.remove("cargando");
+    btn.disabled = false; btn.textContent = "Ver lectura a lectura";
+  }
+}
+
+function fechaPorDefecto() {
+  // último día COMPLETO: el día máximo puede ser parcial (datos hasta media jornada)
+  const d = new Date(RESUMEN.global_max_day);
+  d.setDate(d.getDate() - 1);
+  return d.toISOString().slice(0, 10);
+}
+
+function metaDe(data, pid) {
+  return (data.meta && data.meta.combos || []).find(c => c.combo_id === pid) || {};
+}
+
+function ritmoDe(pid) {
+  const p = (RESUMEN.puntos||[]).find(x => x.combo_id === pid);
+  return p && p.ritmo_diario || 288;
+}
+
+function bucketDePid(pid) { return bucketDe(ritmoDe(pid)); }
+
+function evalLimite(pid, fecha, data) {
+  // nº de buckets evaluables del combo en la fecha según su horizonte
+  const bkt = bucketDePid(pid);
+  const cols = Math.ceil(MINUTOS_DIA / bkt);
+  const ult = metaDe(data, pid);
+  const ud = ult.ultimo_dia ? String(ult.ultimo_dia) : null;
+  if (!ud || ud > fecha) return 0;
+  if (ud === fecha && ult.ultimo_min_idx != null)
+    return Math.min(cols, Math.floor(ult.ultimo_min_idx / bkt) + 1);
+  return cols;
+}
+
+function estadoCelda(pid, fecha, idx, data) {
+  // 0 llegó, 1 no llegó, 2 sin datos ese día, 3 fin de la copia/horizonte
+  const key = pid + "|" + fecha;
+  const presentes = (data._presen ||= {})[key] || (data._presen[key] = new Set(
+    data.rows.filter(r => r.combo_id === pid && r.dia === fecha)
+             .map(r => Math.floor((Number(r.hora)*60 + Number(r.minuto)) / bucketDePid(pid)))));
+  const ult = metaDe(data, pid);
+  const ud = ult.ultimo_dia ? String(ult.ultimo_dia) : null;
+  if (ud && ud > fecha) return 2;
+  const limiteIdx = (ud === fecha && ult.ultimo_min_idx != null)
+    ? Math.floor(ult.ultimo_min_idx / bucketDePid(pid)) : MINUTOS_DIA;
+  if (idx > limiteIdx) return 3;
+  return presentes.has(idx) ? 0 : 1;
+}
+
+let LAST_DATA = null, LAST_IDS = null, LAST_FECHA = null;
+
+function pintarMinuto(ids, fecha, data) {
+  LAST_DATA = data; LAST_IDS = ids; LAST_FECHA = fecha;
+  const metaCombo = {};
+  (RESUMEN.puntos||[]).forEach(p => metaCombo[p.combo_id] = p);
+  data._presen = {};
+  const yLabels = [], filas = [];
+  ids.forEach(pid => {
+    const m = metaCombo[pid] || {};
+    yLabels.push(`${m.empresa||"?"}/${m.sede||""} · ${m.lugar||"?"} · ${m.indicador||""}`);
+    const bkt = bucketDePid(pid);
+    const cols = Math.ceil(MINUTOS_DIA / bkt);
+    const fila = [];
+    for (let i = 0; i < cols; i++) fila.push(estadoCelda(pid, fecha, i, data));
+    filas.push(fila);
+  });
+
+  const celda = $("chart-min");
+  if (!CHART_MIN) CHART_MIN = echarts.init(celda);
+  CHART_MIN.resize();
+  const dataHM = [];
+  filas.forEach((fila, y) => fila.forEach((v, x) => dataHM.push([x, y, v])));
+  const colsMax = Math.max(...filas.map(f => f.length));
+  const etiquetasX = Array.from({ length: colsMax }, (_, i) => {
+    const bkt = 1440 / colsMax;
+    return hhmm(Math.round(i * bkt));
+  });
+  const umbral = Math.max(2 * Math.min(...ids.map(bucketDePid)), 10);
+  $("m-umbral").textContent = umbral;
+  $("m-ayuda").innerHTML =
+    `Cada celda = 1 ventana de captura del sensor (bucket adaptativo según su ritmo: ` +
+    `${[...new Set(ids.map(bucketDePid))].map(b=>b+" min").sort().join(", ")}) · ` +
+    `Verde: llegó lectura · Rojo: no llegó · Gris oscuro: sin datos ese día · Gris claro: después de la última lectura del combo.`;
+
+  CHART_MIN.setOption({
+    grid: { left: 280, right: 30, top: 10, bottom: 95 },
+    xAxis: { type:"category", data: etiquetasX,
+             axisLine:{ lineStyle:{ color:"#2dd4a7" } },
+             axisLabel:{ color:"#8b98a5",
+               formatter: (_v, i) => {
+                 const bkt = 1440 / colsMax;
+                 const mins = Math.round(i * bkt);
+                 return mins % 60 < bkt ? hhmm(mins) : "";
+               } },
+             axisTick:{ show:false } },
+    yAxis: { type:"category", data:yLabels,
+             axisLabel:{ color:"#e6edf3", fontSize:10.5, width:260, overflow:"truncate" },
+             splitLine:{ show:false } },
+    visualMap: { show:true, orient:"horizontal", left:"center", bottom:0,
+                 type:"piecewise",
+                 pieces:[{value:0,label:"Llegó",color:"#10b981"},
+                         {value:1,label:"No llegó",color:"#ef4444"},
+                         {value:2,label:"Sin datos del combo",color:"#3a4a44"},
+                         {value:3,label:"Después del último dato",color:"#66756e"}],
+                 textStyle:{ color:"#8b98a5", fontSize:10.5 } },
+    dataZoom:[{ type:"inside", xAxisIndex:0, startValue:0, endValue:colsMax-1 },
+              { type:"slider", xAxisIndex:0, height:16, bottom:28,
+                startValue:0, endValue:colsMax-1, textStyle:{ color:"#8b98a5" } }],
+    series:[{ type:"heatmap", data:dataHM,
+              itemStyle:{ borderColor:"#0b1410", borderWidth:0.3 },
+              emphasis:{ itemStyle:{ shadowBlur:6, shadowColor:"rgba(0,0,0,.5)" } } }],
+    tooltip: { formatter(a) {
+        const es = ["Llegó la lectura","No llegó lectura","Sin datos del combo ese día",
+                    "Después del último dato"][a.value[2]];
+        const bkt = 1440 / colsMax;
+        const ini = Math.round(a.value[0] * bkt);
+        return `${yLabels[a.value[1]]}<br><b>${hhmm(ini)}</b> — ${es}`;
+    } },
+  }, true);
+
+  // tabla resumen
+  $("m-tbody").innerHTML = ids.map((pid, y) => {
+    const fila = filas[y];
+    const bkt = bucketDePid(pid);
+    const ult = metaDe(data, pid) || {};
+    const ud = ult.ultimo_dia ? String(ult.ultimo_dia) : null;
+    const limiteIdx = (ud === fecha && ult.ultimo_min_idx != null)
+      ? Math.floor(ult.ultimo_min_idx / bkt) : Math.ceil(MINUTOS_DIA / bkt);
+    const presentes = new Set();
+    fila.forEach((v,i) => { if (v === 0) presentes.add(i); });
+    const faltantes = [];
+    for (let i = 0; i < Math.ceil(MINUTOS_DIA/bkt); i++)
+      if (i <= limiteIdx && !presentes.has(i)) faltantes.push(i);
+    const ventanas = [];
+    faltantes.forEach(i => {
+      if (!ventanas.length || i !== ventanas[ventanas.length-1][1]+1) ventanas.push([i,i]);
+      else ventanas[ventanas.length-1][1] = i;
+    });
+    const sinDatos = !ud || ud > fecha;
+    const cob = (100 * (limiteIdx + 1 - faltantes.length) / Math.max(1, limiteIdx + 1));
+    const racha = ventanas.slice().sort((a,b)=>(b[1]-b[0])-(a[1]-a[0]))[0];
+    const durMin = v => (v[1]-v[0]+1) * bkt;
+    const grandes = ventanas.filter(v => durMin(v) > 15)
+      .sort((a,b)=>durMin(b)-durMin(a)).slice(0,6)
+      .map(v => `${hhmm(v[0]*bkt)}–${hhmm(Math.min(MINUTOS_DIA,(v[1]+1)*bkt))} (${durMin(v)} min)`).join(" · ") || "—";
+    const ultimoDato = !ult.ultima_hhmm ? "—"
+      : (ud === fecha ? ult.ultima_hhmm : ud + " " + ult.ultima_hhmm);
+    return `<tr>
+      <td class="emp">${metaCombo[pid]?.empresa||"?"} · ${metaCombo[pid]?.lugar||"?"} · ${metaCombo[pid]?.indicador||pid}</td>
+      <td>${fecha}</td>
+      <td>${presentes.size} / ${limiteIdx+1}</td>
+      <td class="dur ${faltantes.length?"gravedad-alta":""}">${faltantes.length}</td>
+      <td class="${cob<90?"gravedad-media":""}">${cob.toFixed(1)}%</td>
+      <td>${ultimoDato}</td>
+      <td class="dur ${racha && durMin(racha)>30 ? "gravedad-alta":""}">
+        ${racha ? `${hhmm(racha[0]*bkt)}–${hhmm(Math.min(MINUTOS_DIA,(racha[1]+1)*bkt))} (${durMin(racha)} min)` : "—"}</td>
+      <td>${sinDatos ? "sin datos ese día" : grandes}</td>
+    </tr>`;
+  }).join("");
+}
+
+/* ================= EPISODIOS ================= */
+
+function cargarEpisodios() {
+  const todos = [];
+  (RESUMEN?.puntos || []).forEach(p => {
+    (p.episodios || []).forEach(e => todos.push({ ...p, ini: e[0], fin: e[1], dias: e[2] }));
+  });
+  todos.sort((a,b) => b.dias - a.dias);
+  const diasTot = todos.reduce((s,e) => s + e.dias, 0);
+  $("e-resumen").innerHTML =
+    `<b>${todos.length}</b> episodios · <b>${diasTot}</b> días-hueco totales · track: ${TRACK}`;
+  $("e-tbody").innerHTML = todos.length === 0
+    ? '<tr><td colspan="8" class="empty">Sin episodios registrados</td></tr>'
+    : todos.map(e => `<tr>
+        <td class="dur ${e.dias>=30?"gravedad-alta":e.dias>=7?"gravedad-media":""}">${e.dias}</td>
+        <td>${e.ini}</td><td>${e.fin}</td>
+        <td class="emp">${e.empresa}</td><td>${e.sede}</td>
+        <td>${e.lugar}</td><td>${e.indicador}</td><td>${e.sensor||"—"}</td>
+      </tr>`).join("");
+}
+
+/* ================= Tabs y eventos ================= */
+
+function poblarPuntos() {
+  const activos = RESUMEN.puntos.filter(p => p.con_datos);
+  ["m-p1","m-p2","m-p3"].forEach(id => {
+    $(id).innerHTML = `<option value="">— elegir —</option>` + activos.map(p =>
+      `<option value="${p.combo_id}">${p.empresa} · ${p.sede} · ${p.lugar} · ${p.indicador}</option>`).join("");
+  });
+  const pred = activos.find(p => p.staleness_dias <= 1) || activos[0];
+  if (pred) $("m-p1").value = String(pred.combo_id);
+  $("m-fecha").value = fechaPorDefecto();
+}
+
+async function cambiarTab(tab) {
+  document.querySelectorAll(".tab").forEach(t => t.classList.toggle("active", t.dataset.tab === tab));
+  $("cobertura").style.display = tab === "cobertura" ? "block" : "none";
+  $("minuto").style.display = tab === "minuto" ? "block" : "none";
+  $("episodios").style.display = tab === "episodios" ? "block" : "none";
+  if (tab === "cobertura") { $("status").style.display = ""; await cargarCobertura(); }
+  else if (tab === "minuto") {
+    await asegurarResumen();
+    poblarPuntos();
+    await cargarMinuto();
+  }
+  else if (tab === "episodios") { await asegurarResumen(); cargarEpisodios(); }
+  setTimeout(() => { CHART_COB && CHART_COB.resize(); CHART_MIN && CHART_MIN.resize(); }, 80);
+}
+
+document.querySelectorAll(".tab").forEach(t =>
+  t.addEventListener("click", () => cambiarTab(t.dataset.tab)));
+
+$("f-track").addEventListener("change", async () => {
+  TRACK = $("f-track").value;
+  RESUMEN = null;
+  $("m-todos").checked = false;
+  ["m-p1","m-p2","m-p3"].forEach(id => $(id).disabled = false);
+  const tabActivo = document.querySelector(".tab.active").dataset.tab;
+  await cambiarTab(tabActivo);
+});
+
+[["c-empresa"],["c-lugar"],["c-desde"],["c-hasta"],["c-orden"]].forEach(([id]) =>
+  $(id).addEventListener("input", () => cargarCobertura()));
+
+$("m-cargar").addEventListener("click", cargarMinuto);
+["m-p1","m-p2","m-p3","m-fecha","m-todos"].forEach(id =>
+  $(id).addEventListener("change", () => {
+    clearTimeout(M_DEBOUNCE);
+    M_DEBOUNCE = setTimeout(cargarMinuto, 150);
+  }));
+window.addEventListener("resize", () => {
+  CHART_COB && CHART_COB.resize();
+  CHART_MIN && CHART_MIN.resize();
+});
+
+(async () => { await cambiarTab("cobertura"); })();
+</script>
+</body>
+</html>

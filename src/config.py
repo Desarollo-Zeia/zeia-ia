@@ -111,3 +111,9 @@ ELEVENLABS_TTS_MODEL = os.getenv("ELEVENLABS_TTS_MODEL", "eleven_flash_v2_5")
 # Modelo rápido para el resumen HABLADO de las respuestas (la voz no lee el
 # texto completo: dice lo esencial en 1-3 frases). Barato y veloz.
 VOICE_SUMMARY_MODEL = os.getenv("VOICE_SUMMARY_MODEL", "google/gemini-2.5-flash")
+
+# Telegram (avisos del monitor para el equipo interno). Sin token o sin chat,
+# el envío falla con un error claro; scripts/telegram_setup.py guía la
+# configuración (valida el token y muestra el id del grupo).
+TELEGRAM_BOT_TOKEN = os.getenv("TELEGRAM_BOT_TOKEN", "").strip()
+TELEGRAM_CHAT_ID = os.getenv("TELEGRAM_CHAT_ID", "").strip()

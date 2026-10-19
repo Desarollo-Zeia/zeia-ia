@@ -1,0 +1,74 @@
+# Preguntas de evaluación para comparar modelos.
+# difficulty: 1 (lookup simple) → 3 (análisis multi-paso)
+# expected_facts: hechos que una buena respuesta debería contener (revisión).
+
+- id: q1_empresas_puntos
+  difficulty: 1
+  question: "¿Qué empresas se monitorean actualmente y cuántos puntos de medición tiene cada una?"
+  expected_facts:
+    - "Oechsle ~40, Sanna ~26, Pizza Hut ~14, Madam Tusan 2, Burger King 1, KFC 1"
+    - "menciona que BanBif no tiene puntos o lo omite"
+
+- id: q2_consumo_dia
+  difficulty: 2
+  question: "¿Cuál fue el consumo de energía en kWh de la sede San Borja de Sanna el 20 de julio de 2026? Detállalo por punto de medición principal."
+  expected_facts:
+    - "usa contador EPpos (max-min), no suma de P"
+    - "reporta valores en kWh"
+
+- id: q3_top_circuitos
+  difficulty: 2
+  question: "¿Cuáles son los 5 circuitos que más energía consumieron en Oechsle (sede Salaverry) durante la semana del 13 al 19 de julio de 2026?"
+  expected_facts:
+    - "lista 5 circuitos con kWh"
+    - "usa EPpos max-min por punto"
+
+- id: q4_demanda_maxima
+  difficulty: 2
+  question: "¿Cuál fue la demanda máxima de potencia de KFC Salaverry en julio de 2026 y en qué fecha y hora ocurrió?"
+  expected_facts:
+    - "max de P_value convertido a kW (W/1000)"
+    - "da timestamp (idealmente en hora de Perú)"
+
+- id: q5_alertas_criticas
+  difficulty: 1
+  question: "¿Hubo alertas críticas entre el 20 y el 26 de julio de 2026? ¿De qué tipo fueron y a qué sedes afectaron?"
+  expected_facts:
+    - "filtra alert_status='critical'"
+    - "identifica tipos y sedes vía alert_threshold"
+
+- id: q6_potencia_contratada
+  difficulty: 2
+  question: "¿Qué sedes tienen potencia contratada registrada y de cuánto es? ¿Alguna superó su potencia contratada con su demanda máxima de julio 2026?"
+  expected_facts:
+    - "San Borja 1200 kW, Óvalo Gutierrez 686 kW"
+    - "compara demanda máx vs contratada"
+
+- id: q7_punta_vs_fuera_punta
+  difficulty: 3
+  question: "Compara el consumo en horas punta (18:00-23:00 lunes a viernes, hora de Perú) vs fuera de punta de Madam Tusan durante julio 2026. ¿Qué porcentaje del consumo ocurre en punta?"
+  expected_facts:
+    - "usa AT TIME ZONE 'America/Lima'"
+    - "aplica ventana 18-23 solo días lun-vie"
+    - "da porcentaje"
+
+- id: q8_factor_potencia
+  difficulty: 3
+  question: "¿Hay circuitos con factor de potencia frecuentemente bajo (menor a 0.9) durante julio 2026? ¿Qué implicancias tiene esto para el cliente?"
+  expected_facts:
+    - "usa PF_value con filtros de validez"
+    - "explica riesgo de penalización por reactiva"
+
+- id: q9_consumo_madrugada
+  difficulty: 3
+  question: "¿Algún circuito muestra consumo inusualmente alto de madrugada (00:00-05:00 hora Perú) durante la semana del 20 al 26 de julio de 2026? Identifícalo y cuantifícalo."
+  expected_facts:
+    - "análisis por hora local"
+    - "identifica circuitos concretos con cifras"
+
+- id: q10_oportunidades_ahorro
+  difficulty: 3
+  question: "Con los datos de julio 2026, ¿qué oportunidades de ahorro concretas puedes identificar para Burger King? Cuantifícalas cuando sea posible."
+  expected_facts:
+    - "propuestas basadas en datos reales (patrones, punta, FP, alertas)"
+    - "cifras de respaldo"

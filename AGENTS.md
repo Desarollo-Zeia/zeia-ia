@@ -55,6 +55,17 @@ src/
   speech.py             Resumen HABLADO de las respuestas (la voz no lee el
                         texto: 1-3 frases con cifras clave vía LLM rápido
                         VOICE_SUMMARY_MODEL; fallback = clean_for_speech).
+  telegram.py           Avisos al equipo por bot de Telegram (gratis):
+                        send_message (silent=True → sin sonido), get_me,
+                        get_updates; el token nunca sale en los errores.
+                        Config TELEGRAM_BOT_TOKEN / TELEGRAM_CHAT_ID en .env.
+                        + send_photo, send_chat_action, set_my_commands
+  foto_salas.py         Foto de lo PEOR de hoy por módulo para el bot (/ambiental
+                        salas, /energia equipos, /agua medidores): SOLO lo que
+                        tuvo problemas, todas las empresas juntas, de peor a
+                        mejor (máx. 10 filas + aviso al pie si hay más); barra
+                        del día en tramos de 10 min verde/ámbar/rojo; HTML →
+                        PNG con Playwright (Chromium; si no, Edge/Chrome)
   agent.py              Loop del agente (OpenRouter, máx 15 iteraciones, temperature 0.1)
   prompts.py            System prompt con TODO el conocimiento del dominio (¡mantener al día!)
 docs/
@@ -75,6 +86,14 @@ scripts/
                         conectividad final = promedio simple de sus módulos. Equipos
                         recién instalados entran la semana siguiente.
                         Consulta en vivo; Chrome headless
+  telegram_setup.py     Valida el token del bot, muestra el id del grupo y con
+                        --test manda 2 mensajes de prueba (con y sin sonido)
+  telegram_bot.py       Bot del grupo (long polling, sin URL pública):
+                        /ambiental, /energia, /agua (foto de lo peor de hoy) y
+                        /ayuda; /salas = alias de /ambiental; solo responde en
+                        TELEGRAM_CHAT_ID; una instancia por PC (candado
+                        127.0.0.1:47831). Arranque: scripts\telegram_bot.cmd
+                        (producción en vivo por túnel; log logs/telegram_bot.*)
 tests/                  unittest sin DB (python -m unittest discover -s tests)
 eval/
   questions.yaml        Preguntas de prueba con hechos esperados
@@ -222,6 +241,9 @@ python scripts/analisis_huecos.py --export   # informe de huecos → dashboard :
 python scripts/reporte_conectividad.py       # PDF semana pasada, todas las empresas → ~/Downloads
 python scripts/reporte_conectividad.py --desde 2026-09-28 --hasta 2026-10-04 --empresa Sanna
 python eval/compare_models.py --questions q1_empresas_puntos  # eval rápida
+python scripts/telegram_setup.py      # bot de avisos: valida token + id del grupo
+python scripts/telegram_setup.py --test   # 2 mensajes de prueba al grupo
+scripts\telegram_bot.cmd              # bot del grupo: /ambiental /energia /agua (en vivo)
 scripts/sync_db.sh ambiental full     # sync de una base (dump+restore+verifica)
 ```
 

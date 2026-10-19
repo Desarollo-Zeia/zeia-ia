@@ -13,6 +13,8 @@
 #   scripts/sync_db.sh ambiental
 #   scripts/sync_db.sh energia --dump-only
 #   scripts/sync_db.sh ambiental --restore-only DIR|FILE
+#   LOCAL_PORT=5433 scripts/sync_db.sh ambiental   # .env en modo EN VIVO (túnel):
+#                                                  # indicar el puerto de la copia local
 set -euo pipefail
 cd "$(dirname "$0")/.."
 ROOT="$(pwd)"
@@ -121,6 +123,27 @@ dump_from_prod() {
     find "${DUMP_FILE}" -type f -exec shasum -a 256 {} + > "${DUMP_FILE}.sha256"
 }
 
+# Seguridad: restore_local hace DROP SCHEMA en el destino. Con el .env en modo
+# EN VIVO, ${PREFIX}_DB_PORT es el puerto del túnel y el "destino local" sería
+# PRODUCCIÓN. Solo se permite restaurar en un servidor local real.
+guard_local_target() {
+    if [ "${LOCAL_PORT}" = "${TUNNEL_LOCAL_PORT}" ]; then
+        log "ABORTADO: el destino del restore (${LOCAL_HOST}:${LOCAL_PORT}) es el puerto del túnel a PRODUCCIÓN." >&2
+        log "Con el .env en modo en vivo indica el puerto de la copia local: LOCAL_PORT=<5432|5433> scripts/sync_db.sh ${BASE}" >&2
+        exit 1
+    fi
+    local addr
+    addr=$(PGPASSWORD="${DB_PASSWORD}" "${PSQL}" -h "${LOCAL_HOST}" -p "${LOCAL_PORT}" \
+        -U "${DB_USER}" -d "${DB_NAME}" -t -A \
+        -c "SELECT coalesce(host(inet_server_addr()), 'socket');" 2>/dev/null || echo "?")
+    addr="${addr//$'\r'/}"
+    case "${addr}" in
+        127.*|::1|socket) ;;
+        "?") log "ABORTADO: no se pudo verificar que ${LOCAL_HOST}:${LOCAL_PORT} sea un servidor local (¿está caído?)." >&2; exit 1 ;;
+        *)   log "ABORTADO: ${LOCAL_HOST}:${LOCAL_PORT} no es un servidor local (inet_server_addr=${addr}); el restore borraría esa base." >&2; exit 1 ;;
+    esac
+}
+
 restore_local() {
     local SRC="$1"
     log "verificando servidor local en ${LOCAL_HOST}:${LOCAL_PORT}..."
@@ -128,6 +151,7 @@ restore_local() {
         log "ERROR: servidor local caído. Inicia con: brew services start postgresql@16" >&2
         exit 1
     fi
+    guard_local_target
     log "borrando esquemas actuales de la DB local..."
     PGPASSWORD="${DB_PASSWORD}" "${PSQL}" -h "${LOCAL_HOST}" -p "${LOCAL_PORT}" \
         -U "${DB_USER}" -d "${DB_NAME}" \
@@ -178,6 +202,7 @@ case "${MODE}" in
         exit 0
         ;;
     full)
+        guard_local_target   # antes del dump: no gastar minutos si el destino no es local
         open_tunnel
         dump_from_prod
         restore_local "${DUMP_FILE}"

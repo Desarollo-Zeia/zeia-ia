@@ -72,6 +72,9 @@
   <header>
     <h1>ZEIA <span class="amb">Ambiental</span> · Huecos de lectura</h1>
     <span class="sub">valhalladb — cobertura de sensores ambientales (CO2, temperatura, humedad…)</span>
+    <!-- Esta página la sirve OTRA app (:8001); el índice vive en la principal (:8000). -->
+    <a id="ir-indice" href="http://localhost:8000/" style="margin-left:auto;font-size:13px;color:var(--accent)">☰ Índice ZEIA (:8000) →</a>
+    <script>document.getElementById("ir-indice").href = location.protocol + "//" + location.hostname + ":8000/";</script>
   </header>
 
   <div id="err"></div>

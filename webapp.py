@@ -2,8 +2,11 @@
 """App web del agente de energía: FastAPI + UI de chat con gráficos.
 
 Uso:
-    python webapp.py           → http://localhost:8000
+    python webapp.py           → http://localhost:8000 (índice de páginas)
     PORT=8080 python webapp.py
+
+El catálogo de páginas (qué hay y para qué sirve) está en src/indice.py:
+toda página nueva se agrega ahí (tests/test_indice.py lo exige).
 """
 from __future__ import annotations
 
@@ -32,7 +35,7 @@ from openai import OpenAI
 from pydantic import BaseModel
 import psycopg2
 
-from src import config, elevenlabs, speech, monitor
+from src import config, elevenlabs, speech, monitor, indice
 from src.agent import EnergyAgent
 
 ROOT = Path(__file__).resolve().parent
@@ -139,9 +142,28 @@ def get_agent(session_id: str, model: Optional[str],
     return agent
 
 
+# "/" era el chat hasta el 19-oct-2026: no-cache para que el navegador no
+# siga mostrando la versión vieja guardada en caché.
+_NO_CACHE = {"Cache-Control": "no-cache"}
+
+
 @app.get("/")
-def index():
-    return FileResponse(STATIC / "index.html")
+def inicio_page():
+    """Índice: todas las páginas, para qué sirven y de dónde sacan los datos."""
+    return FileResponse(STATIC / "inicio.html", headers=_NO_CACHE)
+
+
+@app.get("/chat")
+def chat_page():
+    """Asistente IA (chat + dashboard de cards)."""
+    return FileResponse(STATIC / "index.html", headers=_NO_CACHE)
+
+
+@app.get("/api/indice")
+def indice_data(request: Request):
+    """Catálogo de páginas, conexión de cada base y frescura de los exports."""
+    return indice.construir(app.routes, (config.ENERGIA_DB, config.AMBIENTAL_DB),
+                            base_url=str(request.base_url))
 
 
 @app.get("/api/models")
@@ -1324,5 +1346,9 @@ def reporte_gateways_pdf(request: Request, desde: Optional[str] = None,
 if __name__ == "__main__":
     port = int(os.getenv("PORT", "8000"))
     host = os.getenv("HOST", "0.0.0.0")
-    print(f"\n  ZEIA web → http://localhost:{port} (también http://<tu-ip-local>:{port})\n")
+    print(f"\n  ZEIA web → http://localhost:{port}  (índice de todas las páginas;"
+          f" también http://<tu-ip-local>:{port})")
+    for p in indice.paginas_internas():
+        print(f"    {p['ruta']:<18} {p['titulo']}")
+    print()
     uvicorn.run(app, host=host, port=port, log_level="warning")

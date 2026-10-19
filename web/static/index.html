@@ -7,6 +7,7 @@
 <script src="/static/vendor/echarts.min.js"></script>
 <script src="/static/vendor/marked.min.js"></script>
 <script src="/static/vendor/html2canvas.min.js"></script>
+<script src="/static/nav.js?v=1" defer></script>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,300..800&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
@@ -71,6 +72,7 @@
   .c-gerente{--card-accent:#ffb454}
   .hero .backlink{margin-top:26px;color:var(--mut);font-size:12px;background:none;border:none;cursor:pointer;font-family:var(--mono)}
   .hero .backlink:hover{color:var(--ink)}
+  .topnav{padding:14px 20px 0}
 
   /* ============ HEADER ============ */
   header{
@@ -263,6 +265,7 @@
 
 <!-- ============ VISTA 1: LANDING (elegir módulo) ============ -->
 <div id="view-landing" class="view active">
+  <div class="topnav"><span data-zeia-nav data-clase="btn"></span></div>
   <div class="hero">
     <div class="badge">ZEIA · Asistente de monitoreo</div>
     <h1>¿Qué quieres <span class="accent">analizar</span>?</h1>
@@ -273,6 +276,7 @@
 
 <!-- ============ VISTA 2: PERFIL ============ -->
 <div id="view-persona" class="view">
+  <div class="topnav"><span data-zeia-nav data-clase="btn"></span></div>
   <div class="hero">
     <div class="badge" id="persona-badge">Módulo</div>
     <h1>¿Quién va a <span class="accent">consultar</span>?</h1>
@@ -285,6 +289,7 @@
 <!-- ============ VISTA 3: MAIN (Dashboard + Chat) ============ -->
 <div id="view-main" class="view">
   <header>
+    <span data-zeia-nav data-clase="btn"></span>
     <div class="logo">Z</div>
     <h1>ZEIA <span id="title-sub">—</span></h1>
     <button class="pill-tag" id="switch-mod" title="Cambiar módulo/perfil">⚡ Energía · Analista</button>
@@ -292,8 +297,6 @@
     <div class="tabs">
       <button class="tab active" data-tab="dashboard">Dashboard</button>
       <button class="tab" data-tab="chat">Conversar</button>
-      <a class="tab" href="/monitor" title="Monitor en vivo de llegada de lecturas">Monitor</a>
-      <a class="tab" href="/gaps" title="Huecos de lectura (histórico)">Huecos</a>
     </div>
     <select id="model"></select>
     <button class="btn" id="screenshot" title="Descargar el dashboard como PNG">📸 PNG</button>
