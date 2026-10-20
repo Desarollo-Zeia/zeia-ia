@@ -68,10 +68,12 @@ scripts/
   test_connection.py    Verifica túnel + login + lista esquemas
   introspect.py         Regenera docs/schema.md y docs/schema_full.json (con filas de ejemplo)
   reporte_conectividad.py  ★ Reporte semanal para jefes en PDF: 1 página por empresa
-                        con datos (energía + ambiental), % lecturas/esperadas por día
-                        (1,440 energía; 288/sensor ambiental), rojo <90%, energía por
-                        tablero (sin gateways: no están en la DB) y al final la
-                        conectividad final = promedio simple de sus módulos.
+                        con datos (energía + ambiental + agua), % lecturas/esperadas
+                        por día (1,440 energía; 288/sensor ambiental; agua = ritmo
+                        propio del medidor), rojo <90%, energía por tablero y agua
+                        por tubería (sin gateways: no están en la DB) y al final la
+                        conectividad final = promedio simple de sus módulos. Equipos
+                        recién instalados entran la semana siguiente.
                         Consulta en vivo; Chrome headless
 tests/                  unittest sin DB (python -m unittest discover -s tests)
 eval/
@@ -125,7 +127,16 @@ docs/
 - Tarifas: `enterprises_billingdata` (S//kWh punta/fuera punta, PEN),
   `enterprises_billingcycle`, `enterprises_power` (potencia contratada kW).
 - **Sensible**: `historical_readinghistory.data` contiene credenciales de
-  dispositivos; `accounts_user`/`authtoken_token` datos personales. No exponer.
+  dispositivos; `accounts_user`/`authtoken_token` datos personales;
+  `enterprises_measurementpointwater.dev_eui_password` es credencial del
+  medidor de agua. No exponer (nunca `SELECT *` en esas tablas).
+- **Agua (en la base `energy`, desde sep-2026)**: sede (energyheadquarter) →
+  `enterprises_waterpipe` (tubería) → `enterprises_measurementpointwater`
+  (medidor) → `readings_readingwater` (`consumo_litros`/`consumo_m3` =
+  contador acumulado → consumo = MAX−MIN; `estado_*`, `bateria_v`, rssi/snr).
+  Solo Scotiabank: Jockey Plaza "Kitchenette" (desde 03-sep, 1 lectura cada
+  10 min) y SITE Barranco "Principal" (desde 12-oct, cada 30 min). Zeia Demo
+  (Surco) es de prueba. El agente (prompts.py) aún NO conoce este módulo.
 - Empresas reales: Sanna, BanBif, Oechsle, Pizza Hut, Burger King, KFC,
   Madam Tusan. `TestCorp_Email` es de pruebas (ignorar).
 - **Datos activos**: solo Sanna y Oechsle reportan en vivo. Madam Tusan llega

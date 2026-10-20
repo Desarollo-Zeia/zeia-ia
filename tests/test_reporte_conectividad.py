@@ -20,6 +20,7 @@ _spec.loader.exec_module(rc)
 DIAS = [date(2026, 9, 28) + timedelta(days=i) for i in range(7)]
 InvAmb = namedtuple("InvAmb", "empresa sede sala uid indicador sala_id", defaults=(None,))
 InvEne = namedtuple("InvEne", "empresa sede tablero uid nombre principal")
+InvAgua = namedtuple("InvAgua", "empresa sede tuberia uid nombre principal")
 
 
 def _cnt(lecturas: dict) -> dict:
@@ -47,27 +48,33 @@ def _ambiental():
     return mod
 
 
-def _falso_consultar(inv: dict, lect: dict, previos: dict | None = None, log: list | None = None):
-    """Sustituye a rc.consultar: responde según la base y la consulta pedida."""
-    previos = previos or {}
+def _falso_consultar(inv: dict, lect: dict, previos: dict | None = None,
+                     nuevos: dict | None = None, log: list | None = None):
+    """Sustituye a rc.consultar: responde según el módulo y la consulta pedida
+    (inv/lect/previos/nuevos van por módulo: energia, ambiental, agua)."""
+    previos, nuevos = previos or {}, nuevos or {}
+    por_sql = {sql: (modulo, tipo) for modulo, d in rc.SQL.items() for tipo, sql in d.items()}
 
     def consultar(base, sql, **params):
-        sql_inv, sql_dias, sql_prev = rc.SQL[base]
-        if sql == sql_inv:
-            return inv[base]
-        if sql == sql_dias:
-            return [(uid, DIAS[i], n) for uid, v in lect[base].items()
+        if sql not in por_sql:
+            raise AssertionError(f"consulta inesperada: {sql[:40]}")
+        modulo, tipo = por_sql[sql]
+        if base != rc.BASE_DE[modulo]:          # el agua se consulta en la base de energía
+            raise AssertionError(f"{modulo} consultado en la base {base}")
+        if tipo == "inv":
+            return inv.get(modulo, [])
+        if tipo == "dias":
+            return [(uid, DIAS[i], n) for uid, v in lect.get(modulo, {}).items()
                     if uid in params["ids"] for i, n in enumerate(v) if n]
-        if sql == sql_prev:
-            if log is not None:
-                log.append((base, sorted(params["ids"])))
-            return [(u,) for u in previos.get(base, ()) if u in params["ids"]]
-        raise AssertionError(f"consulta inesperada: {sql[:40]}")
+        if log is not None:
+            log.append((modulo, tipo, sorted(params["ids"])))
+        fuente = previos if tipo == "previos" else nuevos
+        return [(u,) for u in fuente.get(modulo, ()) if u in params["ids"]]
     return consultar
 
 
 def _datos(log: list | None = None) -> dict:
-    """Dos bases con empresas reales, una sin datos y dos de prueba."""
+    """Dos bases con empresas reales, una sin datos y dos de prueba (sin agua)."""
     inv = {
         "energia": [
             InvEne("Sanna", "San Borja", "Tablero General TG-P1", 1, "Llave general", True),
@@ -81,7 +88,21 @@ def _datos(log: list | None = None) -> dict:
     lect = {"energia": {1: [1400] * 7, 2: [1400] * 7, 4: [1440] * 7},   # BK (3) sin datos
             "ambiental": {10: [287] * 7, 11: [288] * 7}}
     with mock.patch.object(rc, "consultar", _falso_consultar(inv, lect, log=log)):
-        return {base: rc.cargar(base, DIAS) for base in rc.BASES}
+        return {modulo: rc.cargar(modulo, DIAS) for modulo in rc.MODULOS}
+
+
+def _scotiabank(nuevos: dict | None = None, sitio_lect: list | None = None) -> dict:
+    """Energía en Jockey Plaza + agua en Jockey Plaza (cada 10 min) y en SITE
+    Barranco (cada 30 min), como en la base real."""
+    inv = {"energia": [InvEne("Scotiabank", "Jockey Plaza", "Tablero General TG", 232,
+                              "Llave general", True)],
+           "agua": [InvAgua("Scotiabank", "Jockey Plaza", "Kitchenette", 2, "Medidor general", True),
+                    InvAgua("Scotiabank", "SITE Barranco", "Principal", 3, "Medidor general", True),
+                    InvAgua("Zeia Demo", "Surco", "Tubo de caño cocina", 1, "puntodemo", True)]}
+    lect = {"energia": {232: [1440] * 7},
+            "agua": {2: [144] * 7, 3: sitio_lect or [48] * 7}}
+    with mock.patch.object(rc, "consultar", _falso_consultar(inv, lect, nuevos=nuevos)):
+        return {modulo: rc.cargar(modulo, DIAS) for modulo in rc.MODULOS}
 
 
 class TestFormato(unittest.TestCase):
@@ -213,7 +234,11 @@ class TestEmpresas(unittest.TestCase):
     def test_previos_solo_para_los_que_no_tienen_datos_en_la_semana(self):
         log: list = []
         _datos(log)
-        self.assertEqual(log, [("energia", [3])])   # ambiental: todos con datos
+        self.assertEqual([x for x in log if x[1] == "previos"],
+                         [("energia", "previos", [3])])   # ambiental: todos con datos
+        # "¿recién instalado?" solo se pregunta por los que SÍ tienen datos
+        self.assertEqual([x for x in log if x[1] == "nuevos"],
+                         [("energia", "nuevos", [1, 2, 4]), ("ambiental", "nuevos", [10, 11])])
 
     def test_todas_las_empresas_con_datos_sin_las_de_prueba(self):
         reportes, omitidas = rc.armar_empresas(_datos(), DIAS, 90.0)
@@ -256,6 +281,106 @@ class TestHTML(unittest.TestCase):
         self.assertIn("↳ CO₂", doc)
         self.assertIn("Sin monitoreo de energía", doc)
         self.assertNotIn("100.7%", doc)
+
+
+class TestAgua(unittest.TestCase):
+    def test_cada_medidor_contra_su_ritmo_y_agrupado_por_tuberia(self):
+        inv = [InvAgua("Scotiabank", "Jockey Plaza", "Kitchenette", 2, "Medidor general", True),
+               InvAgua("Scotiabank", "Jockey Plaza", "Cisterna", 5, "Medidor cisterna", False),
+               InvAgua("Scotiabank", "Jockey Plaza", "Cisterna", 6, "Sin ritmo", False)]
+        lect = {2: [144] * 7, 5: [48] * 7, 6: [144] * 7}
+        lect[5][3] = 24                        # cada 30 min: 24 de 48 el jueves
+        mod = rc.modulo_agua(inv, _cnt(lect), set(), DIAS, ritmos={2: 144, 5: 48})
+        rc.calcular(mod, 90.0)
+        filas = {f["nombre"]: f for b in mod["bloques"] for f in b["filas"]}
+        self.assertEqual([b["titulo"] for b in mod["bloques"]], ["Cisterna", "Kitchenette"])
+        self.assertEqual(filas["Medidor general"]["vals"], [100.0] * 7)
+        self.assertEqual(rc.fmt(filas["Medidor cisterna"]["vals"][3]), "50.0%")
+        self.assertEqual(filas["Medidor cisterna"]["malos"], [3])
+        # Sin ritmo medible: se usa el valor por defecto (cada 10 min)
+        self.assertEqual(filas["Sin ritmo"]["esperadas"], rc.ESPERADAS["agua"])
+        self.assertEqual(filas["Sin ritmo"]["malos"], [])
+        self.assertEqual(mod["subtitulo"], "3 medidores en 2 tuberías")
+        self.assertEqual(mod["col_nombre"], "Medidor (agrupado por tubería)")
+
+    def test_ritmo_propio_desde_la_moda_del_intervalo(self):
+        pedidos = []
+
+        def consultar(base, sql, **params):
+            pedidos.append((base, sql, params))
+            return [(2, Decimal("10")), (3, Decimal("30"))]
+        inv = [InvAgua("Scotiabank", "Jockey Plaza", "Kitchenette", 2, "Medidor general", True),
+               InvAgua("Scotiabank", "SITE Barranco", "Principal", 3, "Medidor general", True),
+               InvAgua("Zeia Demo", "Surco", "Tubo", 1, "puntodemo", True)]   # nunca reportó
+        with mock.patch.object(rc, "consultar", consultar):
+            ritmos = rc.cargar_ritmos_agua(inv, {2: {DIAS[0]: 144}}, {3}, DIAS)
+        self.assertEqual(ritmos, {2: 144, 3: 48})          # cada 10 min y cada 30 min
+        base, sql, p = pedidos[0]
+        self.assertEqual((base, sql, p["ids"]), ("energia", rc.SQL_RITMO_AGUA, [2, 3]))
+        # La semana del reporte + las 4 previas (hora Lima)
+        self.assertEqual(p["ini"].isoformat(), "2026-08-31T00:00:00-05:00")
+        self.assertEqual(p["fin"].isoformat(), "2026-10-05T00:00:00-05:00")
+
+    def test_energia_y_agua_en_tablas_separadas_y_final_de_ambas(self):
+        reportes, _ = rc.armar_empresas(_scotiabank(nuevos={"agua": [3]}), DIAS, 90.0,
+                                        ritmos={2: 144, 3: 48})
+        self.assertEqual([r["empresa"] for r in reportes], ["Scotiabank"])   # Zeia Demo fuera
+        rep = reportes[0]
+        self.assertEqual([m["clave"] for m in rep["modulos"]], ["energia", "agua"])
+        self.assertEqual(rep["final"], {"valor": 100.0, "nota": "(100.0% + 100.0%) ÷ 2"})
+        doc = rc.armar_html(reportes, DIAS, 90.0)
+        self.assertIn("<h2>Energía <span", doc)
+        self.assertIn("<h2>Agua <span", doc)
+        self.assertIn('<th scope="col">Agua</th>', doc)               # tabla final
+        self.assertIn("Sin monitoreo ambiental", doc)
+        self.assertEqual(doc.count('<section class="modulo">'), 2)
+
+
+class TestRecienInstalados(unittest.TestCase):
+    SITIO = [1, 0, 16, 48, 48, 48, 48]   # 1ª lectura el lunes 17:12, en línea desde el miércoles
+
+    def test_entran_desde_la_semana_siguiente(self):
+        datos = _scotiabank(nuevos={"agua": [3]}, sitio_lect=self.SITIO)
+        reportes, _ = rc.armar_empresas(datos, DIAS, 90.0, ritmos={2: 144, 3: 48})
+        agua = next(m for m in reportes[0]["modulos"] if m["clave"] == "agua")
+        self.assertEqual(agua["sedes"], ["Jockey Plaza"])
+        self.assertEqual(agua["n_filas"], 1)
+        self.assertEqual(agua["nuevos"], ["SITE Barranco · Principal · Medidor general"])
+        self.assertEqual(agua["fallas"], [])
+
+    def test_sin_esa_regla_sus_dias_previos_saldrian_en_rojo(self):
+        datos = _scotiabank(sitio_lect=self.SITIO)        # nadie marcado como nuevo
+        reportes, _ = rc.armar_empresas(datos, DIAS, 90.0, ritmos={2: 144, 3: 48})
+        agua = next(m for m in reportes[0]["modulos"] if m["clave"] == "agua")
+        self.assertEqual(agua["fallas"][0]["malos"], [0, 1, 2])
+
+    def test_aplica_a_todos_los_modulos(self):
+        inv = [InvAmb("Sanna", "San Borja", "Sala A", 1, "CO2"),
+               InvAmb("Sanna", "San Borja", "Sala A", 2, "HUMIDITY")]
+        mod = rc.modulo_ambiental(inv, _cnt({1: [288] * 7, 2: [0, 0, 0, 288, 288, 288, 288]}),
+                                  set(), DIAS, nuevos={2})
+        rc.calcular(mod, 90.0)
+        self.assertEqual(mod["nuevos"], ["San Borja · Sala A · HUMIDITY"])
+        self.assertEqual(mod["fallas"], [])
+
+
+class TestVariasSedes(unittest.TestCase):
+    def test_cada_grupo_lleva_su_sede_si_la_pagina_tiene_varias(self):
+        reportes, _ = rc.armar_empresas(_scotiabank(), DIAS, 90.0, ritmos={2: 144, 3: 48})
+        doc = rc.armar_html(reportes, DIAS, 90.0)
+        self.assertIn("Reporte semanal de conectividad — Scotiabank</h1>", doc)
+        for grupo in ("Jockey Plaza · Tablero General TG", "Jockey Plaza · Kitchenette",
+                      "SITE Barranco · Principal"):
+            self.assertIn(f">{grupo}</td>", doc)
+
+    def test_con_una_sede_va_en_el_titulo_y_no_en_cada_grupo(self):
+        reportes, _ = rc.armar_empresas(_scotiabank(nuevos={"agua": [3]}), DIAS, 90.0,
+                                        ritmos={2: 144, 3: 48})
+        doc = rc.armar_html(reportes, DIAS, 90.0)
+        self.assertIn("Reporte semanal de conectividad — Scotiabank · Jockey Plaza</h1>", doc)
+        self.assertIn(">Kitchenette</td>", doc)
+        self.assertIn(">Tablero General TG</td>", doc)
+        self.assertNotIn("Jockey Plaza · ", doc)
 
 
 if __name__ == "__main__":

@@ -1,11 +1,11 @@
-"""Reporte semanal de conectividad (energía + ambiental) en PDF, para jefes.
+"""Reporte semanal de conectividad (energía, ambiental y agua) en PDF, para jefes.
 
 Una página por empresa con datos: las que enviaron algo en la semana o en las
 4 semanas previas (se omiten las empresas de prueba, mismo criterio que el
 monitor en vivo). En cada página, una tabla por módulo con una fila por equipo
-(energía, agrupados por tablero) o por sala (ambiental), una columna por día
-(hora de Lima) y el promedio de la semana. Cada celda = lecturas recibidas /
-lecturas esperadas del día:
+(energía, agrupados por tablero), por sala (ambiental) o por medidor (agua,
+agrupados por tubería), una columna por día (hora de Lima) y el promedio de la
+semana. Cada celda = lecturas recibidas / lecturas esperadas del día:
 
   energía    1,440 por equipo (1 por minuto; filas con contador EPpos, mismo
              criterio que analisis_huecos.py y el monitor en vivo)
@@ -13,10 +13,18 @@ lecturas esperadas del día:
                con menos lecturas, así una falla nunca queda escondida en un
                promedio (si en un día en rojo sus sensores difieren, se listan
                debajo uno por uno)
+  agua       según el ritmo propio de cada medidor: su intervalo más frecuente
+             entre lecturas en las 5 semanas (cada 10 min = 144, cada 30 min =
+             48); filas con contador consumo_litros. El agua vive en la base de
+             energía: tubería → medidor → readings_readingwater
 
 Los días por debajo del umbral (90%) se pintan en rojo. Solo se incluyen
 equipos/sensores con datos en la semana o en las 4 semanas previas (los
-circuitos del inventario que nunca se instalaron no cuentan como falla).
+circuitos del inventario que nunca se instalaron no cuentan como falla). Los
+que enviaron su primera lectura dentro del rango (recién instalados) entran
+desde la semana siguiente, para que los días previos a su instalación no salgan
+como fallas. Si una empresa tiene varias sedes en la página, cada grupo de la
+tabla lleva el nombre de su sede.
 No agrupa por gateway: esa asignación no está en la base de datos.
 
 En ambiental, la columna "Batería" muestra la del dispositivo de cada sala: el
@@ -71,10 +79,15 @@ LIMA = timezone(timedelta(hours=-5))  # Perú no tiene horario de verano
 UMBRAL = 90.0                         # % mínimo de un día "normal"
 BATERIA_BAJA = 20                     # % de batería que se pinta en rojo
 LOOKBACK_DIAS = 28                    # ventana para decidir si un equipo debería reportar
-ESPERADAS = {"energia": 1440, "ambiental": 288}
-BASES = ("energia", "ambiental")
-TITULOS = {"energia": "Energía", "ambiental": "Ambiental"}
-SIN_MODULO = {"energia": "Sin monitoreo de energía", "ambiental": "Sin monitoreo ambiental"}
+# Lecturas esperadas por día. Agua: solo si el medidor no tiene ritmo medible
+# (menos de 2 lecturas en 5 semanas); si no, se usa su ritmo propio.
+ESPERADAS = {"energia": 1440, "ambiental": 288, "agua": 144}
+BASES = ("energia", "ambiental")                    # bases de datos (.env)
+MODULOS = ("energia", "ambiental", "agua")          # módulos del reporte, en este orden
+BASE_DE = {"energia": "energia", "ambiental": "ambiental", "agua": "energia"}
+TITULOS = {"energia": "Energía", "ambiental": "Ambiental", "agua": "Agua"}
+SIN_MODULO = {"energia": "Sin monitoreo de energía", "ambiental": "Sin monitoreo ambiental",
+              "agua": "Sin monitoreo de agua"}
 
 DIAS_ES = ["Lunes", "Martes", "Miércoles", "Jueves", "Viernes", "Sábado", "Domingo"]
 DIAS_CORTOS = ["Lun", "Mar", "Mié", "Jue", "Vie", "Sáb", "Dom"]
@@ -155,8 +168,83 @@ SQL_PREVIOS_AMBIENTAL = """
                     AND r.created_at >= :ini AND r.created_at < :fin)
 """
 
-SQL = {"energia": (SQL_INV_ENERGIA, SQL_DIAS_ENERGIA, SQL_PREVIOS_ENERGIA),
-       "ambiental": (SQL_INV_AMBIENTAL, SQL_DIAS_AMBIENTAL, SQL_PREVIOS_AMBIENTAL)}
+# Agua (base energy): sede → tubería (enterprises_waterpipe) → medidor
+# (enterprises_measurementpointwater). El medidor guarda dev_eui_password
+# (credencial del dispositivo): no se lee.
+SQL_INV_AGUA = """
+    SELECT e.name AS empresa, eh.name AS sede, wp.name AS tuberia, mw.id AS uid,
+           mw.name AS nombre, COALESCE(mw.is_main, false) AS principal
+    FROM enterprises_measurementpointwater mw
+    JOIN enterprises_waterpipe wp ON wp.id = mw.water_pipe_id
+    JOIN enterprises_energyheadquarter eh ON eh.id = wp.energy_headquarter_id
+    JOIN enterprises_enterprise e ON e.id = eh.enterprise_id
+"""
+
+# Solo filas con contador (consumo_litros), como EPpos en energía
+SQL_DIAS_AGUA = """
+    SELECT measurement_point_water_id AS uid,
+           (created_at AT TIME ZONE 'America/Lima')::date AS dia,
+           count(*) AS n
+    FROM readings_readingwater
+    WHERE measurement_point_water_id = ANY(:ids)
+      AND created_at >= :ini AND created_at < :fin
+      AND consumo_litros IS NOT NULL
+    GROUP BY 1, 2
+"""
+
+SQL_PREVIOS_AGUA = """
+    SELECT u.id FROM unnest(CAST(:ids AS bigint[])) AS u(id)
+    WHERE EXISTS (SELECT 1 FROM readings_readingwater r
+                  WHERE r.measurement_point_water_id = u.id
+                    AND r.created_at >= :ini AND r.created_at < :fin)
+"""
+
+# Recién instalados: de los que tienen datos en la semana, los que no tienen
+# ninguna lectura antes del inicio del rango (por índice: instantáneo).
+SQL_NUEVOS_ENERGIA = """
+    SELECT u.id FROM unnest(CAST(:ids AS bigint[])) AS u(id)
+    WHERE NOT EXISTS (SELECT 1 FROM readings_reading r
+                      WHERE r.measurement_point_id = u.id AND r.created_at < :ini)
+"""
+
+SQL_NUEVOS_AMBIENTAL = """
+    SELECT u.id FROM unnest(CAST(:ids AS bigint[])) AS u(id)
+    WHERE NOT EXISTS (SELECT 1 FROM readings_reading r
+                      WHERE r.indicator_device_id = u.id AND r.created_at < :ini)
+"""
+
+SQL_NUEVOS_AGUA = """
+    SELECT u.id FROM unnest(CAST(:ids AS bigint[])) AS u(id)
+    WHERE NOT EXISTS (SELECT 1 FROM readings_readingwater r
+                      WHERE r.measurement_point_water_id = u.id AND r.created_at < :ini)
+"""
+
+SQL = {
+    "energia": {"inv": SQL_INV_ENERGIA, "dias": SQL_DIAS_ENERGIA,
+                "previos": SQL_PREVIOS_ENERGIA, "nuevos": SQL_NUEVOS_ENERGIA},
+    "ambiental": {"inv": SQL_INV_AMBIENTAL, "dias": SQL_DIAS_AMBIENTAL,
+                  "previos": SQL_PREVIOS_AMBIENTAL, "nuevos": SQL_NUEVOS_AMBIENTAL},
+    "agua": {"inv": SQL_INV_AGUA, "dias": SQL_DIAS_AGUA,
+             "previos": SQL_PREVIOS_AGUA, "nuevos": SQL_NUEVOS_AGUA},
+}
+
+# Ritmo propio de cada medidor de agua (cada uno tiene el suyo: 10 o 30 min) =
+# su intervalo más frecuente entre lecturas consecutivas, en minutos enteros.
+# Se usa la moda y no la mediana porque la moda no se mueve aunque se pierdan
+# paquetes (el intervalo normal sigue siendo el más repetido). Los duplicados
+# (< 30 s) no cuentan.
+SQL_RITMO_AGUA = """
+    WITH x AS (
+        SELECT measurement_point_water_id AS uid,
+               round(extract(epoch FROM created_at - lag(created_at) OVER (
+                   PARTITION BY measurement_point_water_id ORDER BY created_at)) / 60) AS minutos
+        FROM readings_readingwater
+        WHERE measurement_point_water_id = ANY(:ids)
+          AND created_at >= :ini AND created_at < :fin
+          AND consumo_litros IS NOT NULL)
+    SELECT uid, mode() WITHIN GROUP (ORDER BY minutos) AS minutos
+    FROM x WHERE minutos >= 1 GROUP BY uid
+"""
 
 # Batería de cada dispositivo = el último valor que reportó antes del cierre del
 # rango, desde el historial de uplinks (equipments_device.battery es solo la foto
@@ -205,15 +293,39 @@ def con_datos_previos(base: str, sql: str, ids: list, dias: list[date]) -> set:
     return {r[0] for r in consultar(base, sql, ids=list(ids), ini=ini, fin=fin)}
 
 
-def cargar(base: str, dias: list[date]) -> tuple[list, dict, set]:
-    """Inventario de todas las empresas de la base, lecturas por día de la
-    semana y qué unidades sin datos en la semana sí enviaron en las previas."""
-    sql_inv, sql_dias, sql_prev = SQL[base]
-    inv = consultar(base, sql_inv)
+def cargar(modulo: str, dias: list[date]) -> tuple[list, dict, set, set]:
+    """Inventario de todas las empresas del módulo, lecturas por día de la
+    semana, qué unidades sin datos en la semana sí enviaron en las previas y
+    cuáles enviaron su primera lectura dentro del rango (recién instaladas)."""
+    base, sql = BASE_DE[modulo], SQL[modulo]
+    inv = consultar(base, sql["inv"])
     ids = [r.uid for r in inv]
-    cnt = conteos(base, sql_dias, ids, dias) if ids else {}
-    previos = con_datos_previos(base, sql_prev, [i for i in ids if i not in cnt], dias)
-    return inv, cnt, previos
+    cnt = conteos(base, sql["dias"], ids, dias) if ids else {}
+    previos = con_datos_previos(base, sql["previos"], [i for i in ids if i not in cnt], dias)
+    nuevos = recien_instalados(base, sql["nuevos"], list(cnt), dias)
+    return inv, cnt, previos, nuevos
+
+
+def recien_instalados(base: str, sql: str, ids: list, dias: list[date]) -> set:
+    """De los ids con datos en la semana, los que no tienen ninguna lectura
+    anterior al inicio del rango."""
+    if not ids:
+        return set()
+    return {r[0] for r in consultar(base, sql, ids=list(ids), ini=_inicio_dia(dias[0]))}
+
+
+def cargar_ritmos_agua(inv: list, cnt: dict, previos: set, dias: list[date]) -> dict:
+    """{uid: lecturas esperadas por día} de los medidores de agua del reporte,
+    según su ritmo propio en la semana y las LOOKBACK_DIAS previas. Los que no
+    tienen ritmo medible quedan fuera (se usará ESPERADAS["agua"])."""
+    ids = sorted({r.uid for r in inv if r.uid in cnt or r.uid in previos})
+    if not ids:
+        return {}
+    ini = _inicio_dia(dias[0]) - timedelta(days=LOOKBACK_DIAS)
+    fin = _inicio_dia(dias[-1]) + timedelta(days=1)
+    return {uid: max(1, round(1440 / float(minutos)))
+            for uid, minutos in consultar(BASE_DE["agua"], SQL_RITMO_AGUA,
+                                          ids=ids, ini=ini, fin=fin)}
 
 
 def cargar_baterias(inv: list, cnt: dict, previos: set, dias: list[date]) -> dict:
@@ -278,47 +390,84 @@ def bateria_baja(v: float) -> bool:
     return round(v) < BATERIA_BAJA   # igual que bajo(): el entero que se imprime
 
 
-def modulo_energia(inv: list, cnt: dict, previos: set, dias: list[date]) -> dict | None:
-    """Módulo de energía de UNA empresa (`inv` = sus filas del inventario)."""
-    esperadas = ESPERADAS["energia"]
+def _modulo_por_grupos(inv: list, cnt: dict, previos: set, dias: list[date], nuevos: set,
+                       grupo_de, esperadas_de) -> dict | None:
+    """Filas por unidad agrupadas en bloques por sede + grupo (energía: tablero;
+    agua: tubería), con la principal (is_main) primero en cada bloque."""
     grupos: dict = defaultdict(list)
-    excluidos = 0
+    excluidos, recientes = 0, []
     for r in inv:
+        if r.uid in nuevos:                            # entra la próxima semana
+            recientes.append(f"{r.sede} · {grupo_de(r)} · {r.nombre}")
+            continue
         if r.uid not in cnt and r.uid not in previos:  # no instalado / retirado
             excluidos += 1
             continue
+        esperadas = esperadas_de(r)
         lect = [cnt.get(r.uid, {}).get(d, 0) for d in dias]
-        grupos[(r.sede, r.tablero)].append({
+        grupos[(r.sede, grupo_de(r))].append({
             "nombre": r.nombre, "principal": bool(r.principal),
             "lecturas": lect, "esperadas": esperadas,
             "vals": [pct(n, esperadas) for n in lect]})
     if not grupos:
         return None
-    sedes = sorted({k[0] for k in grupos}, key=_orden)
     bloques = []
-    for sede, tablero in sorted(grupos, key=lambda k: (_orden(k[0]), _orden(k[1]))):
-        filas = sorted(grupos[(sede, tablero)],
+    for sede, grupo in sorted(grupos, key=lambda k: (_orden(k[0]), _orden(k[1]))):
+        filas = sorted(grupos[(sede, grupo)],
                        key=lambda f: (not f["principal"], _orden(f["nombre"])))
-        bloques.append({"titulo": tablero if len(sedes) == 1 else f"{sede} · {tablero}",
-                        "filas": filas})
-    n_filas = sum(len(b["filas"]) for b in bloques)
-    return {"clave": "energia", "titulo": TITULOS["energia"], "sedes": sedes,
-            "bloques": bloques, "excluidos": excluidos, "esperadas": esperadas,
-            "col_nombre": "Equipo (agrupado por tablero)",
-            "subtitulo": (f"{n_filas} {plural(n_filas, 'equipo', 'equipos')} en "
-                          f"{len(bloques)} {plural(len(bloques), 'tablero', 'tableros')}"),
-            "unidad": ("equipo", "equipos")}
+        bloques.append({"sede": sede, "titulo": grupo, "filas": filas})
+    return {"sedes": sorted({k[0] for k in grupos}, key=_orden), "bloques": bloques,
+            "excluidos": excluidos, "nuevos": recientes}
+
+
+def modulo_energia(inv: list, cnt: dict, previos: set, dias: list[date],
+                   nuevos: set = frozenset()) -> dict | None:
+    """Módulo de energía de UNA empresa (`inv` = sus filas del inventario)."""
+    esperadas = ESPERADAS["energia"]
+    mod = _modulo_por_grupos(inv, cnt, previos, dias, nuevos,
+                             lambda r: r.tablero, lambda r: esperadas)
+    if mod is None:
+        return None
+    n_filas, n_bloques = sum(len(b["filas"]) for b in mod["bloques"]), len(mod["bloques"])
+    mod.update({"clave": "energia", "titulo": TITULOS["energia"], "esperadas": esperadas,
+                "col_nombre": "Equipo (agrupado por tablero)",
+                "subtitulo": (f"{n_filas} {plural(n_filas, 'equipo', 'equipos')} en "
+                              f"{n_bloques} {plural(n_bloques, 'tablero', 'tableros')}"),
+                "unidad": ("equipo", "equipos")})
+    return mod
+
+
+def modulo_agua(inv: list, cnt: dict, previos: set, dias: list[date],
+                ritmos: dict | None = None, nuevos: set = frozenset()) -> dict | None:
+    """Módulo de agua de UNA empresa: medidores agrupados por tubería, cada uno
+    contra su ritmo propio (`ritmos` = {uid: lecturas/día} de cargar_ritmos_agua)."""
+    ritmos = ritmos or {}
+    mod = _modulo_por_grupos(inv, cnt, previos, dias, nuevos, lambda r: r.tuberia,
+                             lambda r: ritmos.get(r.uid, ESPERADAS["agua"]))
+    if mod is None:
+        return None
+    n_filas, n_bloques = sum(len(b["filas"]) for b in mod["bloques"]), len(mod["bloques"])
+    mod.update({"clave": "agua", "titulo": TITULOS["agua"],
+                "col_nombre": "Medidor (agrupado por tubería)",
+                "subtitulo": (f"{n_filas} {plural(n_filas, 'medidor', 'medidores')} en "
+                              f"{n_bloques} {plural(n_bloques, 'tubería', 'tuberías')}"),
+                "unidad": ("medidor", "medidores")})
+    return mod
 
 
 def modulo_ambiental(inv: list, cnt: dict, previos: set, dias: list[date],
-                     baterias: dict | None = None) -> dict | None:
+                     baterias: dict | None = None,
+                     nuevos: set = frozenset()) -> dict | None:
     """Módulo ambiental de UNA empresa (`inv` = sus filas del inventario;
     `baterias` = {sala_id: %} de cargar_baterias)."""
     esperadas = ESPERADAS["ambiental"]
     salas: dict = defaultdict(list)
     bat_sala: dict = {}   # (sede, sala) -> % (la batería es del dispositivo, no del sensor)
-    excluidos = 0
+    excluidos, recientes = 0, []
     for r in inv:
+        if r.uid in nuevos:                            # entra la próxima semana
+            recientes.append(f"{r.sede} · {r.sala} · {r.indicador}")
+            continue
         if r.uid not in cnt and r.uid not in previos:
             excluidos += 1
             continue
@@ -350,14 +499,13 @@ def modulo_ambiental(inv: list, cnt: dict, previos: set, dias: list[date],
             "nombre": sala, "vals": vals, "esperadas": esperadas,
             "lecturas": [peor[i]["lecturas"][i] for i in idx],
             "todos_sensores": sensores, "bateria": bat_sala.get((sede, sala))})
-    bloques = [{"titulo": None if len(sedes) == 1 else sede, "filas": por_sede[sede]}
-               for sede in sedes]
+    bloques = [{"sede": sede, "titulo": None, "filas": por_sede[sede]} for sede in sedes]
     n_salas = sum(len(b["filas"]) for b in bloques)
     nombres_ind = [INDICADORES.get(i, i.lower()) for i in
                    sorted(indicadores, key=lambda i: ORDEN_IND.get(i, 9))]
     return {"clave": "ambiental", "titulo": TITULOS["ambiental"], "sedes": sedes,
-            "bloques": bloques, "excluidos": excluidos, "esperadas": esperadas,
-            "col_nombre": "Sala",
+            "bloques": bloques, "excluidos": excluidos, "nuevos": recientes,
+            "esperadas": esperadas, "col_nombre": "Sala",
             "subtitulo": (f"{n_salas} {plural(n_salas, 'sala', 'salas')} · "
                           f"{n_sensores} {plural(n_sensores, 'sensor', 'sensores')} "
                           f"({unir(nombres_ind)})"),
@@ -406,28 +554,31 @@ def conectividad_final(mods: list[dict]) -> dict:
 
 def armar_empresas(datos: dict, dias: list[date], umbral: float,
                    pedidas: list[str] | None = None,
-                   baterias: dict | None = None) -> tuple[list[dict], list[str]]:
-    """Cruza las dos bases por nombre de empresa y arma el reporte de cada una.
+                   baterias: dict | None = None,
+                   ritmos: dict | None = None) -> tuple[list[dict], list[str]]:
+    """Cruza los módulos por nombre de empresa y arma el reporte de cada una.
 
     Sin `pedidas`: todas las empresas con datos, en orden alfabético, menos las
     de prueba. Con `pedidas`: solo esas y en ese orden. `baterias` = salida de
-    cargar_baterias (columna "Batería" de ambiental). Devuelve
+    cargar_baterias (columna "Batería" de ambiental) y `ritmos` = salida de
+    cargar_ritmos_agua (lecturas esperadas de cada medidor de agua). Devuelve
     (reportes, omitidas), donde omitidas = empresas sin datos en el periodo.
     """
     empresas: dict = {}
-    for base in BASES:
-        for r in datos[base][0]:
+    for modulo in MODULOS:
+        for r in datos[modulo][0]:
             e = empresas.setdefault(_clave(r.empresa), {
                 "nombre": " ".join((r.empresa or "?").split()),
                 "filas": defaultdict(list)})
-            e["filas"][base].append(r)
+            e["filas"][modulo].append(r)
     if pedidas:
         claves = list(dict.fromkeys((_clave(p), " ".join(p.split())) for p in pedidas))
     else:
         claves = [(k, empresas[k]["nombre"]) for k in sorted(empresas, key=_orden)
                   if k not in EMPRESAS_PRUEBA]
     armadores = {"energia": modulo_energia,
-                 "ambiental": partial(modulo_ambiental, baterias=baterias)}
+                 "ambiental": partial(modulo_ambiental, baterias=baterias),
+                 "agua": partial(modulo_agua, ritmos=ritmos)}
     reportes, omitidas, vistas = [], [], set()
     for k, nombre in claves:
         if k in vistas:
@@ -438,10 +589,10 @@ def armar_empresas(datos: dict, dias: list[date], umbral: float,
             omitidas.append(f"{nombre} (no existe en las bases)")
             continue
         mods = []
-        for base in BASES:
-            if e["filas"][base]:
-                _, cnt, previos = datos[base]
-                m = armadores[base](e["filas"][base], cnt, previos, dias)
+        for modulo in MODULOS:
+            if e["filas"][modulo]:
+                _, cnt, previos, nuevos = datos[modulo]
+                m = armadores[modulo](e["filas"][modulo], cnt, previos, dias, nuevos=nuevos)
                 if m:
                     calcular(m, umbral)
                     mods.append(m)
@@ -554,7 +705,15 @@ def _celda_bateria(v: float | None) -> str:
     return f'<td class="{clase}">{fmt_bateria(v)}</td>'
 
 
-def _tabla(mod: dict, dias: list[date], umbral: float) -> str:
+def _titulo_bloque(b: dict, varias_sedes: bool) -> str | None:
+    """Título del grupo en la tabla: con varias sedes en la página, cada grupo
+    lleva su sede (si no, no se sabría de qué sede es cada tablero/tubería)."""
+    if not varias_sedes:
+        return b["titulo"]
+    return f"{b['sede']} · {b['titulo']}" if b["titulo"] else b["sede"]
+
+
+def _tabla(mod: dict, dias: list[date], umbral: float, varias_sedes: bool = False) -> str:
     # Columna "Batería" (solo ambiental con datos): se llena en la fila de la
     # sala; las subfilas por sensor y el promedio del día la dejan vacía.
     con_bat = mod.get("con_bateria", False)
@@ -567,10 +726,11 @@ def _tabla(mod: dict, dias: list[date], umbral: float) -> str:
             + ('<th class="bat" scope="col">Batería</th>' if con_bat else "") + "</tr>")
     cuerpo = []
     for b in mod["bloques"]:
-        if b["titulo"]:
+        titulo = _titulo_bloque(b, varias_sedes)
+        if titulo:
             cuerpo.append(f'<tr class="grupo"><td colspan="{len(dias) + 2 + int(con_bat)}">'
-                          f'{esc(b["titulo"])}</td></tr>')
-        ind = " ind" if b["titulo"] else ""
+                          f'{esc(titulo)}</td></tr>')
+        ind = " ind" if titulo else ""
         for f in b["filas"]:
             clase = ' class="falla"' if f["malos"] else ""
             cuerpo.append(f'<tr{clase}><td class="nombre{ind}">{esc(f["nombre"])}</td>'
@@ -608,16 +768,16 @@ def _final(rep: dict, umbral: float) -> str:
     """Cierre de la empresa: conectividad de la semana por módulo y la final."""
     mods = {m["clave"]: m for m in rep["modulos"]}
     celdas = []
-    for base in BASES:
-        m = mods.get(base)
+    for modulo in MODULOS:
+        m = mods.get(modulo)
         celdas.append(_celda(m["prom_semana"], umbral) if m
-                      else f'<td class="pct sin">{SIN_MODULO[base]}</td>')
+                      else f'<td class="pct sin">{SIN_MODULO[modulo]}</td>')
     fin = rep["final"]
     clase = "pct total" + (" bajo" if bajo(fin["valor"], umbral) else "")
     celdas.append(f'<td class="{clase}">{fmt(fin["valor"])}'
                   f'<span class="nota">{esc(fin["nota"])}</span></td>')
     head = "".join(f'<th scope="col">{t}</th>'
-                   for t in [TITULOS[b] for b in BASES] + ["Conectividad final"])
+                   for t in [TITULOS[m] for m in MODULOS] + ["Conectividad final"])
     return ('<section class="final"><h2>Conectividad promedio de la semana</h2>'
             f'<table><thead><tr>{head}</tr></thead>'
             f'<tbody><tr>{"".join(celdas)}</tr></tbody></table></section>')
@@ -632,7 +792,7 @@ def _pagina(rep: dict, dias: list[date], umbral: float) -> str:
                       f'{_resumen(m, dias, umbral)}</div>' for m in mods)
     tablas = "".join(
         f'<section class="modulo"><h2>{m["titulo"]} <span class="sub">· {esc(m["subtitulo"])}'
-        f'</span></h2>{_tabla(m, dias, umbral)}</section>' for m in mods)
+        f'</span></h2>{_tabla(m, dias, umbral, len(sedes) > 1)}</section>' for m in mods)
     return (f'<section class="empresa"><header><h1>Reporte semanal de conectividad — '
             f'{esc(titulo)}</h1><div class="rango">{rango_largo(dias[0], dias[-1])}</div>'
             f'</header><div class="resumen">{resumen}</div>{tablas}{_final(rep, umbral)}'
@@ -783,13 +943,16 @@ def main(argv: list[str] | None = None) -> int:
     try:
         for base in BASES:
             verificar_horizonte(base, dias)
-            datos[base] = cargar(base, dias)
-        inv_amb, cnt_amb, previos_amb = datos["ambiental"]
+        for modulo in MODULOS:
+            datos[modulo] = cargar(modulo, dias)
+        inv_amb, cnt_amb, previos_amb, _ = datos["ambiental"]
         baterias = cargar_baterias(inv_amb, cnt_amb, previos_amb, dias)
+        inv_agua, cnt_agua, previos_agua, _ = datos["agua"]
+        ritmos = cargar_ritmos_agua(inv_agua, cnt_agua, previos_agua, dias)
     finally:
         tunnel.close_tunnel()   # solo cierra túneles que abrió este proceso
     reportes, omitidas = armar_empresas(datos, dias, args.umbral, args.empresa,
-                                        baterias=baterias)
+                                        baterias=baterias, ritmos=ritmos)
     if not reportes:
         raise SystemExit("Ninguna empresa tiene datos en el periodo"
                          + (f": {', '.join(omitidas)}" if omitidas else "") + ".")
@@ -814,6 +977,13 @@ def main(argv: list[str] | None = None) -> int:
                      if m["excluidos"] else "")
             print(f"   [{m['clave']}] {m['n_filas']} {plural(m['n_filas'], sing, plur)} · "
                   f"semana {fmt(m['prom_semana'])}{fuera}")
+            if m["nuevos"]:
+                print("      recién instalados (primera lectura en el rango; entran desde "
+                      "la próxima semana): " + "; ".join(m["nuevos"]))
+            if m["clave"] == "agua":
+                print("      lecturas esperadas/día: " + ", ".join(
+                    f"{f['nombre']} ({b['titulo']}) {f['esperadas']}"
+                    for b in m["bloques"] for f in b["filas"]))
             print("      días: " + " ".join(fmt(v) for v in m["prom_dia"]))
             for f in m["fallas"]:
                 print("      < umbral:", f["nombre"], "→",

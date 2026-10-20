@@ -1667,3 +1667,123 @@ El monitor debía ser una "pantalla de TV" que se entiende de un vistazo:
   último uplink con batería). Borrador:
   `~/Downloads/reporte_conectividad_2026-10-05_a_2026-10-11_bateria.pdf`
   (4 págs., igual que sin batería). Pruebas: 19 OK.
+
+## Sesión 19-oct-2026 (casa) — Reporte semanal de conectividad 12 → 18 oct
+
+### Pedido
+- Crear el reporte de conectividad de la semana del 12 al 18 de octubre.
+
+### Ejecutado
+- `git pull` (fast-forward a `94601c1`: solo el merge del PR #6 con los
+  commits del 12-oct, sin cambios de contenido). Pruebas: 19 OK.
+- Las copias locales llegaban solo al 12-oct 10:15 (energía) y 10:41
+  (ambiental), así que el script habría abortado. **Sin sync**: se corrió contra
+  PRODUCCIÓN por túnel con variables solo del proceso (mismo esquema que
+  `scripts/webapp_en_vivo.cmd`; `.env` sin tocar):
+  `ENERGIA_DB_PORT=55432 USE_SSH_TUNNEL_ENERGIA=true AMBIENTAL_DB_PORT=5435
+  USE_SSH_TUNNEL_AMBIENTAL=true` + `C:\Windows\System32\OpenSSH` primero en el
+  PATH. Horizonte de prod: 19-oct 10:21 Lima en las dos bases. El script abrió
+  y cerró los túneles solo.
+- `reporte_conectividad.py --desde 2026-10-12 --hasta 2026-10-18` (42 s) →
+  `~/Downloads/reporte_conectividad_2026-10-12_a_2026-10-18.pdf` (3 págs.,
+  una por empresa; Sanna volvió a caber en 1 página).
+
+### Resultado
+- **Oechsle 95.8%** (solo energía; sem. anterior 95.5%). Rojos: TF-UMAS 1 lun
+  12 77.2%, TG-TR2 (TF-AA) vie 16 80.0% y TF-BAHP vie 16 80.5%. Los tres son
+  intermitentes (muchos huecos cortos de ≤9 min, ningún corte largo).
+- **Sanna 95.3%** = (96.0 + 94.6) ÷ 2 (sem. anterior 88.9%).
+  - **Gateway 2 (PB Exterior) caído jue 15 de 11:31 a 00:54–01:01 del vie 16**
+    (~13.5 h). Sus 2 únicos dispositivos (energía: Llave general cuarto de
+    bombas, punto 3, 48.2%; ambiental: Subestación eléctrica, 49.0%) se
+    cortaron con 2 min de diferencia y volvieron con 7 min de diferencia.
+    Apunta al gateway o a su enlace/energía (inferencia, no verificada en sitio).
+  - **Zona Verde recuperada**: batería 8% → 100% el jue 15 15:43 (cambio de
+    batería). Desde el vie 16 envía 288 uplinks/día (99–100%). Lun 12–jue 15
+    en rojo (21.9–52.8%). Semana 61.2%.
+  - **Zona Roja recuperada**: el SNR cambió durante el jue 15 (promedio del
+    día −4.0); desde el vie 16 está en ≈ +10 dB (≈ −12 dB desde el 06-oct) y
+    los uplinks bajaron de 451–454/día a 287–288. Lun 12–jue 15 en rojo
+    (69.4–72.6%), después 99.7–100%. Hueco más largo: jue 15 de 11:26 a 15:33.
+  - Sala UPS: batería 25% → 100% el jue 15 16:09 (también la cambiaron).
+  - El jue 15 parece haber habido una visita técnica: 2 baterías cambiadas,
+    corrección del enlace de Zona Roja, y el corte de G2 empezó en ese mismo
+    rango horario (inferencia: confirmar con el equipo de campo).
+  - Tomógrafo sáb 17 58.5% (842 lecturas, intermitente; huecos mayores
+    14:58–15:30, 19:05–19:49 y 20:09–20:39).
+  - Ninguna batería < 20% al cierre del rango.
+- **Scotiabank 100.0%** (solo energía; sem. anterior 99.6%).
+- 12 empresas sin datos en el periodo (las inactivas conocidas).
+
+### Verificación
+- 429/429 celdas del HTML (filas, subfilas, "Semana", "Promedio del día" y
+  batería) iguales a un recálculo independiente: energía con la empresa por
+  JOIN, límites literales '-05' y `date_trunc`; ambiental agrupado por
+  `readings_reading.room_id` (peor sensor de la sala); batería unida solo por
+  devEUI. Finales recalculadas: 95.8 / 95.3 / 100.0.
+- Sigue pendiente lo de las subfilas por sensor: Zona Roja las muestra
+  porque su CO₂ difiere 0.3 pts un solo día (71.5 vs 71.2 lun 12).
+
+### Lección
+- Para el reporte semanal NO hace falta sync: basta correrlo contra
+  producción con las variables de proceso de arriba (~40 s). El sync solo
+  hace falta para trabajar con la copia local.
+
+### 2º pedido (misma sesión): agua de Scotiabank en su propia tabla
+- Pedido: "Scotiabank · Jockey Plaza monitorea agua y energía: tablas separadas
+  para describir a ambas". El reporte solo leía energía + ambiental.
+- Dónde está el agua (ningún doc ni código lo cubría; solo el mockup del
+  17-ago): en la base `energy`, sede → `enterprises_waterpipe` (tubería) →
+  `enterprises_measurementpointwater` (medidor) → `readings_readingwater`
+  (contador `consumo_litros`/`consumo_m3`, estados, `bateria_v`, rssi/snr;
+  índice `(measurement_point_water_id, created_at)`). `valhalladb` no tiene
+  nada de agua. El medidor guarda `dev_eui_password` (credencial): no se lee.
+- Inventario de agua: Zeia Demo/Surco (prueba), Scotiabank/Jockey Plaza
+  "Kitchenette" → Medidor general (desde 03-sep, cada 10 min = 144/día) y
+  Scotiabank/SITE Barranco "Principal" → Medidor general (1ª lectura 12-oct
+  17:12, regular desde el 14-oct 16:40, cada 30 min = 48/día). Ojo: SITE
+  Barranco transmite pero marca `estado_tuberia='vacia'` y el contador está
+  fijo en 350 L toda la semana (conecta, pero no mide consumo).
+- Energía Scotiabank: solo Jockey Plaza (punto 232) reporta; Barranco (233) y
+  SITE Barranco (234) nunca enviaron lecturas.
+
+### Cambios en `scripts/reporte_conectividad.py`
+- Módulo nuevo **Agua** (se lee de la base de energía): tabla propia con un
+  medidor por fila, agrupado por tubería. Esperadas = ritmo propio de cada
+  medidor (`SQL_RITMO_AGUA`: moda del intervalo entre lecturas en la semana +
+  4 previas; 10 min → 144, 30 min → 48; sin ritmo medible → 144). La moda no
+  se mueve aunque se pierdan paquetes.
+- La tabla "Conectividad promedio de la semana" ahora tiene Energía |
+  Ambiental | Agua | Conectividad final (= promedio de los módulos que tiene
+  la empresa). Oechsle y Sanna muestran "Sin monitoreo de agua".
+- **Regla nueva**: lo que envía su primera lectura dentro del rango (recién
+  instalado) entra recién la semana siguiente, para que los días previos a la
+  instalación no salgan como fallas (SITE Barranco habría salido con 2.1% /
+  0% / 33.3% de lun a mié). La consola lo lista. Esta semana solo afectó a
+  SITE Barranco (energía y ambiental: 0 recién instalados).
+- Si una página tiene varias sedes, cada grupo de la tabla lleva su sede
+  ("Jockey Plaza · Kitchenette") y el título queda solo con la empresa.
+- Interno: `SQL` pasó a un dict por módulo (`inv/dias/previos/nuevos`),
+  `cargar(modulo)` devuelve también `nuevos`, `MODULOS`/`BASE_DE` separan
+  módulos de bases. `verificar_horizonte` sigue siendo por base.
+- Pruebas: 27 OK (8 nuevas: agua por ritmo y tubería, ritmo por moda, tablas
+  separadas + final, recién instalados ×3, títulos con varias sedes ×2).
+
+### Resultado (12 → 18 oct, PDF regenerado en 39 s, 3 págs.)
+- **Scotiabank · Jockey Plaza 100.0%** = (Energía 100.0% + Agua 100.0%) ÷ 2.
+  Agua: 144 de 144 lecturas todos los días (cuadra con el conteo crudo).
+- Oechsle (95.8%) y Sanna (95.3%) con las mismas cifras que antes del cambio.
+- La semana 19–25 oct entra SITE Barranco: la página de Scotiabank tendrá 2
+  sedes (título "Scotiabank" y cada grupo con su sede).
+- Mientras se trabajaba (12:43–12:44), alguien cambió `.env` a modo en vivo
+  (55432/5435 con túnel) y agregó `guard_local_target` a
+  `scripts/sync_db.sh`. No fue esta sesión y no se tocaron.
+
+
+### Push (misma sesión)
+- Commit + push a `origin/main` (2 commits: feat + docs) de
+  `scripts/reporte_conectividad.py`, `tests/test_reporte_conectividad.py`,
+  `AGENTS.md` y esta bitácora.
+- Quedan FUERA, porque no son de esta sesión: el `guard_local_target` de
+  `scripts/sync_db.sh`, `scripts/webapp_en_vivo.cmd` y `projects/` (sin
+  trackear). `.env` está gitignored.
