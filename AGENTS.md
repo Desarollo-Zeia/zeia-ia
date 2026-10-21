@@ -66,6 +66,17 @@ src/
                         mejor (máx. 10 filas + aviso al pie si hay más); barra
                         del día en tramos de 10 min verde/ámbar/rojo; HTML →
                         PNG con Playwright (Chromium; si no, Edge/Chrome)
+  gateways.py           Mapeo EUI → gateway de Sanna (no está en las bases);
+                        lo usan webapp.py (reportes por gateway) y los avisos
+  avisos.py             ★ Motor de avisos automáticos (PURO: sin base ni red):
+                        🔴 gateway/sede/plataforma caída 24/7, 🟠 en horario
+                        (sin datos ≥60 min, batería <10 %, no mide, 3 días mal),
+                        🟡 resumen 08:00; histéresis, agrupado, mantenimiento
+  avisos_datos.py       Historia en memoria minuto a minuto (solo lectura) para
+                        el motor: igual en vivo que en el backtest
+  avisos_vivo.py        Motor en vivo (ciclo 5 min, hilo del bot), estado en
+                        SQLite local data/ (gitignored), /avisos, /mantenimiento,
+                        backtest(). AVISOS_MODO = simular (defecto) | enviar | apagado
   agent.py              Loop del agente (OpenRouter, máx 15 iteraciones, temperature 0.1)
   prompts.py            System prompt con TODO el conocimiento del dominio (¡mantener al día!)
 docs/
@@ -89,11 +100,16 @@ scripts/
   telegram_setup.py     Valida el token del bot, muestra el id del grupo y con
                         --test manda 2 mensajes de prueba (con y sin sonido)
   telegram_bot.py       Bot del grupo (long polling, sin URL pública):
-                        /ambiental, /energia, /agua (foto de lo peor de hoy) y
-                        /ayuda; /salas = alias de /ambiental; solo responde en
+                        /ambiental, /energia, /agua (foto de lo peor de hoy),
+                        /avisos, /mantenimiento y /ayuda; /salas = alias de
+                        /ambiental; corre los avisos automáticos en un hilo;
+                        solo responde en
                         TELEGRAM_CHAT_ID; una instancia por PC (candado
                         127.0.0.1:47831). Arranque: scripts\telegram_bot.cmd
                         (producción en vivo por túnel; log logs/telegram_bot.*)
+  avisos.py             Avisos: --backtest (semanas pasadas → analisis/),
+                        --ciclo (uno ahora, simulado), --estado. No envía.
+                        Contra producción: scripts\avisos.cmd
 tests/                  unittest sin DB (python -m unittest discover -s tests)
 eval/
   questions.yaml        Preguntas de prueba con hechos esperados
@@ -244,6 +260,9 @@ python eval/compare_models.py --questions q1_empresas_puntos  # eval rápida
 python scripts/telegram_setup.py      # bot de avisos: valida token + id del grupo
 python scripts/telegram_setup.py --test   # 2 mensajes de prueba al grupo
 scripts\telegram_bot.cmd              # bot del grupo: /ambiental /energia /agua (en vivo)
+                                      #   + avisos automáticos (AVISOS_MODO, defecto simular)
+scripts\avisos.cmd --backtest --desde 2026-09-23 --hasta 2026-10-20   # avisos de 4 semanas
+scripts\avisos.cmd --ciclo            # qué avisaría ahora (no envía)
 scripts/sync_db.sh ambiental full     # sync de una base (dump+restore+verifica)
 ```
 

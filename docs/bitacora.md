@@ -1942,3 +1942,135 @@ El monitor debía ser una "pantalla de TV" que se entiende de un vistazo:
 - Fase 2: motor de reglas en modo simulación (sin enviar) + backtest de 4
   semanas de producción para ajustar umbrales; horario 🟠 propuesto
   08:00–20:00 (por confirmar). Requiere PC siempre encendida con túnel.
+
+
+## Sesión 21-oct-2026 — Avisos automáticos por Telegram (fase 2: motor + backtest)
+
+### Pedido
+- "Completar el sistema de notificaciones": la fase 2 que quedó pendiente el
+  19-oct (motor de reglas en simulación + backtest de 4 semanas + ajuste).
+
+### Estado al empezar
+- `main` 1 commit adelante de `origin/main` (`786df9b "pushea bro"`, 19-oct:
+  canal de Telegram, bot, `projects/`, `src/indice.py`…), sin pushear.
+  Árbol limpio, 109 pruebas OK. El bot NO estaba corriendo (último log 19-oct
+  15:52, timeout de red y Ctrl+C).
+
+### Exploración de producción (solo lectura, por túnel)
+- Se vigilan 46 unidades: 32 puntos de energía (Oechsle 18, Sanna 13,
+  Scotiabank Jockey Plaza 1), 13 sensores de Sanna (38 indicadores) y 1
+  medidor de agua (Jockey Plaza). Sin primera lectura: Scotiabank Barranco
+  (233), SITE Barranco (234) y el agua de SITE Barranco (3). **Las lecturas
+  del medidor de agua 3 ya no existen** (el 19-oct tenía hasta las 11:40):
+  las borraron en la fuente. El medidor 4 (Barranco) es virtual
+  (`dependency=true`, 10 % del 3): se excluye.
+- Historial ambiental (`data_json`): battery (~1 vez/día), snr, rssi, devEUI
+  y `password` (no se lee). `equipments_device` ya tiene alertas propias de
+  la plataforma por correo (`no_data_alert`, timeout 60 min) en los 13.
+- Contadores: 68 (Red de emergencia) siempre plano; los ADW210 de Sanna
+  (34–41) mandan lecturas con EPpos = 0 (38: 9,630 en 8 días); tras un hueco
+  el contador salta lo acumulado (normal: se normaliza por minuto).
+- Valor fijo ambiental: máx. 10.7 h en un indicador (quirófanos estables),
+  nunca todos a la vez → umbral "otro indicador fijo" = 24 h.
+
+### Implementado
+- `src/gateways.py`: mapeo EUI → gateway de Sanna (antes dentro de
+  `webapp.py`, que ahora lo importa; verificado 3 gateways / 26 EUIs).
+- `src/avisos.py` (motor PURO, sin base ni red): `Reglas`, `Unidad`, `Obs`,
+  `Incidente`, `Estado` (JSON), `evaluar()` → eventos, `componer()` →
+  mensajes, `resumen_diario()`, mantenimientos.
+- `src/avisos_datos.py`: `Historia` = presencia minuto a minuto en memoria
+  (energía por hora con máscara `bit_or` de 60 bits), contador por hora sin
+  ceros, corridas de valores iguales, agua, batería y SNR. SQL solo lectura
+  (`validate_sql` + sesión read-only). Carga por tramos de 7 días.
+- `src/avisos_vivo.py`: `Store` SQLite local (`data/avisos.sqlite` en
+  modo enviar, `data/avisos_simulacion.sqlite` en simular; gitignored),
+  `Motor` (ciclo cada 5 min, recarga incremental, inventario cada hora,
+  reintento de envíos hasta 6 h), `/avisos`, `/mantenimiento`, `backtest()`.
+- `scripts/avisos.py` + `scripts/avisos.cmd`: `--backtest`, `--ciclo`
+  (simulado, estado en memoria), `--estado`. Ninguno envía nada.
+- Bot (`scripts/telegram_bot.py`): arranca el motor en un hilo según
+  `AVISOS_MODO`; comandos nuevos `/avisos` y `/mantenimiento <qué> [2h|30m|1d]`
+  (`fin` para terminar; busca por empresa, sede, gateway, sala o equipo).
+- `src/config.py`: `AVISOS_MODO` (apagado | **simular** por defecto |
+  enviar), `AVISOS_HORARIO` (08:00-20:00), `AVISOS_RESUMEN` (08:00),
+  `AVISOS_CICLO_MIN` (5). `.env.example` actualizado; `.env` sin tocar.
+- `src/tunnel.py`: candado para que el hilo de avisos y el de comandos no
+  lancen el mismo túnel a la vez.
+
+### Reglas finales (ajustadas con el backtest)
+- 🔴 24/7: gateway/sede caída = la mitad o más de lo que reportaba en el
+  gateway (o sede) sin datos > 20 min con 2 cortados a ≤10 min, o ≥3 a la
+  vez; solo cuenta lo cortado en las últimas 24 h. Si otro módulo del mismo
+  gateway sigue entero, dice "el gateway funciona". Plataforma: ≥80 % de un
+  módulo > 30 min en ≥2 sedes (retiene los avisos de gateway mientras tanto).
+- 🟠 08:00–20:00: sin datos ≥60 min; batería < 10 %; no mide (contador sin
+  avanzar ≥24 h contando solo horas CON lecturas y 1.5× lo normal en su
+  semana, o contador en 0; CO₂ fijo ≥3 h; agua tubería vacía ≥6 h); 3 días
+  seguidos en el resumen. De noche espera; si volvió antes, solo resumen.
+- 🟡 08:00 sin sonido: < 90 %, cortes ≥60 min, bloques de 6 h < 70 %,
+  "pierde lecturas sueltas", SNR −10 dB vs su p75 de 14 días, batería < 20 %,
+  sin primera lectura (si cambia la lista o los lunes), saltos de contador.
+- Anti-ruido: cierres sin sonido; histéresis (30 min estable con huecos
+  < 30 min; recaída < 2 h solo si dura 2 h); lo ya avisado (batería, racha)
+  solo vuelve a sonar si el corte dura 6 h; lo que ya volvió no se avisa
+  tarde; los 🟠 que cruzan el umbral a ≤10 min van juntos; un corte parcial
+  que crece se avisa UNA vez más como "caído".
+- Cadencia nominal = la menor de las modas diarias de 14 días (la moda de la
+  semana se corría a 10 min con la batería de Zona Verde).
+
+### Backtest 23-sep → 20-oct (28 días, producción, 95 s de carga)
+- 1ª versión: 29 avisos con sonido (7 el 06-oct; 8 🟠 de Zona Verde, uno por
+  cada corte; 5 🔴 por 2 salas sueltas del Gateway 1, Zona Verde y Zona Roja,
+  que perdían paquetes).
+- **Final: 11 con sonido en 4 semanas (0.4/día, máx. 4 el 06-oct)**: 🔴 6 =
+  03-oct 10:05 G1 (11 equipos de energía, 26 min; "siguen 7 salas: el
+  gateway funciona"), 05-oct 13:50 G1 (4 ADW300), 06-oct 03:55 G1 caído (12
+  de 19: energía + 6 salas, escalonado de 02:11 a 05:29), 07-oct 15:35
+  Oechsle sede entera (18 de 18, 36 min), 15-oct 11:55 y 18-oct 13:35
+  Gateway 2 (2 de 2); 🟠 5 = Ascensor PB (contador en 0, 30-sep), TF-VM
+  Oechsle (contador quieto 29 h, 06-oct), Zona Verde batería 8 % (06-oct),
+  racha de 3 días cuarto de bombas (06-oct) y Zona Roja (09-oct).
+- 36 incidentes cerrados sin sonar: 22 dentro de cortes de gateway ya
+  avisados (18 del Gateway 1 el 05/06-oct y 4 del Gateway 2), 13 cortes de
+  Zona Verde con la batería ya avisada (< 6 h) y la Zona Roja del 15-oct
+  (racha conocida, 4 h 39 min). Todo sale en el resumen.
+- Mensaje más largo: 2,386 caracteres (resumen del 06-oct; tope 4,096).
+- Detalle: `analisis/avisos_backtest_2026-09-23_2026-10-20.txt` (gitignored)
+  con todos los mensajes y la lista de lo callado con el motivo.
+- `scripts\avisos.cmd --ciclo` contra producción 15:11: 46 vigilados, nada
+  abierto; resumen de ayer: Red de emergencia 55 % (pierde lecturas sueltas).
+
+### Lecciones
+- SQLAlchemy 2: `Row` tiene `.t`, `.count`, `.index`, `.tuple` propios → un
+  alias de columna `t` devuelve la FILA. Se renombró a `ts`; la fila falsa de
+  las pruebas imita ese `.t` para que no vuelva a pasar.
+- La consulta `bit_or` de 4 semanas tardó 46 s y otra vez 130 s (carga del
+  servidor; el plan es index-only). Por eso la carga va por tramos de 7 días.
+- PowerShell 5.1 manda el texto por tubería a Python en ASCII: los scripts
+  con acentos van en un archivo temporal UTF-8, no por `@' '@ | python -`.
+
+### Verificación
+- 177 pruebas OK (68 nuevas en `test_avisos`, `test_avisos_datos`,
+  `test_avisos_vivo` y `test_telegram_bot`), sin red ni base.
+- Bot reiniciado 15:16 con `scripts\telegram_bot.cmd` (oculto, PID cmd 23352)
+  en modo simular: primer ciclo 15:16–15:17 (carga de 15 días, resumen de
+  ayer simulado), ciclo incremental 15:21; `--estado`: 46 vigilados, nada
+  abierto. No se envió ningún aviso automático.
+
+### Pendiente
+- Dejar el motor unos días en simulación y revisar con `/avisos`; después
+  `AVISOS_MODO=enviar` en `.env` (lo cambia el usuario) y reiniciar el bot.
+  Requiere la PC encendida con túnel.
+- Confirmar con el equipo: horario 08:00–20:00 de los 🟠 y si avisar Red de
+  emergencia (punto 68, contador siempre plano: no se avisa porque nunca
+  cambia en su semana).
+
+### Push (misma sesión)
+- A pedido del usuario: 2 commits (feat + docs) y push a `origin/main`, junto
+  con `786df9b` ("pushea bro", 19-oct: `projects/`, bot y fotos de Telegram,
+  `src/indice.py`, `inicio.html`, `nav.js`…), que seguía sin pushear.
+- `origin/main` traía `ee26e45` (Alonso, 19-oct: sesión del 14-oct en la Mac y
+  "Agent skills" en AGENTS.md; solo docs): se integró con un merge.
+- Revisión de secretos antes de subir (101 archivos): solo valores de ejemplo
+  en los `.env.example` y variables (`"${...}"`) en los `sync_db.sh`.
