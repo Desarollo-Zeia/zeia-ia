@@ -117,3 +117,21 @@ VOICE_SUMMARY_MODEL = os.getenv("VOICE_SUMMARY_MODEL", "google/gemini-2.5-flash"
 # configuración (valida el token y muestra el id del grupo).
 TELEGRAM_BOT_TOKEN = os.getenv("TELEGRAM_BOT_TOKEN", "").strip()
 TELEGRAM_CHAT_ID = os.getenv("TELEGRAM_CHAT_ID", "").strip()
+
+
+def _int_env(key: str, default: int, minimo: int = 1) -> int:
+    try:
+        return max(minimo, int(os.getenv(key, str(default)).strip()))
+    except ValueError:
+        return default
+
+
+# Avisos automáticos (src/avisos*.py; los corre el bot de Telegram):
+#   apagado → no corren · simular → evalúan y guardan lo que mandarían, sin
+#   mandar nada (por defecto) · enviar → avisan al grupo de TELEGRAM_CHAT_ID.
+AVISOS_MODO = os.getenv("AVISOS_MODO", "simular").strip().lower()
+if AVISOS_MODO not in ("apagado", "simular", "enviar"):
+    AVISOS_MODO = "simular"
+AVISOS_HORARIO = os.getenv("AVISOS_HORARIO", "08:00-20:00").strip()   # 🟠 solo en este horario
+AVISOS_RESUMEN = os.getenv("AVISOS_RESUMEN", "08:00").strip()         # hora del resumen 🟡
+AVISOS_CICLO_MIN = _int_env("AVISOS_CICLO_MIN", 5)                    # cada cuánto se revisa

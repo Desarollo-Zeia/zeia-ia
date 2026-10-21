@@ -62,8 +62,17 @@ class Interpretar(unittest.TestCase):
         for txt in ("/ayuda", "/help", "/start", "/start@zeia_alerts_bot alertas"):
             self.assertEqual(leer(upd(txt)), ("ayuda", 77), txt)
 
-    def test_menu_con_los_tres_comandos_y_ayuda(self):
-        self.assertEqual([c for c, _ in bot.COMANDOS], ["ambiental", "energia", "agua", "ayuda"])
+    def test_menu_con_los_modulos_avisos_y_ayuda(self):
+        self.assertEqual([c for c, _ in bot.COMANDOS],
+                         ["ambiental", "energia", "agua", "avisos", "mantenimiento", "ayuda"])
+
+    def test_avisos_y_mantenimiento_con_argumentos(self):
+        self.assertEqual(leer(upd("/avisos")), ("avisos", 77))
+        u = upd("/mantenimiento@zeia_alerts_bot Gateway 2   3h")
+        self.assertEqual(leer(u), ("mantenimiento", 77))
+        self.assertEqual(bot.argumentos(u), "Gateway 2   3h")
+        self.assertEqual(bot.argumentos(upd("/mant")), "")
+        self.assertEqual(bot.autor(u), "Ana")
 
 
 class Responder(unittest.TestCase):
@@ -71,6 +80,20 @@ class Responder(unittest.TestCase):
         p = mock.patch.object(bot, "log")   # sin ruido en la salida de las pruebas
         p.start()
         self.addCleanup(p.stop)
+
+    def test_avisos_responde_el_estado(self):
+        with mock.patch("src.avisos_vivo.texto_estado", return_value="🔔 estado") as est, \
+             mock.patch.object(bot.telegram, "send_message") as msg:
+            bot.responder("avisos", 77)
+        est.assert_called_once_with()
+        msg.assert_called_once_with("🔔 estado", reply_to=77)
+
+    def test_mantenimiento_pasa_argumentos_y_autor(self):
+        with mock.patch("src.avisos_vivo.comando_mantenimiento", return_value="🛠 ok") as cm, \
+             mock.patch.object(bot.telegram, "send_message") as msg:
+            bot.responder("mantenimiento", 77, "Sanna 2h", "Ana")
+        cm.assert_called_once_with("Sanna 2h", por="Ana")
+        msg.assert_called_once_with("🛠 ok", reply_to=77)
 
     def test_manda_la_foto_del_modulo_respondiendo_al_comando(self):
         foto = mock.Mock(png=b"PNG", caption="⚡ Energía", filas=[1, 2], problemas=[1])

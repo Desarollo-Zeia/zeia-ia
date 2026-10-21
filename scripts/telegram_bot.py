@@ -9,7 +9,12 @@ empresas juntas y de peor a mejor (src/foto_salas.py):
     /ambiental   salas (CO2, temperatura, humedad)
     /energia     equipos de energía
     /agua        medidores de agua
+    /avisos      estado de los avisos automáticos (lo abierto, últimos avisos)
+    /mantenimiento <qué> [duración]   pausa los avisos de algo (fin = terminar)
     /ayuda       lista de comandos
+
+Además corre los avisos automáticos (src/avisos_vivo.py) en un hilo, según
+AVISOS_MODO en .env: simular (por defecto: no envía nada), enviar o apagado.
 
 Una sola instancia por PC (candado en 127.0.0.1:47831).
 """
@@ -34,9 +39,12 @@ MODULOS = ("ambiental", "energia", "agua")
 COMANDOS = [("ambiental", "Salas con problemas hoy (CO2, temperatura, humedad)"),
             ("energia", "Equipos de energía con problemas hoy"),
             ("agua", "Medidores de agua con problemas hoy"),
+            ("avisos", "Estado de los avisos automáticos"),
+            ("mantenimiento", "Pausar avisos: /mantenimiento Gateway 2 3h"),
             ("ayuda", "Qué comandos hay")]
 ALIAS = {"ambiental": "ambiental", "energia": "energia", "agua": "agua",
          "salas": "ambiental",                     # el comando de la 1a versión
+         "avisos": "avisos", "mantenimiento": "mantenimiento", "mant": "mantenimiento",
          "ayuda": "ayuda", "help": "ayuda", "start": "ayuda"}
 AYUDA = ("Soy el bot de avisos de ZEIA. Cada comando manda una foto con SOLO lo que "
          "tuvo problemas hoy, de todas las empresas, de peor a mejor:\n"
@@ -44,7 +52,12 @@ AYUDA = ("Soy el bot de avisos de ZEIA. Cada comando manda una foto con SOLO lo 
          "/energia: equipos de energía\n"
          "/agua: medidores de agua\n"
          "En la barra del día: verde = llegaron lecturas, ámbar = hubo cortes, "
-         "rojo = no llegó nada. Si todo va bien, responde solo con un mensaje.")
+         "rojo = no llegó nada. Si todo va bien, responde solo con un mensaje.\n\n"
+         "Avisos automáticos: 🔴 al instante (gateway o plataforma caída), 🟠 en horario "
+         "laboral (equipo o sala sin datos, batería, no mide) y un resumen 🟡 cada mañana.\n"
+         "/avisos: qué está abierto y los últimos avisos\n"
+         "/mantenimiento Sanna 2h: no avisar de algo mientras se trabaja en sitio "
+         "(/mantenimiento fin para terminar)")
 MAX_EDAD_S = 300        # comandos de cuando el bot estaba apagado: se ignoran
 POLL_S = 50             # long polling: Telegram responde apenas llega algo
 PUERTO_CANDADO = 47831  # candado local: una sola instancia por PC
@@ -83,9 +96,31 @@ def interpretar(update: dict, usuario: str, chat_id: str,
     return (accion, msg.get("message_id")) if accion else None
 
 
-def responder(accion: str, msg_id: Optional[int]) -> None:
+def argumentos(update: dict) -> str:
+    """Lo que viene después del comando ("/mantenimiento Gateway 2 3h" → "Gateway 2 3h")."""
+    texto = ((update.get("message") or {}).get("text") or "").strip()
+    partes = texto.split(maxsplit=1)
+    return partes[1].strip() if len(partes) > 1 else ""
+
+
+def autor(update: dict) -> str:
+    de = (update.get("message") or {}).get("from") or {}
+    nombre = " ".join(x for x in (de.get("first_name"), de.get("last_name")) if x)
+    return nombre or de.get("username") or ""
+
+
+def responder(accion: str, msg_id: Optional[int], args: str = "", por: str = "") -> None:
     if accion == "ayuda":
         telegram.send_message(AYUDA, reply_to=msg_id)
+        return
+    if accion in ("avisos", "mantenimiento"):
+        from src import avisos_vivo
+        if accion == "avisos":
+            texto = avisos_vivo.texto_estado()
+        else:
+            texto = avisos_vivo.comando_mantenimiento(args, por=por)
+        telegram.send_message(texto, reply_to=msg_id)
+        log(f"/{accion} respondido")
         return
     if accion not in MODULOS:
         return
@@ -126,6 +161,7 @@ def main() -> int:
         print("Ya hay un bot corriendo en esta PC (puerto 127.0.0.1:"
               f"{PUERTO_CANDADO} ocupado). Ciérralo antes de abrir otro.")
         return 1
+    parar = None            # freno del hilo de avisos automáticos
     try:
         if not config.TELEGRAM_CHAT_ID:
             print("Falta TELEGRAM_CHAT_ID en .env: corre scripts/telegram_setup.py")
@@ -138,6 +174,10 @@ def main() -> int:
             return 1
         log(f"Bot @{usuario} escuchando en el grupo {config.TELEGRAM_CHAT_ID} "
             "(Ctrl+C para salir)")
+        from src import avisos_vivo
+        parar = avisos_vivo.iniciar(log)
+        if parar is None:
+            log("Avisos automáticos apagados (AVISOS_MODO=apagado)")
         offset, espera = None, 5
         while True:
             try:
@@ -161,13 +201,15 @@ def main() -> int:
                 accion, msg_id = orden
                 log(f"/{accion} pedido (mensaje {msg_id})")
                 try:
-                    responder(accion, msg_id)
+                    responder(accion, msg_id, argumentos(u), autor(u))
                 except telegram.TelegramError as ex:
                     log(f"No pude responder /{accion}: {ex}")
     except KeyboardInterrupt:
         log("Bot detenido.")
         return 0
     finally:
+        if parar is not None:
+            parar.set()
         tunnel.close_tunnel()   # solo cierra los túneles que abrió este proceso
         candado.close()
 

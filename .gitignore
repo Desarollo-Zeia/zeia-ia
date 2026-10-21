@@ -17,6 +17,9 @@ backups/
 # Datos derivados del análisis (se regeneran con scripts/analisis_huecos.py)
 analisis/
 
+# Estado local de los avisos automáticos (SQLite: incidentes, mensajes, mantenimientos)
+data/
+
 # Facturas de clientes (datos sensibles) y artefactos de prueba del webapp
 *.pdf
 T*.json

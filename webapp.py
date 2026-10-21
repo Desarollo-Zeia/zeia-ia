@@ -1004,25 +1004,12 @@ def monitor_lecturas(base: str = "energia", ids: str = "",
 
 
 # --- Reporte por gateway (Sanna ambiental, estilo sketch oct-2026) ---------------
-# Mapeo EUI -> gateway según la lista de despliegue del usuario.
+# Mapeo EUI -> gateway (lista de despliegue del usuario) en src/gateways.py,
+# compartido con los avisos de Telegram.
 # OJO: 13 de los 26 EUIs de esa lista son medidores de ENERGÍA (ADW210/ADW300
 # en la base energy) y NO aparecen aquí: este reporte es solo de SALAS
 # (los 13 sensores ambientales de Sanna San Borja).
-GATEWAYS_SANNA = [
-    ("Gateway 1 - PB Interior", [
-        "009569060004F73E", "00956906000506C8", "009569060004F746",
-        "00956906000506F7", "24E124621F210950", "24E124468E392370",
-        "24E124468E392350", "24E124621F211202", "24E124621F211992",
-        "24E124621F210887", "24E124725C522044", "24E124725C522055",
-        "24E124725E038201", "24E124433F330455", "24E124128C069408",
-        "24E124128C146616", "24E124128B467474", "24E124621F211055",
-        "24E124621F212437"]),
-    ("Gateway 2 - PB Exterior", ["24E124621F210952", "24E124725D240633"]),
-    ("Gateway 3 - 4to Piso", ["24E124725E033214", "24E124725E032246",
-                               "24E124725E038784", "24E124725D244246",
-                               "24e124725d243786"]),
-]
-_EUI_A_GATEWAY = {e.upper(): g for g, lst in GATEWAYS_SANNA for e in lst}
+from src.gateways import GATEWAYS_SANNA, EUI_A_GATEWAY as _EUI_A_GATEWAY  # noqa: E402
 
 
 def _reporte_gateways(d1: date, d2: date) -> dict:

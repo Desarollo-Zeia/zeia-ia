@@ -10,10 +10,13 @@ from __future__ import annotations
 
 import socket
 import subprocess
+import threading
 import time
 
 from . import config
 from .config import DBConfig
+
+_lock = threading.Lock()
 
 
 def port_open(cfg: DBConfig, timeout: float = 2.0) -> bool:
@@ -38,6 +41,15 @@ def ensure_tunnel(base: str | None = None) -> None:
     if port_open(cfg):
         return  # ya hay un túnel (nuestro o externo)
 
+    # El bot de Telegram consulta desde 2 hilos (comandos + avisos): que solo
+    # uno lance ssh y el otro espere a que el puerto quede abierto.
+    with _lock:
+        if port_open(cfg):
+            return
+        _lanzar(cfg)
+
+
+def _lanzar(cfg: DBConfig) -> None:
     if not cfg.use_ssh_tunnel:
         raise RuntimeError(
             f"[{cfg.label}] No se pudo conectar a la base local en "
