@@ -1668,6 +1668,59 @@ El monitor debía ser una "pantalla de TV" que se entiende de un vistazo:
   `~/Downloads/reporte_conectividad_2026-10-05_a_2026-10-11_bateria.pdf`
   (4 págs., igual que sin batería). Pruebas: 19 OK.
 
+## Sesión 14-oct-2026 (casa, Mac) — Agua en el reporte de conectividad (Scotiabank)
+
+⚠️ **Nota del 19-oct (al hacer `git pull` en la Mac)**: este trabajo nunca se
+commiteó. El 19-oct se reimplementó desde otra máquina con más alcance (ver la
+sesión siguiente: ritmo propio por medidor, recién instalados, sede en cada
+grupo) y **esa es la versión vigente del código**. Lo de "Implementado" abajo
+(144 fijas, `_modulo_por_grupo`, 22 pruebas) ya no corresponde al repo; se
+conserva por los hallazgos de la base.
+
+### Pedido
+- El reporte de conectividad mostraba Scotiabank solo con energía; agregar el
+  módulo de agua para las empresas que lo tienen.
+
+### Hallazgo (producción por túnel, solo lectura)
+- El agua NO está en valhalladb: vive en la base `energy`.
+  `enterprises_waterpipe` (tubería, por `energy_headquarter_id`) →
+  `enterprises_measurementpointwater` (medidor; trae `dev_eui_password` → no
+  leer) → `readings_readingwater` (~5.8k filas: `consumo_litros`/`consumo_m3`,
+  `estado_medicion/tuberia/valvula/bateria`, `bateria_v`, `rssi`, `snr`; índice
+  `(measurement_point_water_id, created_at)`). La plataforma tiene el módulo
+  "Gestión de Agua" (`accounts_energymonitoringmodule`, monitoring_type='water').
+- 3 medidores: Scotiabank Jockey Plaza "Medidor general" (tubería Kitchenette,
+  id 2) con datos desde 03-sep-2026 y **1 lectura cada 10 min** (144/día casi
+  todos los días; algún 145 por un minuto duplicado); Scotiabank SITE Barranco
+  "Medidor general" (tubería Principal, id 3, "Baño de discapacitados"), creado
+  el 12-oct, con 1 sola lectura (12-oct 17:12 Lima) y nada más al 14-oct
+  ~12:40; Zeia Demo (id 1, prueba) sin lecturas.
+- Ninguna fila de agua sin consumo (0 NULL): se cuenta cada fila como un envío.
+
+### Implementado
+- `scripts/reporte_conectividad.py`: módulo `agua` (144 esperadas por
+  medidor/día), una fila por medidor agrupada por sede + tubería, igual que
+  energía (`_modulo_por_grupo` compartido). Se separaron módulos (`MODULOS` =
+  energía, ambiental, agua) de bases (`BASE_DE`, `BASES`): el agua se consulta
+  en la base de energía y la vigencia de la copia se verifica una vez por base
+  (un medidor que deja de enviar sale en rojo en vez de abortar el reporte).
+  Tabla final: Energía | Ambiental | Agua | Conectividad final ("Sin monitoreo
+  de agua" donde no hay); la final sigue siendo el promedio simple de los
+  módulos que tiene la empresa.
+- Tests: 22 OK (3 nuevos de agua; el fake de DB ahora va por módulo y exige
+  que cada consulta vaya a su base).
+
+### Resultado (semana 05 → 11 oct, producción)
+- **Scotiabank 99.8%** = (99.6 + 100.0) ÷ 2 (antes 99.6% solo energía): agua
+  144/144 los 7 días (el 07-oct 145, tope 100%).
+- Oechsle (95.5%) y Sanna (88.9%) sin cambios: el diff del HTML contra la
+  versión anterior solo muestra la columna "Agua" en su tabla final. 4 páginas,
+  igual que antes. PDF: `~/Downloads/reporte_conectividad_2026-10-05_a_2026-10-11.pdf`.
+- Ojo semana 12–18 oct: el medidor de SITE Barranco entra al reporte (envió 1
+  lectura el 12-oct) y saldrá en rojo si sigue sin enviar → confirmar si ya
+  quedó instalado.
+- "Medidor de agua" aún no está en `GLOSSARY.md` (pendiente para `/domain-modeling`).
+
 ## Sesión 19-oct-2026 (casa) — Reporte semanal de conectividad 12 → 18 oct
 
 ### Pedido

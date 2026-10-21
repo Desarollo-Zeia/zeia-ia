@@ -272,3 +272,17 @@ scripts/sync_db.sh ambiental full     # sync de una base (dump+restore+verifica)
 - Respuestas del agente y comentarios del código de dominio en español.
 - Solo lectura contra la DB: toda consulta pasa por `db.run_query` (validación
   + sesión read-only). No agregar rutas de escritura.
+
+## Agent skills
+
+### Issue tracker
+
+Issues and specs live as GitHub issues in `alonsomorante/zeia-ia`, via the `gh` CLI. See `docs/agents/issue-tracker.md`.
+
+### Triage labels
+
+Default vocabulary: `needs-triage`, `needs-info`, `ready-for-agent`, `ready-for-human`, `wontfix`. See `docs/agents/triage-labels.md`.
+
+### Domain docs
+
+Single-context: `GLOSSARY.md` + `docs/adr/` at the repo root. See `docs/agents/domain.md`.
